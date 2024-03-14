@@ -4,10 +4,10 @@ name: ci-check-gomod # same name
 on:
   pull_request:
     paths-ignore:
-      - 'go.mod'
+    - 'go.mod'
 jobs:
   gomodreplacements:
     name: go.mod replacements
     runs-on: ubuntu-20.04
     steps:
-      - run: 'echo "No check required" '
+    - run: 'echo "No check required" '

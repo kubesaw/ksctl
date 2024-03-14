@@ -2,9 +2,9 @@ name: ci-check-gomod
 on:
   pull_request:
     branches:
-      - master
+    - master
     paths:
-      - 'go.mod'
+    - 'go.mod'
 
 jobs:
   gomodreplacements:
@@ -13,7 +13,7 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: check
       run: |
         if [[ -n "$(grep 'replace github.com/kubesaw/.*' go.mod || true)" ]]; then
