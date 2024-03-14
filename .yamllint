@@ -1,10 +1,11 @@
 ignore: |
   /tmp
   /.git
-  
+
 rules:
   braces: enable
-  brackets: enable
+  brackets:
+    level: warning
   colons: enable
   commas: enable
   comments: disable
