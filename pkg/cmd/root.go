@@ -34,7 +34,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&configuration.ConfigFileFlag, "config", "", "config file (default is $HOME/.sandbox.yaml)")
+	rootCmd.PersistentFlags().StringVar(&configuration.ConfigFileFlag, "config", "", "config file (default is $HOME/.ksctl.yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&configuration.Verbose, "verbose", "v", false, "print extra info/debug messages")
 
 	// commands with go runtime client

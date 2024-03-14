@@ -237,7 +237,7 @@ func verifySandboxUserConfigFiles(t *testing.T, tempDir string, clusterAssertion
 		require.NoError(t, err)
 
 		assert.Len(t, userDirInfo, 1)
-		assert.Equal(t, "sandbox.yaml", userDirInfo[0].Name())
+		assert.Equal(t, "ksctl.yaml", userDirInfo[0].Name())
 		content, err := os.ReadFile(path.Join(tempDir, userDir.Name(), userDirInfo[0].Name()))
 		require.NoError(t, err)
 

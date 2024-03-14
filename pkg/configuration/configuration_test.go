@@ -135,7 +135,7 @@ func TestLoadClusterConfig(t *testing.T) {
 					cfg, err := configuration.LoadClusterConfig(term, clusterName)
 
 					// then
-					require.EqualError(t, err, "sandbox command failed: the token in your sandbox.yaml file is missing")
+					require.EqualError(t, err, "sandbox command failed: the token in your ksctl.yaml file is missing")
 					assert.Empty(t, cfg.Token)
 				})
 			}
@@ -186,7 +186,7 @@ func TestLoadClusterConfig(t *testing.T) {
 
 				// then
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), "the provided cluster-name 'dummy' is not present in your sandbox.yaml file. The available cluster names are")
+				assert.Contains(t, err.Error(), "the provided cluster-name 'dummy' is not present in your ksctl.yaml file. The available cluster names are")
 			})
 
 			for _, clusterConfigParam := range []ClusterDefinitionWithName{Host(), Member()} {
@@ -223,7 +223,7 @@ func TestLoadingClusterConfigWithNonexistentClusterName(t *testing.T) {
 
 	// then
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "the provided cluster-name 'dummy' is not present in your sandbox.yaml file. The available cluster names are")
+	assert.Contains(t, err.Error(), "the provided cluster-name 'dummy' is not present in your ksctl.yaml file. The available cluster names are")
 	assert.Contains(t, err.Error(), "host")
 	assert.Contains(t, err.Error(), "member-1")
 	assert.Empty(t, cfg.SandboxNamespace)

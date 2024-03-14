@@ -271,7 +271,7 @@ func TestApprove(t *testing.T) {
 
 			// then
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "the provided cluster-name 'non-existent-member' is not present in your sandbox.yaml file")
+			assert.Contains(t, err.Error(), "the provided cluster-name 'non-existent-member' is not present in your ksctl.yaml file")
 		})
 	})
 }

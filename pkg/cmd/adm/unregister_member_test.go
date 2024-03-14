@@ -96,7 +96,7 @@ func TestUnregisterMemberWhenUnknownClusterName(t *testing.T) {
 
 	// then
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "the provided cluster-name 'some' is not present in your sandbox.yaml file.")
+	assert.Contains(t, err.Error(), "the provided cluster-name 'some' is not present in your ksctl.yaml file.")
 	AssertToolchainClusterSpec(t, fakeClient, toolchainCluster)
 	assert.NotContains(t, term.Output(), "!!!  DANGER ZONE  !!!")
 	assert.NotContains(t, term.Output(), "THIS COMMAND WILL CAUSE UNREGISTER MEMBER CLUSTER FORM HOST CLUSTER. MAKE SURE THERE IS NO USERS LEFT IN THE MEMBER CLUSTER BEFORE UNREGISTERING IT")
@@ -118,6 +118,6 @@ func TestUnregisterMemberLacksPermissions(t *testing.T) {
 	err := UnregisterMemberCluster(ctx, "member1")
 
 	// then
-	require.EqualError(t, err, "sandbox command failed: the token in your sandbox.yaml file is missing")
+	require.EqualError(t, err, "sandbox command failed: the token in your ksctl.yaml file is missing")
 	AssertToolchainClusterSpec(t, fakeClient, toolchainCluster)
 }

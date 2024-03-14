@@ -33,7 +33,18 @@ func Load(term ioutils.Terminal) (SandboxUserConfig, string, error) {
 		if err != nil {
 			return SandboxUserConfig{}, "", errs.Wrap(err, "unable to read home directory")
 		}
-		path = filepath.Join(home, ".sandbox.yaml")
+		path = filepath.Join(home, ".ksctl.yaml")
+
+		if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
+			if _, err := os.Stat(filepath.Join(home, ".sandbox.yaml")); err != nil && !os.IsNotExist(err) {
+				return SandboxUserConfig{}, "", err
+			} else if err == nil {
+				path = filepath.Join(home, ".sandbox.yaml")
+				term.Println("The default location of ~/.sandbox.yaml file is deprecated. Rename it to ~/.ksctl.yaml")
+			}
+		} else if err != nil {
+			return SandboxUserConfig{}, "", err
+		}
 	}
 
 	info, err := os.Stat(path)
@@ -112,7 +123,7 @@ func loadClusterAccessDefinition(sandboxUserConfig SandboxUserConfig, clusterNam
 	if !ok {
 		// if not found, then also try original format (to cover situation when camel case is used)
 		if clusterDef, ok = sandboxUserConfig.ClusterAccessDefinitions[clusterName]; !ok {
-			return ClusterAccessDefinition{}, fmt.Errorf("the provided cluster-name '%s' is not present in your sandbox.yaml file. The available cluster names are\n"+
+			return ClusterAccessDefinition{}, fmt.Errorf("the provided cluster-name '%s' is not present in your ksctl.yaml file. The available cluster names are\n"+
 				"------------------------\n%s\n"+
 				"------------------------", clusterName, strings.Join(getAllClusterNames(sandboxUserConfig), "\n"))
 		}
@@ -160,7 +171,7 @@ func LoadClusterConfig(term ioutils.Terminal, clusterName string) (ClusterConfig
 		return ClusterConfig{}, err
 	}
 	if clusterDef.Token == "" {
-		return ClusterConfig{}, fmt.Errorf("sandbox command failed: the token in your sandbox.yaml file is missing")
+		return ClusterConfig{}, fmt.Errorf("sandbox command failed: the token in your ksctl.yaml file is missing")
 	}
 	var sandboxNamespace string
 	if clusterName == HostName {
