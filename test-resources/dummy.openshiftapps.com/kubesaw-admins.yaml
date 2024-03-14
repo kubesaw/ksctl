@@ -114,7 +114,7 @@ serviceAccounts:
       - view
 
 users:
-- name: standard-user-admin
+- name: standard-crtadmin
   id:
   - 123456
   - abc1234
@@ -171,7 +171,7 @@ users:
       clusterRoles:
       - view
 
-- name: standard-user-viewer
+- name: standard-viewer-crtadmin
   id:
   - 987654
   groups:
@@ -188,7 +188,7 @@ users:
       clusterRoles:
       - view
 
-- name: other-component-admin
+- name: other-component-crtadmin
   id:
   - 561234287
   - f:528d:some-admin
@@ -203,7 +203,7 @@ users:
       clusterRoles:
       - list-operators-group
 
-- name: other-component-viewer
+- name: other-component-viewer-crtadmin
   id:
   - 5412345
   member:
