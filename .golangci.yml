@@ -15,6 +15,7 @@ linters:
     - gofmt
     - revive
     - misspell
+    - gosec
   presets: # groups of linters. See https://golangci-lint.run/usage/linters/
     - bugs
     - unused
