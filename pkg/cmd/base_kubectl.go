@@ -27,7 +27,7 @@ func setupKubectlCmd(newCmd newCmd) *cobra.Command {
 		ErrOut: os.Stderr,
 	}
 	cmd := newCmd(factory, ioStreams)
-	cmd.Example = strings.ReplaceAll(cmd.Example, "kubectl ", "sandbox-cli ")
+	cmd.Example = strings.ReplaceAll(cmd.Example, "kubectl ", "ksctl ")
 
 	// hide unused/redefined flags
 	kubeConfigFlags.ClusterName = nil     // `cluster` flag is redefined for our own purpose

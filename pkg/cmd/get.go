@@ -9,6 +9,6 @@ import (
 
 func NewGetCmd() *cobra.Command {
 	return setupKubectlCmd(func(factory cmdutil.Factory, ioStreams genericclioptions.IOStreams) *cobra.Command {
-		return kubectlget.NewCmdGet("sandbox-cli", factory, ioStreams)
+		return kubectlget.NewCmdGet("ksctl", factory, ioStreams)
 	})
 }

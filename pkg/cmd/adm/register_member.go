@@ -56,7 +56,7 @@ func NewRegisterMemberCmd() *cobra.Command {
 }
 
 func registerMemberCluster(ctx *clicontext.CommandContext, newCommand client.CommandCreator, hostKubeconfig, memberKubeconfig string) error {
-	ctx.AskForConfirmation(ioutils.WithMessagef("register member cluster from kubeconfig %s. Be aware that the sandbox-cli disables automatic approval to prevent new users being provisioned to the new member cluster. "+
+	ctx.AskForConfirmation(ioutils.WithMessagef("register member cluster from kubeconfig %s. Be aware that the ksctl disables automatic approval to prevent new users being provisioned to the new member cluster. "+
 		"You will need to enable it again manually.", memberKubeconfig))
 
 	hostClusterConfig, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
