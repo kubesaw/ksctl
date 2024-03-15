@@ -23,8 +23,8 @@ func NewSetupCmd() *cobra.Command {
 	f := setupFlags{}
 	command := &cobra.Command{
 		Use: "setup --sandbox-config=<path-to-sandbox-config-file> --out-dir <path-to-out-dir>",
-		Example: `sandbox-cli adm setup ./path/to/sandbox.openshiftapps.com/sandbox-config.yaml --out-dir ./components/auth/devsandbox-production
-sandbox-cli adm setup ./path/to/sandbox-stage.openshiftapps.com/sandbox-config.yaml --out-dir ./components/auth/devsandbox-staging -s`,
+		Example: `ksctl adm setup ./path/to/sandbox.openshiftapps.com/sandbox-config.yaml --out-dir ./components/auth/devsandbox-production
+ksctl adm setup ./path/to/sandbox-stage.openshiftapps.com/sandbox-config.yaml --out-dir ./components/auth/devsandbox-staging -s`,
 		Short: "Generates user-management manifests",
 		Long:  `Reads the sandbox-config.yaml file and based on the content it generates user-management RBAC and manifests.`,
 		Args:  cobra.ExactArgs(0),

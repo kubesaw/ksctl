@@ -16,7 +16,7 @@ func EnsureSandboxCliConfigFile() (string, error) {
 			return "", err
 		}
 	}
-	filePath := path.Join(dirPath, "sandbox-cli-config")
+	filePath := path.Join(dirPath, "ksctl-config")
 	_, err = os.Stat(filePath)
 	if os.IsNotExist(err) {
 		emptyFile, err := os.Create(filePath)

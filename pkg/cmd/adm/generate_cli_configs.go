@@ -37,7 +37,7 @@ func NewGenerateCliConfigsCmd() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "generate-cli-configs --sandbox-config=<path-to-sandbox-config-file>",
 		Short: "Generate ksctl.yaml files",
-		Long:  `Generate ksctl.yaml files, that is used by sandbox-cli, for every ServiceAccount defined in the given sandbox-config.yaml file`,
+		Long:  `Generate ksctl.yaml files, that is used by ksctl, for every ServiceAccount defined in the given sandbox-config.yaml file`,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)

@@ -17,9 +17,9 @@ var rootCmd = NewRootCmd()
 
 func NewRootCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "sandbox-cli",
-		Short:   "Dev Sandbox CLI",
-		Long:    `Dev Sandbox CLI helps you to manage Toolchain resources in Dev Sandbox instances`,
+		Use:     "ksctl",
+		Short:   "KubeSaw command-line",
+		Long:    `KubeSaw command-line tool that helps you to manage your KubeSaw service`,
 		Version: version.NewMessage(),
 	}
 }
