@@ -23,7 +23,7 @@ import (
 func TestSetup(t *testing.T) {
 	// given
 	require.NoError(t, client.AddToScheme())
-	sandboxEnvConfig := NewSandboxEnvironmentConfig(
+	kubeSawAdmins := NewKubeSawAdmins(
 		Clusters(HostServerAPI).
 			AddMember("member1", Member1ServerAPI).
 			AddMember("member2", Member2ServerAPI),
@@ -42,10 +42,10 @@ func TestSetup(t *testing.T) {
 				HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("admin")),
 				MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("admin")))))
 
-	sandboxEnvConfigContent, err := yaml.Marshal(sandboxEnvConfig)
+	kubeSawAdminsContent, err := yaml.Marshal(kubeSawAdmins)
 	require.NoError(t, err)
 
-	configFile := createSandboxConfigFile(t, "sandbox.host.openshiftapps.com", sandboxEnvConfigContent)
+	configFile := createKubeSawAdminsFile(t, "kubesaw.host.openshiftapps.com", kubeSawAdminsContent)
 	files := newDefaultFiles(t)
 
 	t.Run("all created", func(t *testing.T) {
@@ -54,7 +54,7 @@ func TestSetup(t *testing.T) {
 		require.NoError(t, err)
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), sandboxConfigFile(configFile))
+		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
 
 		// when
 		err = Setup(term, files, flags)
@@ -70,7 +70,7 @@ func TestSetup(t *testing.T) {
 		require.NoError(t, err)
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), sandboxConfigFile(configFile), singleCluster())
+		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), singleCluster())
 
 		// when
 		err = Setup(term, files, flags)
@@ -86,7 +86,7 @@ func TestSetup(t *testing.T) {
 		require.NoError(t, err)
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), sandboxConfigFile(configFile), hostRootDir("host-cluster"))
+		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), hostRootDir("host-cluster"))
 
 		// when
 		err = Setup(term, files, flags)
@@ -102,7 +102,7 @@ func TestSetup(t *testing.T) {
 		require.NoError(t, err)
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), sandboxConfigFile(configFile), memberRootDir("member-clusters"))
+		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), memberRootDir("member-clusters"))
 
 		// when
 		err = Setup(term, files, flags)
@@ -119,7 +119,7 @@ func TestSetup(t *testing.T) {
 		storeDummySA(t, outTempDir)
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), sandboxConfigFile(configFile))
+		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
 
 		// when
 		err = Setup(term, files, flags)
@@ -134,7 +134,7 @@ func TestSetup(t *testing.T) {
 		outTempDir := filepath.Join(os.TempDir(), fmt.Sprintf("setup-cli-test-%s", uuid.NewV4().String()))
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), sandboxConfigFile(configFile))
+		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
 
 		// when
 		err = Setup(term, files, flags)
@@ -144,13 +144,13 @@ func TestSetup(t *testing.T) {
 		verifyFiles(t, flags)
 	})
 
-	t.Run("fails for non-existing sandbox-config.yaml file", func(t *testing.T) {
+	t.Run("fails for non-existing kubesaw-admins.yaml file", func(t *testing.T) {
 		// given
 		outTempDir, err := os.MkdirTemp("", "setup-cli-test-")
 		require.NoError(t, err)
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), sandboxConfigFile("does/not/exist"))
+		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile("does/not/exist"))
 
 		// when
 		err = Setup(term, files, flags)
@@ -320,9 +320,9 @@ func newSetupFlags(setupFlagsOptions ...setupFlagsOption) setupFlags {
 	return flags
 }
 
-func sandboxConfigFile(configName string) setupFlagsOption {
+func kubeSawAdminsFile(configName string) setupFlagsOption {
 	return func(flags *setupFlags) {
-		flags.sandboxConfigFile = configName
+		flags.kubeSawAdminsFile = configName
 	}
 }
 

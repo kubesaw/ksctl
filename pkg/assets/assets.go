@@ -31,12 +31,12 @@ func init() {
 
 type FilenameMatcher func(string) bool
 
-func GetSandboxEnvironmentConfig(sandboxConfigFile string) (*SandboxEnvironmentConfig, error) {
-	content, err := os.ReadFile(sandboxConfigFile)
+func GetKubeSawAdminsConfig(kubeSawAdminsFile string) (*KubeSawAdmins, error) {
+	content, err := os.ReadFile(kubeSawAdminsFile)
 	if err != nil {
 		return nil, err
 	}
-	config := &SandboxEnvironmentConfig{}
+	config := &KubeSawAdmins{}
 	if err := yaml.Unmarshal(content, config); err != nil {
 		return nil, err
 	}

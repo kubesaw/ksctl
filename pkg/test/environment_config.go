@@ -5,8 +5,8 @@ import (
 	"github.com/kubesaw/ksctl/pkg/configuration"
 )
 
-func NewSandboxEnvironmentConfig(addClusters ClustersCreator, serviceAccounts []assets.ServiceAccount, users []assets.User) *assets.SandboxEnvironmentConfig {
-	sc := &assets.SandboxEnvironmentConfig{
+func NewKubeSawAdmins(addClusters ClustersCreator, serviceAccounts []assets.ServiceAccount, users []assets.User) *assets.KubeSawAdmins {
+	sc := &assets.KubeSawAdmins{
 		ServiceAccounts: serviceAccounts,
 		Users:           users,
 	}

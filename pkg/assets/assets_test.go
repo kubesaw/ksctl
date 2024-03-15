@@ -92,32 +92,32 @@ func TestGetRoles(t *testing.T) {
 	}
 }
 
-func TestGetSandboxEnvironmentConfig(t *testing.T) {
+func TestGetKubeSawAdmins(t *testing.T) {
 	// given
 	require.NoError(t, client.AddToScheme())
 
 	// when
-	sandboxEnvConfig, err := assets.GetSandboxEnvironmentConfig("../../test-resources/dummy.openshiftapps.com/sandbox-config.yaml")
+	kubeSawAdmins, err := assets.GetKubeSawAdminsConfig("../../test-resources/dummy.openshiftapps.com/kubesaw-admins.yaml")
 
 	// then
 	require.NoError(t, err)
-	assert.NotEmpty(t, sandboxEnvConfig)
-	assert.NotEmpty(t, sandboxEnvConfig.Clusters.Host.API)
-	assert.NotEmpty(t, sandboxEnvConfig.Clusters.Members)
+	assert.NotEmpty(t, kubeSawAdmins)
+	assert.NotEmpty(t, kubeSawAdmins.Clusters.Host.API)
+	assert.NotEmpty(t, kubeSawAdmins.Clusters.Members)
 
-	for _, member := range sandboxEnvConfig.Clusters.Members {
+	for _, member := range kubeSawAdmins.Clusters.Members {
 		assert.NotEmpty(t, member.Name)
 		assert.NotEmpty(t, member.API)
 	}
 
-	assert.NotEmpty(t, sandboxEnvConfig.ServiceAccounts)
-	for _, sa := range sandboxEnvConfig.ServiceAccounts {
+	assert.NotEmpty(t, kubeSawAdmins.ServiceAccounts)
+	for _, sa := range kubeSawAdmins.ServiceAccounts {
 		assert.NotEmpty(t, sa.Name)
 		verifyNamespacePermissions(t, sa.Name, sa.PermissionsPerClusterType)
 	}
 
-	assert.NotEmpty(t, sandboxEnvConfig.Users)
-	for _, user := range sandboxEnvConfig.Users {
+	assert.NotEmpty(t, kubeSawAdmins.Users)
+	for _, user := range kubeSawAdmins.Users {
 		assert.NotEmpty(t, user.Name)
 		assert.NotEmpty(t, user.ID)
 		verifyNamespacePermissions(t, user.Name, user.PermissionsPerClusterType)
