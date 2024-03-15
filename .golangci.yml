@@ -1,7 +1,7 @@
 service:
   project-path: github.com/kubesaw/ksctl
   prepare: # see https://github.com/golangci/golangci/wiki/Configuration#config-directives
-    - make generate
+  - make generate
 
 run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
@@ -10,20 +10,20 @@ run:
 
 linters:
   enable:
-    - megacheck
-    - gocyclo
-    - gofmt
-    - revive
-    - misspell
-    - gosec
+  - megacheck
+  - gocyclo
+  - gofmt
+  - revive
+  - misspell
+  - gosec
   presets: # groups of linters. See https://golangci-lint.run/usage/linters/
-    - bugs
-    - unused
-  disable: 
-    - golint # deprecated, use 'revive'
-    - scopelint # deprecated, use 'exportloopref'
-    - contextcheck # too many false-positives
-    - noctx # not needed
+  - bugs
+  - unused
+  disable:
+  - golint # deprecated, use 'revive'
+  - scopelint # deprecated, use 'exportloopref'
+  - contextcheck # too many false-positives
+  - noctx # not needed
 
 # all available settings of specific linters
 linters-settings:
@@ -35,5 +35,5 @@ linters-settings:
     check-exported: true
   revive:
     rules:
-      - name: dot-imports 
-        disabled: true
+    - name: dot-imports
+      disabled: true

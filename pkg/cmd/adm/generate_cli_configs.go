@@ -36,8 +36,8 @@ func NewGenerateCliConfigsCmd() *cobra.Command {
 	f := generateFlags{}
 	command := &cobra.Command{
 		Use:   "generate-cli-configs --sandbox-config=<path-to-sandbox-config-file>",
-		Short: "Generate sandbox.yaml files",
-		Long:  `Generate sandbox.yaml files, that is used by ksctl, for every ServiceAccount defined in the given sandbox-config.yaml file`,
+		Short: "Generate ksctl.yaml files",
+		Long:  `Generate ksctl.yaml files, that is used by ksctl, for every ServiceAccount defined in the given sandbox-config.yaml file`,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
@@ -49,7 +49,7 @@ func NewGenerateCliConfigsCmd() *cobra.Command {
 	command.Flags().BoolVarP(&f.dev, "dev", "d", false, "If running in a dev cluster")
 
 	configDirPath := fmt.Sprintf("%s/src/github.com/kubesaw/ksctl/out/config", os.Getenv("GOPATH"))
-	command.Flags().StringVarP(&f.outDir, "out-dir", "o", configDirPath, "Directory where generated sandbox.yaml files should be stored")
+	command.Flags().StringVarP(&f.outDir, "out-dir", "o", configDirPath, "Directory where generated ksctl.yaml files should be stored")
 
 	defaultKubeconfigPath := ""
 	if home := homedir.HomeDir(); home != "" {
@@ -94,7 +94,7 @@ func generate(term ioutils.Terminal, flags generateFlags, newClient NewClientFro
 		kubeconfigPaths:  flags.kubeconfigs,
 	}
 
-	// sandboxUserConfigsPerName contains all sandboxUserConfig objects that will be marshalled to sandbox.yaml files
+	// sandboxUserConfigsPerName contains all sandboxUserConfig objects that will be marshalled to ksctl.yaml files
 	sandboxUserConfigsPerName := map[string]configuration.SandboxUserConfig{}
 
 	// use host API either from the sandbox-config.yaml or from kubeconfig if --dev flag was used
@@ -148,11 +148,11 @@ func writeSandboxUserConfigs(term ioutils.Terminal, configDirPath string, sandbo
 		if err != nil {
 			return err
 		}
-		path := pathDir + "/sandbox.yaml"
+		path := pathDir + "/ksctl.yaml"
 		if err := os.WriteFile(path, content, 0600); err != nil {
 			return err
 		}
-		term.Printlnf("sandbox.yaml file for %s was stored in %s", name, path)
+		term.Printlnf("ksctl.yaml file for %s was stored in %s", name, path)
 	}
 	return nil
 }
@@ -169,7 +169,7 @@ type generateContext struct {
 type tokenPerSA map[string]string
 
 func generateForCluster(ctx *generateContext, clusterType configuration.ClusterType, clusterName string, clusterSpec assets.ClusterConfig, sandboxUserConfigsPerName map[string]configuration.SandboxUserConfig) error {
-	ctx.PrintContextSeparatorf("Generating the content of the sandbox.yaml files for %s cluster running at %s", clusterName, clusterSpec.API)
+	ctx.PrintContextSeparatorf("Generating the content of the ksctl.yaml files for %s cluster running at %s", clusterName, clusterSpec.API)
 
 	// find config we can build client for the cluster from
 	externalClient, err := buildClientFromKubeconfigFiles(ctx, clusterSpec.API, ctx.kubeconfigPaths)
