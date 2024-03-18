@@ -1,6 +1,6 @@
 package assets
 
-type SandboxEnvironmentConfig struct {
+type KubeSawAdmins struct {
 	Clusters        Clusters         `yaml:"clusters"`
 	ServiceAccounts []ServiceAccount `yaml:"serviceAccounts"`
 	Users           []User           `yaml:"users"`

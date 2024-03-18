@@ -13,7 +13,7 @@ type clusterContext struct {
 // It generates SA and roles & roleBindings for them
 func ensureServiceAccounts(ctx *clusterContext, objsCache objectsCache) error {
 	ctx.Printlnf("-> Ensuring ServiceAccounts and its RoleBindings...")
-	for _, sa := range ctx.sandboxEnvConfig.ServiceAccounts {
+	for _, sa := range ctx.kubeSawAdmins.ServiceAccounts {
 
 		// by default, it should use the sandbox sre namespace. let's keep this empty (if the target namespace is not defined) so it is recognized in the ensureServiceAccount method based on the cluster type it is being applied in
 		saNamespace := ""
@@ -41,7 +41,7 @@ func ensureServiceAccounts(ctx *clusterContext, objsCache objectsCache) error {
 func ensureUsers(ctx *clusterContext, objsCache objectsCache) error {
 	ctx.Printlnf("-> Ensuring Users and its RoleBindings...")
 
-	for _, user := range ctx.sandboxEnvConfig.Users {
+	for _, user := range ctx.kubeSawAdmins.Users {
 
 		permissions := &permissionsManager{
 			objectsCache:    objsCache,

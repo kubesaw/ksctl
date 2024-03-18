@@ -23,7 +23,7 @@ var permissionsForAllNamespaces = []PermissionsPerClusterTypeModifier{
 
 func TestEnsurePermissionsInNamespaces(t *testing.T) {
 	// given
-	config := newSandboxEnvironmentConfigWithDefaultClusterAndNamespaces([]assets.ServiceAccount{}, []assets.User{})
+	config := newKubeSawAdminsWithDefaultClusters([]assets.ServiceAccount{}, []assets.User{})
 
 	t.Run("create permissions", func(t *testing.T) {
 		// given
@@ -195,7 +195,7 @@ func TestEnsureGroupsForUser(t *testing.T) {
 	})
 }
 
-func newPermissionsManager(t *testing.T, clusterType configuration.ClusterType, config *assets.SandboxEnvironmentConfig) (permissionsManager, *clusterContext) { // nolint:unparam
+func newPermissionsManager(t *testing.T, clusterType configuration.ClusterType, config *assets.KubeSawAdmins) (permissionsManager, *clusterContext) { // nolint:unparam
 	ctx := newSetupContextWithDefaultFiles(t, config)
 	clusterCtx := newFakeClusterContext(ctx, clusterType)
 	cache := objectsCache{}

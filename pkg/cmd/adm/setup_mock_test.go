@@ -32,10 +32,10 @@ func newDefaultFiles(t *testing.T, fakeFiles ...test.FakeFileCreator) assets.FS 
 	return files
 }
 
-func createSandboxConfigFile(t *testing.T, dirPrefix string, content []byte) string { //nolint:unparam
+func createKubeSawAdminsFile(t *testing.T, dirPrefix string, content []byte) string { //nolint:unparam
 	configTempDir, err := os.MkdirTemp("", dirPrefix+"-")
 	require.NoError(t, err)
-	configFile := fmt.Sprintf("%s/sandbox-config.yaml", configTempDir)
+	configFile := fmt.Sprintf("%s/kubesaw-admins.yaml", configTempDir)
 	err = os.WriteFile(configFile, content, 0600)
 	require.NoError(t, err)
 	return configFile
@@ -43,20 +43,20 @@ func createSandboxConfigFile(t *testing.T, dirPrefix string, content []byte) str
 
 // setupContext part
 
-func newSetupContextWithDefaultFiles(t *testing.T, config *assets.SandboxEnvironmentConfig) *setupContext { //nolint:unparam
+func newSetupContextWithDefaultFiles(t *testing.T, config *assets.KubeSawAdmins) *setupContext { //nolint:unparam
 	return newSetupContext(t, config, newDefaultFiles(t))
 }
 
-func newSetupContext(t *testing.T, config *assets.SandboxEnvironmentConfig, files assets.FS) *setupContext {
+func newSetupContext(t *testing.T, config *assets.KubeSawAdmins, files assets.FS) *setupContext {
 	fakeTerminal := test.NewFakeTerminal()
 	fakeTerminal.Tee(os.Stdout)
 	require.NoError(t, client.AddToScheme())
 	temp, err := os.MkdirTemp("", "cli-tests-")
 	require.NoError(t, err)
 	return &setupContext{
-		Terminal:         fakeTerminal,
-		sandboxEnvConfig: config,
-		files:            files,
+		Terminal:      fakeTerminal,
+		kubeSawAdmins: config,
+		files:         files,
 		setupFlags: setupFlags{
 			outDir:        temp,
 			memberRootDir: "member",

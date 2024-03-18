@@ -27,7 +27,7 @@ import (
 )
 
 type generateFlags struct {
-	sandboxConfigFile, outDir string
+	kubeSawAdminsFile, outDir string
 	dev                       bool
 	kubeconfigs               []string
 }
@@ -35,17 +35,17 @@ type generateFlags struct {
 func NewGenerateCliConfigsCmd() *cobra.Command {
 	f := generateFlags{}
 	command := &cobra.Command{
-		Use:   "generate-cli-configs --sandbox-config=<path-to-sandbox-config-file>",
+		Use:   "generate-cli-configs --kubesaw-admins=<path-to-kubesaw-admins-file>",
 		Short: "Generate ksctl.yaml files",
-		Long:  `Generate ksctl.yaml files, that is used by ksctl, for every ServiceAccount defined in the given sandbox-config.yaml file`,
+		Long:  `Generate ksctl.yaml files, that is used by ksctl, for every ServiceAccount defined in the given kubesaw-admins.yaml file`,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			return generate(term, f, runtimeclient.New, DefaultNewExternalClientFromConfig)
 		},
 	}
-	command.Flags().StringVarP(&f.sandboxConfigFile, "sandbox-config", "c", "", "Use the given sandbox config file")
-	flags.MustMarkRequired(command, "sandbox-config")
+	command.Flags().StringVarP(&f.kubeSawAdminsFile, "kubesaw-admins", "c", "", "Use the given sandbox config file")
+	flags.MustMarkRequired(command, "kubesaw-admins")
 	command.Flags().BoolVarP(&f.dev, "dev", "d", false, "If running in a dev cluster")
 
 	configDirPath := fmt.Sprintf("%s/src/github.com/kubesaw/ksctl/out/config", os.Getenv("GOPATH"))
@@ -80,25 +80,25 @@ func generate(term ioutils.Terminal, flags generateFlags, newClient NewClientFro
 		return err
 	}
 
-	// Get the unmarshalled version of sandbox-config.yaml
-	sandboxEnvConfig, err := assets.GetSandboxEnvironmentConfig(flags.sandboxConfigFile)
+	// Get the unmarshalled version of kubesaw-admins.yaml
+	kubeSawAdmins, err := assets.GetKubeSawAdminsConfig(flags.kubeSawAdminsFile)
 	if err != nil {
-		return errs.Wrapf(err, "unable get sandbox-config.yaml file from %s", flags.sandboxConfigFile)
+		return errs.Wrapf(err, "unable get kubesaw-admins.yaml file from %s", flags.kubeSawAdminsFile)
 	}
 
 	ctx := &generateContext{
-		Terminal:         term,
-		newClient:        newClient,
-		newRESTClient:    newExternalClient,
-		sandboxEnvConfig: sandboxEnvConfig,
-		kubeconfigPaths:  flags.kubeconfigs,
+		Terminal:        term,
+		newClient:       newClient,
+		newRESTClient:   newExternalClient,
+		kubeSawAdmins:   kubeSawAdmins,
+		kubeconfigPaths: flags.kubeconfigs,
 	}
 
 	// sandboxUserConfigsPerName contains all sandboxUserConfig objects that will be marshalled to ksctl.yaml files
 	sandboxUserConfigsPerName := map[string]configuration.SandboxUserConfig{}
 
-	// use host API either from the sandbox-config.yaml or from kubeconfig if --dev flag was used
-	hostSpec := sandboxEnvConfig.Clusters.Host
+	// use host API either from the kubesaw-admins.yaml or from kubeconfig if --dev flag was used
+	hostSpec := kubeSawAdmins.Clusters.Host
 	if flags.dev {
 		term.Printlnf("Using kubeconfig located at '%s' for retrieving the host cluster information...", flags.kubeconfigs[0])
 		kubeconfig, err := clientcmd.BuildConfigFromFlags("", flags.kubeconfigs[0])
@@ -113,10 +113,10 @@ func generate(term ioutils.Terminal, flags generateFlags, newClient NewClientFro
 		return err
 	}
 
-	// and then based on the data from sandbox-config.yaml files generate also all members
-	for _, member := range sandboxEnvConfig.Clusters.Members {
+	// and then based on the data from kubesaw-admins.yaml files generate also all members
+	for _, member := range kubeSawAdmins.Clusters.Members {
 
-		// use either the member API from sandbox-config.yaml file or use the same as API as for host if --dev flag was used
+		// use either the member API from kubesaw-admins.yaml file or use the same as API as for host if --dev flag was used
 		memberSpec := member.ClusterConfig
 		if flags.dev {
 			memberSpec.API = hostSpec.API
@@ -159,10 +159,10 @@ func writeSandboxUserConfigs(term ioutils.Terminal, configDirPath string, sandbo
 
 type generateContext struct {
 	ioutils.Terminal
-	newClient        NewClientFromConfigFunc
-	newRESTClient    NewRESTClientFromConfigFunc
-	sandboxEnvConfig *assets.SandboxEnvironmentConfig
-	kubeconfigPaths  []string
+	newClient       NewClientFromConfigFunc
+	newRESTClient   NewRESTClientFromConfigFunc
+	kubeSawAdmins   *assets.KubeSawAdmins
+	kubeconfigPaths []string
 }
 
 // contains tokens mapped by SA name
@@ -185,7 +185,7 @@ func generateForCluster(ctx *generateContext, clusterType configuration.ClusterT
 
 	tokenPerSAName := tokenPerSA{}
 
-	for _, sa := range ctx.sandboxEnvConfig.ServiceAccounts {
+	for _, sa := range ctx.kubeSawAdmins.ServiceAccounts {
 		for saClusterType := range sa.PermissionsPerClusterType {
 			if saClusterType != clusterType.String() {
 				continue

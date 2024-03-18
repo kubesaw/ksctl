@@ -15,7 +15,7 @@ import (
 func TestEnsureServiceAccounts(t *testing.T) {
 	t.Run("create permissions for SA base names", func(t *testing.T) {
 		// given
-		sandboxEnvConfig := newSandboxEnvironmentConfigWithDefaultClusterAndNamespaces(
+		kubeSawAdmins := newKubeSawAdminsWithDefaultClusters(
 			ServiceAccounts(
 				Sa("john", "",
 					permissionsForAllNamespaces...),
@@ -23,7 +23,7 @@ func TestEnsureServiceAccounts(t *testing.T) {
 					HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("view")),
 					MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("view")))),
 			[]assets.User{})
-		ctx := newSetupContextWithDefaultFiles(t, sandboxEnvConfig)
+		ctx := newSetupContextWithDefaultFiles(t, kubeSawAdmins)
 		cache := objectsCache{}
 
 		for _, clusterType := range configuration.ClusterTypes {
@@ -68,12 +68,12 @@ func TestEnsureServiceAccounts(t *testing.T) {
 
 	t.Run("create SA with the fixed name, in the given namespace, ClusterRoleBinding set, and don't gather the token", func(t *testing.T) {
 		// given
-		sandboxEnvConfig := newSandboxEnvironmentConfigWithDefaultClusterAndNamespaces(
+		kubeSawAdmins := newKubeSawAdminsWithDefaultClusters(
 			ServiceAccounts(
 				Sa("john", "openshift-customer-monitoring",
 					HostRoleBindings("toolchain-host-operator", Role("install-operator"), ClusterRole("view")),
 					HostClusterRoleBindings("cluster-monitoring-view"))), Users())
-		ctx := newSetupContextWithDefaultFiles(t, sandboxEnvConfig)
+		ctx := newSetupContextWithDefaultFiles(t, kubeSawAdmins)
 		clusterCtx := newFakeClusterContext(ctx, configuration.Host)
 		t.Cleanup(gock.OffAll)
 		cache := objectsCache{}
@@ -95,7 +95,7 @@ func TestEnsureServiceAccounts(t *testing.T) {
 func TestUsers(t *testing.T) {
 	t.Run("ensure users", func(t *testing.T) {
 		// given
-		sandboxEnvConfig := newSandboxEnvironmentConfigWithDefaultClusterAndNamespaces(
+		kubeSawAdmins := newKubeSawAdminsWithDefaultClusters(
 			ServiceAccounts(),
 			Users(
 				User("john-user", []string{"12345"}, "crtadmins",
@@ -106,7 +106,7 @@ func TestUsers(t *testing.T) {
 					MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("view")),
 					MemberClusterRoleBindings("cluster-monitoring-view"))))
 
-		ctx := newSetupContextWithDefaultFiles(t, sandboxEnvConfig)
+		ctx := newSetupContextWithDefaultFiles(t, kubeSawAdmins)
 		cache := objectsCache{}
 
 		for _, clusterType := range configuration.ClusterTypes {
@@ -153,8 +153,8 @@ func TestUsers(t *testing.T) {
 	})
 }
 
-func newSandboxEnvironmentConfigWithDefaultClusterAndNamespaces(serviceAccounts []assets.ServiceAccount, users []assets.User) *assets.SandboxEnvironmentConfig {
-	return NewSandboxEnvironmentConfig(
+func newKubeSawAdminsWithDefaultClusters(serviceAccounts []assets.ServiceAccount, users []assets.User) *assets.KubeSawAdmins {
+	return NewKubeSawAdmins(
 		Clusters(HostServerAPI).AddMember("member-1", Member1ServerAPI),
 		serviceAccounts,
 		users)

@@ -30,7 +30,7 @@ import (
 func TestGenerateCliConfigs(t *testing.T) {
 	// given
 	require.NoError(t, client.AddToScheme())
-	sandboxEnvConfig := NewSandboxEnvironmentConfig(
+	kubeSawAdmins := NewKubeSawAdmins(
 		Clusters(HostServerAPI).
 			AddMember("member1", Member1ServerAPI).
 			AddMember("member2", Member2ServerAPI),
@@ -43,7 +43,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 				MemberRoleBindings("toolchain-member-operator", Role("restart=restart-deployment"), ClusterRole("restart=edit")))),
 		Users())
 
-	sandboxEnvConfigContent, err := yaml.Marshal(sandboxEnvConfig)
+	kubeSawAdminsContent, err := yaml.Marshal(kubeSawAdmins)
 	require.NoError(t, err)
 	kubeconfigFiles := createKubeconfigFiles(t, sandboxKubeconfigContent, sandboxKubeconfigContentMember2)
 
@@ -61,9 +61,9 @@ func TestGenerateCliConfigs(t *testing.T) {
 	)
 	t.Cleanup(gock.OffAll)
 
-	configFile := createSandboxConfigFile(t, "sandbox.host.openshiftapps.com", sandboxEnvConfigContent)
+	configFile := createKubeSawAdminsFile(t, "kubesaw.host.openshiftapps.com", kubeSawAdminsContent)
 
-	_, newClient, newExternalClient := newFakeClientFuncs(t, sandboxEnvConfig.Clusters)
+	_, newClient, newExternalClient := newFakeClientFuncs(t, kubeSawAdmins.Clusters)
 	term := NewFakeTerminalWithResponse("Y")
 	term.Tee(os.Stdout)
 
@@ -72,7 +72,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			// given
 			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
 			require.NoError(t, err)
-			flags := generateFlags{kubeconfigs: kubeconfigFiles, sandboxConfigFile: configFile, outDir: tempDir}
+			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir}
 
 			// when
 			err = generate(term, flags, newClient, newExternalClient)
@@ -85,7 +85,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 
 		t.Run("when there SAs are defined for host cluster only", func(t *testing.T) {
 			// given
-			saInHostOnly := NewSandboxEnvironmentConfig(
+			saInHostOnly := NewKubeSawAdmins(
 				Clusters(HostServerAPI).
 					AddMember("member1", Member1ServerAPI).
 					AddMember("member2", Member2ServerAPI),
@@ -95,12 +95,12 @@ func TestGenerateCliConfigs(t *testing.T) {
 					Sa("bob", "",
 						HostRoleBindings("toolchain-host-operator", Role("restart=restart-deployment"), ClusterRole("restart=edit")))),
 				Users())
-			sandboxEnvConfigContent, err := yaml.Marshal(saInHostOnly)
+			kubeSawAdminsContent, err := yaml.Marshal(saInHostOnly)
 			require.NoError(t, err)
-			configFile := createSandboxConfigFile(t, "sandbox.host.openshiftapps.com", sandboxEnvConfigContent)
+			configFile := createKubeSawAdminsFile(t, "kubesaw.host.openshiftapps.com", kubeSawAdminsContent)
 			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
 			require.NoError(t, err)
-			flags := generateFlags{kubeconfigs: kubeconfigFiles, sandboxConfigFile: configFile, outDir: tempDir}
+			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir}
 
 			// when
 			err = generate(term, flags, newClient, newExternalClient)
@@ -120,7 +120,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
 			require.NoError(t, err)
 			kubeconfigFiles := createKubeconfigFiles(t, sandboxKubeconfigContent)
-			flags := generateFlags{kubeconfigs: kubeconfigFiles, sandboxConfigFile: configFile, outDir: tempDir, dev: true}
+			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir, dev: true}
 
 			// when
 			err = generate(term, flags, newClient, newExternalClient)
@@ -153,25 +153,25 @@ func TestGenerateCliConfigs(t *testing.T) {
 			require.ErrorContains(t, err, "could not setup client from any of the provided kubeconfig files")
 		})
 
-		t.Run("wrong sandbox-config.yaml file path", func(t *testing.T) {
+		t.Run("wrong kubesaw-admins.yaml file path", func(t *testing.T) {
 			// given
 			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
 			require.NoError(t, err)
-			flags := generateFlags{kubeconfigs: kubeconfigFiles, sandboxConfigFile: "does/not/exist", outDir: tempDir}
+			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: "does/not/exist", outDir: tempDir}
 
 			// when
 			err = generate(term, flags, newClient, newExternalClient)
 
 			// then
 			require.Error(t, err)
-			require.ErrorContains(t, err, "unable get sandbox-config.yaml file from does/not/exist")
+			require.ErrorContains(t, err, "unable get kubesaw-admins.yaml file from does/not/exist")
 		})
 
 		t.Run("wrong kubeconfig file path", func(t *testing.T) {
 			// given
 			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
 			require.NoError(t, err)
-			flags := generateFlags{kubeconfigs: []string{"does/not/exist"}, sandboxConfigFile: configFile, outDir: tempDir}
+			flags := generateFlags{kubeconfigs: []string{"does/not/exist"}, kubeSawAdminsFile: configFile, outDir: tempDir}
 
 			// when
 			err = generate(term, flags, newClient, newExternalClient)
@@ -183,18 +183,18 @@ func TestGenerateCliConfigs(t *testing.T) {
 
 		t.Run("when token call is not mocked for SA", func(t *testing.T) {
 			// given
-			saInHostOnly := NewSandboxEnvironmentConfig(
+			saInHostOnly := NewKubeSawAdmins(
 				Clusters(HostServerAPI),
 				ServiceAccounts(
 					Sa("notmocked", "",
 						HostRoleBindings("toolchain-host-operator", Role("install-operator"), ClusterRole("admin")))),
 				Users())
-			sandboxEnvConfigContent, err := yaml.Marshal(saInHostOnly)
+			kubeSawAdminsContent, err := yaml.Marshal(saInHostOnly)
 			require.NoError(t, err)
-			configFile := createSandboxConfigFile(t, "sandbox.host.openshiftapps.com", sandboxEnvConfigContent)
+			configFile := createKubeSawAdminsFile(t, "sandbox.host.openshiftapps.com", kubeSawAdminsContent)
 			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
 			require.NoError(t, err)
-			flags := generateFlags{kubeconfigs: kubeconfigFiles, sandboxConfigFile: configFile, outDir: tempDir}
+			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir}
 
 			// when
 			err = generate(term, flags, newClient, newExternalClient)
