@@ -55,10 +55,10 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("When automatic approval is enabled", func(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		toolchainConfig := config.NewToolchainConfigObj(t, config.AutomaticApproval().Enabled(true))
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, toolchainConfig, deployment)
+		newClient, fakeClient := NewFakeClients(t, toolchainConfig, deployment)
 		numberOfUpdateCalls := 0
 		fakeClient.MockUpdate = whenDeploymentThenUpdated(t, fakeClient, hostDeploymentName, 1, &numberOfUpdateCalls)
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 		counter = 0
 
 		// when
@@ -87,14 +87,14 @@ func TestRegisterMember(t *testing.T) {
 
 	t.Run("When toolchainConfig is not present", func(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, deployment)
+		newClient, fakeClient := NewFakeClients(t, deployment)
 		fakeClient.MockUpdate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.UpdateOption) error {
 			if _, ok := obj.(*toolchainv1alpha1.ToolchainConfig); ok {
 				return fmt.Errorf("should not be called")
 			}
 			return fakeClient.Client.Update(ctx, obj, opts...)
 		}
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 		counter = 0
 
 		// when
@@ -113,14 +113,14 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("When automatic approval is disabled", func(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		toolchainConfig := config.NewToolchainConfigObj(t, config.AutomaticApproval().Enabled(false))
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, toolchainConfig, deployment)
+		newClient, fakeClient := NewFakeClients(t, toolchainConfig, deployment)
 		fakeClient.MockUpdate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.UpdateOption) error {
 			if _, ok := obj.(*toolchainv1alpha1.ToolchainConfig); ok {
 				return fmt.Errorf("should not be called")
 			}
 			return fakeClient.Client.Update(ctx, obj, opts...)
 		}
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 		counter = 0
 
 		// when
@@ -143,11 +143,11 @@ func TestRegisterMember(t *testing.T) {
 		toolchainConfig := config.NewToolchainConfigObj(t, config.AutomaticApproval().Enabled(false))
 		toolchainConfig2 := config.NewToolchainConfigObj(t, config.AutomaticApproval().Enabled(true))
 		toolchainConfig2.Name = "config2"
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, toolchainConfig, toolchainConfig2, deployment)
+		newClient, fakeClient := NewFakeClients(t, toolchainConfig, toolchainConfig2, deployment)
 		fakeClient.MockUpdate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.UpdateOption) error {
 			return fmt.Errorf("should not be called")
 		}
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 		counter = 0
 
 		// when

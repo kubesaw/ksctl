@@ -18,7 +18,7 @@ import (
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewFakeClients(t *testing.T, initObjs ...runtime.Object) (clicontext.NewClientFunc, clicontext.NewRESTClientFunc, *test.FakeClient) {
+func NewFakeClients(t *testing.T, initObjs ...runtime.Object) (clicontext.NewClientFunc, *test.FakeClient) {
 	fakeClient := test.NewFakeClient(t, initObjs...)
 	fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 		stringDataToData(obj)
@@ -34,9 +34,6 @@ func NewFakeClients(t *testing.T, initObjs ...runtime.Object) (clicontext.NewCli
 			assert.Contains(t, apiEndpoint, "://")
 			assert.Contains(t, apiEndpoint, ".com")
 			return fakeClient, nil
-		},
-		func(token string, apiEndpoint string) (*rest.RESTClient, error) {
-			return NewFakeExternalClient(t, token, apiEndpoint), nil
 		},
 		fakeClient
 }

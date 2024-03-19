@@ -31,7 +31,7 @@ func TestConfigPath(t *testing.T) {
 
 			t.Run("with explicit clusterName", func(t *testing.T) {
 				// given
-				ctx := clicontext.NewClusterConfigCommandContext(term, cfg, nil, nil, resources.Resources, "custom_path")
+				ctx := clicontext.NewClusterConfigCommandContext(term, cfg, nil, resources.Resources, "custom_path")
 
 				// when
 				path, err := cfg.ConfigurePath(ctx, ctx.ClusterConfigName, "component")
@@ -43,7 +43,7 @@ func TestConfigPath(t *testing.T) {
 
 			t.Run("without explicit clusterName", func(t *testing.T) {
 				// given
-				ctx := clicontext.NewClusterConfigCommandContext(term, cfg, nil, nil, resources.Resources, "") // default path
+				ctx := clicontext.NewClusterConfigCommandContext(term, cfg, nil, resources.Resources, "") // default path
 
 				// when
 				path, err := cfg.ConfigurePath(ctx, ctx.ClusterConfigName, "component")

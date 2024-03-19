@@ -25,8 +25,8 @@ func TestRetarget(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("y")
 		space := testspace.NewSpace(test.HostOperatorNs, "john-dev", testspace.WithCreatorLabel("john"))
-		newClient, newRESTClient, fakeClient := prepareRetargetSpace(t, space, userSignup)
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		newClient, fakeClient := prepareRetargetSpace(t, space, userSignup)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.Retarget(ctx, space.Name, "member2")
@@ -47,8 +47,8 @@ func TestRetarget(t *testing.T) {
 		t.Run("no space found", func(t *testing.T) {
 			// given
 			term := NewFakeTerminalWithResponse("y")
-			newClient, newRESTClient, _ := prepareRetargetSpace(t) // no usersignup created
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			newClient, _ := prepareRetargetSpace(t) // no usersignup created
+			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
 			err := cmd.Retarget(ctx, "space-that-doesnt-exist", "member1")
@@ -61,8 +61,8 @@ func TestRetarget(t *testing.T) {
 			// given
 			term := NewFakeTerminalWithResponse("y")
 			space := testspace.NewSpace(test.HostOperatorNs, "john-dev", testspace.WithCreatorLabel("john"), testspace.WithSpecTargetCluster("member-m2.devcluster.openshift.com"))
-			newClient, newRESTClient, _ := prepareRetargetSpace(t, space, userSignup)
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			newClient, _ := prepareRetargetSpace(t, space, userSignup)
+			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
 			err := cmd.Retarget(ctx, space.Name, "member2")
@@ -75,8 +75,8 @@ func TestRetarget(t *testing.T) {
 			// given
 			term := NewFakeTerminalWithResponse("y")
 			space := testspace.NewSpace(test.HostOperatorNs, "john-dev")
-			newClient, newRESTClient, _ := prepareRetargetSpace(t, space)
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			newClient, _ := prepareRetargetSpace(t, space)
+			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
 			err := cmd.Retarget(ctx, space.Name, "non-existent-member") // bad member name
@@ -90,7 +90,7 @@ func TestRetarget(t *testing.T) {
 			// given
 			term := NewFakeTerminalWithResponse("y")
 			space := testspace.NewSpace(test.HostOperatorNs, "john-dev", testspace.WithCreatorLabel("john"))
-			newClient, newRESTClient, fakeClient := prepareRetargetSpace(t, space, userSignup)
+			newClient, fakeClient := prepareRetargetSpace(t, space, userSignup)
 			fakeClient.MockPatch = func(ctx context.Context, obj runtimeclient.Object, patch runtimeclient.Patch, opts ...runtimeclient.PatchOption) error {
 				if testSignup, ok := obj.(*toolchainv1alpha1.Space); ok {
 					if testSignup.Spec.TargetCluster != "" {
@@ -99,7 +99,7 @@ func TestRetarget(t *testing.T) {
 				}
 				return fakeClient.Client.Patch(ctx, obj, patch, opts...)
 			}
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
 			err := cmd.Retarget(ctx, space.Name, "member2")
@@ -113,8 +113,8 @@ func TestRetarget(t *testing.T) {
 			// given
 			term := NewFakeTerminalWithResponse("y")
 			space := testspace.NewSpace(test.HostOperatorNs, "john-dev")
-			newClient, newRESTClient, _ := prepareRetargetSpace(t, space, userSignup)
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			newClient, _ := prepareRetargetSpace(t, space, userSignup)
+			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
 			err := cmd.Retarget(ctx, space.Name, "member2")
@@ -128,8 +128,8 @@ func TestRetarget(t *testing.T) {
 			// given
 			term := NewFakeTerminalWithResponse("y")
 			space := testspace.NewSpace(test.HostOperatorNs, "john-dev", testspace.WithCreatorLabel("john"))
-			newClient, newRESTClient, _ := prepareRetargetSpace(t, space)
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			newClient, _ := prepareRetargetSpace(t, space)
+			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
 			err := cmd.Retarget(ctx, space.Name, "member2")
@@ -144,8 +144,8 @@ func TestRetarget(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("n")
 		space := testspace.NewSpace(test.HostOperatorNs, "john-dev", testspace.WithCreatorLabel("john"), testspace.WithSpecTargetCluster("member-m1.devcluster.openshift.com"))
-		newClient, newRESTClient, fakeClient := prepareRetargetSpace(t, space, userSignup)
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		newClient, fakeClient := prepareRetargetSpace(t, space, userSignup)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.Retarget(ctx, space.Name, "member2")
@@ -163,12 +163,12 @@ func TestRetarget(t *testing.T) {
 	})
 }
 
-func prepareRetargetSpace(t *testing.T, initObjs ...runtime.Object) (clicontext.NewClientFunc, clicontext.NewRESTClientFunc, *test.FakeClient) {
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, initObjs...)
+func prepareRetargetSpace(t *testing.T, initObjs ...runtime.Object) (clicontext.NewClientFunc, *test.FakeClient) {
+	newClient, fakeClient := NewFakeClients(t, initObjs...)
 	SetFileConfig(t,
 		Host(),
 		Member(ClusterName("member1"), ServerName("m1.devcluster.openshift.com")),
 		Member(ClusterName("member2"), ServerName("m2.devcluster.openshift.com")))
 
-	return newClient, newRESTClient, fakeClient
+	return newClient, fakeClient
 }

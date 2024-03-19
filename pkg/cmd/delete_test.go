@@ -17,10 +17,10 @@ import (
 func TestDeleteCmdWhenAnswerIsY(t *testing.T) {
 	// given
 	userSignup := NewUserSignup()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("y")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Delete(ctx, userSignup.Name)
@@ -38,10 +38,10 @@ func TestDeleteCmdWhenAnswerIsY(t *testing.T) {
 func TestDeleteCmdWhenAnswerIsN(t *testing.T) {
 	// given
 	userSignup := NewUserSignup()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("n")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Delete(ctx, userSignup.Name)
@@ -59,10 +59,10 @@ func TestDeleteCmdWhenAnswerIsN(t *testing.T) {
 func TestDeleteCmdWhenNotFound(t *testing.T) {
 	// given
 	userSignup := NewUserSignup()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("n")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Delete(ctx, "some")
@@ -81,9 +81,9 @@ func TestDeleteLacksPermissions(t *testing.T) {
 	SetFileConfig(t, Host(NoToken()))
 
 	userSignup := NewUserSignup()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+	newClient, fakeClient := NewFakeClients(t, userSignup)
 	term := NewFakeTerminal()
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Delete(ctx, userSignup.Name)
@@ -96,7 +96,7 @@ func TestDeleteLacksPermissions(t *testing.T) {
 func TestDeleteHasPropagationPolicy(t *testing.T) {
 	// given
 	userSignup := NewUserSignup()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("y")
 
@@ -111,7 +111,7 @@ func TestDeleteHasPropagationPolicy(t *testing.T) {
 		assert.Equal(t, metav1.DeletePropagationForeground, *deleteOptions.PropagationPolicy)
 		return nil
 	}
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Delete(ctx, userSignup.Name)
