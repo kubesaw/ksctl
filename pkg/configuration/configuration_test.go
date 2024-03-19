@@ -59,7 +59,6 @@ func TestLoadClusterConfig(t *testing.T) {
 						assert.Equal(t, "cool-server.com", cfg.ServerName)
 						assert.Len(t, cfg.AllClusterNames, 1)
 						assert.Contains(t, cfg.AllClusterNames, utils.CamelCaseToKebabCase(clusterName))
-						assert.True(t, strings.HasPrefix(cfg.PathToConfigFile, os.TempDir()))
 						assert.Contains(t, term.Output(), fmt.Sprintf("Using config file: '%s'", configuration.ConfigFileFlag))
 						assert.Contains(t, term.Output(), fmt.Sprintf("Using '%s' configuration for '%s' cluster running at '%s' and in namespace '%s'",
 							cfg.ClusterName, cfg.ServerName, cfg.ServerAPI, cfg.SandboxNamespace))
@@ -238,46 +237,13 @@ func TestLoad(t *testing.T) {
 		configuration.Verbose = true
 
 		// when
-		sandboxUserConfig, path, err := configuration.Load(term)
+		sandboxUserConfig, err := configuration.Load(term)
 
 		// then
 		require.NoError(t, err)
 		expectedConfig := NewSandboxUserConfig(Host(), Member())
 		assert.Equal(t, expectedConfig, sandboxUserConfig)
 		assert.Contains(t, term.Output(), "Using config file")
-		assert.True(t, strings.HasPrefix(path, os.TempDir()))
-
-		t.Run("reload again the same", func(t *testing.T) {
-			// given
-			term := NewFakeTerminal()
-
-			// when
-			sandboxUserConfig, theSamePath, err := configuration.Load(term)
-
-			// then
-			require.NoError(t, err)
-			assert.Equal(t, expectedConfig, sandboxUserConfig)
-			assert.Contains(t, term.Output(), "Using config file")
-			assert.True(t, strings.HasPrefix(path, os.TempDir()))
-			assert.Equal(t, path, theSamePath)
-		})
-
-		t.Run("load a new one", func(t *testing.T) {
-			// given
-			term := NewFakeTerminal()
-			SetFileConfig(t, Host(), Member())
-
-			// when
-			sandboxUserConfig, newPath, err := configuration.Load(term)
-
-			// then
-			require.NoError(t, err)
-			expectedConfig := NewSandboxUserConfig(Host(), Member())
-			assert.Equal(t, expectedConfig, sandboxUserConfig)
-			assert.Contains(t, term.Output(), "Using config file")
-			assert.True(t, strings.HasPrefix(path, os.TempDir()))
-			assert.NotEqual(t, path, newPath)
-		})
 	})
 
 	t.Run("without verbose messages", func(t *testing.T) {
@@ -287,14 +253,13 @@ func TestLoad(t *testing.T) {
 		configuration.Verbose = false
 
 		// when
-		sandboxUserConfig, path, err := configuration.Load(term)
+		sandboxUserConfig, err := configuration.Load(term)
 
 		// then
 		require.NoError(t, err)
 		expectedConfig := NewSandboxUserConfig(Host(), Member())
 		assert.Equal(t, expectedConfig, sandboxUserConfig)
 		assert.NotContains(t, term.Output(), "Using config file")
-		assert.True(t, strings.HasPrefix(path, os.TempDir()))
 	})
 
 }
@@ -306,7 +271,7 @@ func TestLoadFails(t *testing.T) {
 		configuration.ConfigFileFlag = "/tmp/should-not-exist.yaml"
 
 		// when
-		_, _, err := configuration.Load(term)
+		_, err := configuration.Load(term)
 
 		// then
 		require.Error(t, err)
@@ -318,7 +283,7 @@ func TestLoadFails(t *testing.T) {
 		configuration.ConfigFileFlag = os.TempDir()
 
 		// when
-		_, _, err := configuration.Load(term)
+		_, err := configuration.Load(term)
 
 		// then
 		require.Error(t, err)
