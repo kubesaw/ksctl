@@ -85,9 +85,6 @@ func MustGatherNamespace(term ioutils.Terminal, kubeconfig *restclient.Config, n
 		return err
 	}
 	dcl := discovery.NewDiscoveryClient(rcl)
-	if err != nil {
-		return err
-	}
 
 	term.Println("fetching the list of API resources on the cluster...")
 	apiResourceLists, err := dcl.ServerPreferredNamespacedResources()
