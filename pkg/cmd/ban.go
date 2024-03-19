@@ -58,7 +58,7 @@ func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName string, con
 		return err
 	}
 
-	userSignup, err := client.GetUserSignup(cl, cfg.SandboxNamespace, userSignupName)
+	userSignup, err := client.GetUserSignup(cl, cfg.KubeSawNamespace, userSignupName)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName string, con
 	}
 
 	bannedUsers := &toolchainv1alpha1.BannedUserList{}
-	if err := cl.List(context.TODO(), bannedUsers, runtimeclient.MatchingLabels(bannedUser.Labels), runtimeclient.InNamespace(cfg.SandboxNamespace)); err != nil {
+	if err := cl.List(context.TODO(), bannedUsers, runtimeclient.MatchingLabels(bannedUser.Labels), runtimeclient.InNamespace(cfg.KubeSawNamespace)); err != nil {
 		return err
 	}
 

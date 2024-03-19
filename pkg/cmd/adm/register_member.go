@@ -94,7 +94,7 @@ func registerMemberCluster(ctx *clicontext.CommandContext, newCommand client.Com
 
 func disableAutomaticApproval(hostClusterConfig configuration.ClusterConfig, cl runtimeclient.Client) error {
 	configs := &toolchainv1alpha1.ToolchainConfigList{}
-	if err := cl.List(context.TODO(), configs, runtimeclient.InNamespace(hostClusterConfig.SandboxNamespace)); err != nil {
+	if err := cl.List(context.TODO(), configs, runtimeclient.InNamespace(hostClusterConfig.KubeSawNamespace)); err != nil {
 		return err
 	}
 

@@ -55,12 +55,12 @@ func setupKubectlCmd(newCmd newCmd) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		if !cmd.Flag("namespace").Changed { // default to sandbox namespace
-			kubeConfigFlags.Namespace = &cfg.SandboxNamespace
+		if !cmd.Flag("namespace").Changed { // default to kubeSaw namespace
+			kubeConfigFlags.Namespace = &cfg.KubeSawNamespace
 		}
 		kubeConfigFlags.APIServer = &cfg.ServerAPI
 		kubeConfigFlags.BearerToken = &cfg.Token
-		kubeconfig, err := client.EnsureSandboxCliConfigFile()
+		kubeconfig, err := client.EnsureKsctlConfigFile()
 		if err != nil {
 			return err
 		}

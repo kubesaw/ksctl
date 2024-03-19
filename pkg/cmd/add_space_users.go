@@ -55,7 +55,7 @@ func AddSpaceUsers(ctx *clicontext.CommandContext, spaceName, role string, users
 
 	// get Space
 	ctx.Println("Checking space...")
-	space, err := client.GetSpace(cl, cfg.SandboxNamespace, spaceName)
+	space, err := client.GetSpace(cl, cfg.KubeSawNamespace, spaceName)
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func AddSpaceUsers(ctx *clicontext.CommandContext, spaceName, role string, users
 	ctx.Println("Checking users...")
 	spaceBindingsToCreate := []*toolchainv1alpha1.SpaceBinding{}
 	for _, murName := range usersToAdd {
-		mur, err := client.GetMasterUserRecord(cl, cfg.SandboxNamespace, murName)
+		mur, err := client.GetMasterUserRecord(cl, cfg.KubeSawNamespace, murName)
 		if err != nil {
 			return err
 		}

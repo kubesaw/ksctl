@@ -50,7 +50,7 @@ func RemoveSpaceUsers(ctx *clicontext.CommandContext, spaceName string, usersToR
 
 	// get Space
 	ctx.Println("Checking space...")
-	space, err := client.GetSpace(cl, cfg.SandboxNamespace, spaceName)
+	space, err := client.GetSpace(cl, cfg.KubeSawNamespace, spaceName)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func RemoveSpaceUsers(ctx *clicontext.CommandContext, spaceName string, usersToR
 	// get SpaceBindings to delete
 	spaceBindingsToDelete := []*toolchainv1alpha1.SpaceBinding{}
 	for _, murName := range usersToRemove {
-		sbs, err := client.ListSpaceBindings(cl, cfg.SandboxNamespace, client.ForSpace(spaceName), client.ForMasterUserRecord(murName))
+		sbs, err := client.ListSpaceBindings(cl, cfg.KubeSawNamespace, client.ForSpace(spaceName), client.ForMasterUserRecord(murName))
 		if err != nil {
 			return err
 		}
