@@ -7,7 +7,6 @@ import (
 
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/configuration"
-	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
 	"github.com/stretchr/testify/assert"
@@ -37,13 +36,16 @@ func TestRestartDeployment(t *testing.T) {
 		t.Run("restart is successful for "+clusterName, func(t *testing.T) {
 			// given
 			deployment := newDeployment(namespacedName, 3)
-			newClient, newRESTClient, fakeClient := NewFakeClients(t, deployment)
+			newClient, _, fakeClient := NewFakeClients(t, deployment)
 			numberOfUpdateCalls := 0
 			fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			o := RestartOptions{
+				term:      term,
+				newClient: newClient,
+			}
 
 			// when
-			err := restart(ctx, clusterName, "cool-deployment")
+			err := o.restart(context.Background(), clusterName, "cool-deployment")
 
 			// then
 			require.NoError(t, err)
@@ -55,14 +57,17 @@ func TestRestartDeployment(t *testing.T) {
 		t.Run("list deployments when no deployment name is provided for "+clusterName, func(t *testing.T) {
 			// given
 			deployment := newDeployment(namespacedName, 3)
-			newClient, newRESTClient, fakeClient := NewFakeClients(t, deployment)
+			newClient, _, fakeClient := NewFakeClients(t, deployment)
 			numberOfUpdateCalls := 0
 			fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			o := RestartOptions{
+				term:      term,
+				newClient: newClient,
+			}
 
 			// when
-			err := restart(ctx, clusterName)
+			err := o.restart(context.Background(), clusterName)
 
 			// then
 			require.EqualError(t, err, "at least one deployment name is required, include one or more of the above deployments to restart")
@@ -75,16 +80,19 @@ func TestRestartDeployment(t *testing.T) {
 		t.Run("restart fails - cannot get the deployment for "+clusterName, func(t *testing.T) {
 			// given
 			deployment := newDeployment(namespacedName, 3)
-			newClient, newRESTClient, fakeClient := NewFakeClients(t, deployment)
+			newClient, _, fakeClient := NewFakeClients(t, deployment)
 			numberOfUpdateCalls := 0
 			fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
 			fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 				return fmt.Errorf("some error")
 			}
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			o := RestartOptions{
+				term:      term,
+				newClient: newClient,
+			}
 
 			// when
-			err := restart(ctx, clusterName, "cool-deployment")
+			err := o.restart(context.Background(), clusterName, "cool-deployment")
 
 			// then
 			require.Error(t, err)
@@ -96,14 +104,17 @@ func TestRestartDeployment(t *testing.T) {
 		t.Run("restart fails - deployment not found for "+clusterName, func(t *testing.T) {
 			// given
 			deployment := newDeployment(namespacedName, 3)
-			newClient, newRESTClient, fakeClient := NewFakeClients(t, deployment)
+			newClient, _, fakeClient := NewFakeClients(t, deployment)
 			numberOfUpdateCalls := 0
 			fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			o := RestartOptions{
+				term:      term,
+				newClient: newClient,
+			}
 
 			// when
-			err := restart(ctx, clusterName, "wrong-deployment")
+			err := o.restart(context.Background(), clusterName, "wrong-deployment")
 
 			// then
 			require.NoError(t, err)
@@ -131,14 +142,17 @@ func TestRestartDeploymentWithInsufficientPermissions(t *testing.T) {
 			Name:      "cool-deployment",
 		}
 		deployment := newDeployment(namespacedName, 3)
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, deployment)
+		newClient, _, fakeClient := NewFakeClients(t, deployment)
 		numberOfUpdateCalls := 0
 		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		o := RestartOptions{
+			term:      term,
+			newClient: newClient,
+		}
 
 		// when
-		err := restart(ctx, clusterName, "cool-deployment")
+		err := o.restart(context.Background(), clusterName, "cool-deployment")
 
 		// then
 		require.Error(t, err)
@@ -162,13 +176,12 @@ func TestRestartHostOperator(t *testing.T) {
 		// given
 		deployment := newDeployment(namespacedName, 1)
 		deployment.Labels = map[string]string{"olm.owner.namespace": "toolchain-host-operator"}
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, deployment)
+		_, _, fakeClient := NewFakeClients(t, deployment)
 		numberOfUpdateCalls := 0
 		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
 
 		// when
-		err := restartHostOperator(ctx, fakeClient, cfg)
+		err := restartHostOperator(context.Background(), term, fakeClient, cfg)
 
 		// then
 		require.NoError(t, err)
@@ -179,13 +192,12 @@ func TestRestartHostOperator(t *testing.T) {
 	t.Run("host deployment with the label is not present - restart fails", func(t *testing.T) {
 		// given
 		deployment := newDeployment(namespacedName, 1)
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, deployment)
+		_, _, fakeClient := NewFakeClients(t, deployment)
 		numberOfUpdateCalls := 0
 		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
 
 		// when
-		err := restartHostOperator(ctx, fakeClient, cfg)
+		err := restartHostOperator(context.Background(), term, fakeClient, cfg)
 
 		// then
 		require.Error(t, err)
@@ -199,13 +211,12 @@ func TestRestartHostOperator(t *testing.T) {
 		deployment.Labels = map[string]string{"olm.owner.namespace": "toolchain-host-operator"}
 		deployment2 := deployment.DeepCopy()
 		deployment2.Name = "another"
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, deployment, deployment2)
+		_, _, fakeClient := NewFakeClients(t, deployment, deployment2)
 		numberOfUpdateCalls := 0
 		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
 
 		// when
-		err := restartHostOperator(ctx, fakeClient, cfg)
+		err := restartHostOperator(context.Background(), term, fakeClient, cfg)
 
 		// then
 		require.Error(t, err)

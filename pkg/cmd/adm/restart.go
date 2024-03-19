@@ -28,9 +28,11 @@ func NewRestartCmd() *cobra.Command {
 If no deployment name is provided, then it lists all existing deployments in the namespace.`,
 		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
-			return restart(ctx, targetCluster, args...)
+			o := &RestartOptions{
+				term:      ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout),
+				newClient: client.DefaultNewClient,
+			}
+			return o.restart(cmd.Context(), targetCluster, args...)
 		},
 	}
 	command.Flags().StringVarP(&targetCluster, "target-cluster", "t", "", "The target cluster")
@@ -38,58 +40,63 @@ If no deployment name is provided, then it lists all existing deployments in the
 	return command
 }
 
-func restart(ctx *clicontext.CommandContext, clusterName string, deployments ...string) error {
-	cfg, err := configuration.LoadClusterConfig(ctx, clusterName)
+type RestartOptions struct {
+	term      ioutils.Terminal
+	newClient clicontext.NewClientFunc
+}
+
+func (o *RestartOptions) restart(ctx context.Context, clusterName string, deployments ...string) error {
+	cfg, err := configuration.LoadClusterConfig(o.term, clusterName)
 	if err != nil {
 		return err
 	}
-	cl, err := ctx.NewClient(cfg.Token, cfg.ServerAPI)
+	cl, err := o.newClient(cfg.Token, cfg.ServerAPI)
 	if err != nil {
 		return err
 	}
 
 	if len(deployments) == 0 {
-		err := printExistingDeployments(ctx.Terminal, cl, cfg)
+		err := printExistingDeployments(o.term, cl, cfg)
 		if err != nil {
-			ctx.Terminal.Printlnf("\nERROR: Failed to list existing deployments\n :%s", err.Error())
+			o.term.Printlnf("\nERROR: Failed to list existing deployments\n :%s", err.Error())
 		}
 		return fmt.Errorf("at least one deployment name is required, include one or more of the above deployments to restart")
 	}
 	deploymentName := deployments[0]
 
-	if !ctx.AskForConfirmation(
+	if !o.term.AskForConfirmation(
 		ioutils.WithMessagef("restart the deployment '%s' in namespace '%s'", deploymentName, cfg.SandboxNamespace)) {
 		return nil
 	}
-	return restartDeployment(ctx, cl, cfg, deploymentName)
+	return restartDeployment(ctx, o.term, cl, cfg, deploymentName)
 }
 
-func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, cfg configuration.ClusterConfig, deploymentName string) error {
+func restartDeployment(ctx context.Context, term ioutils.Terminal, cl runtimeclient.Client, cfg configuration.ClusterConfig, deploymentName string) error {
 	namespacedName := types.NamespacedName{
 		Namespace: cfg.SandboxNamespace,
 		Name:      deploymentName,
 	}
 
-	originalReplicas, err := scaleToZero(cl, namespacedName)
+	originalReplicas, err := scaleToZero(ctx, cl, namespacedName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			ctx.Printlnf("\nERROR: The given deployment '%s' wasn't found.", deploymentName)
-			return printExistingDeployments(ctx, cl, cfg)
+			term.Printlnf("\nERROR: The given deployment '%s' wasn't found.", deploymentName)
+			return printExistingDeployments(term, cl, cfg)
 		}
 		return err
 	}
-	ctx.Println("The deployment was scaled to 0")
-	if err := scaleBack(ctx, cl, namespacedName, originalReplicas); err != nil {
-		ctx.Printlnf("Scaling the deployment '%s' in namespace '%s' back to '%d' replicas wasn't successful", originalReplicas)
-		ctx.Println("Please, try to contact administrators to scale the deployment back manually")
+	term.Println("The deployment was scaled to 0")
+	if err := scaleBack(term, cl, namespacedName, originalReplicas); err != nil {
+		term.Printlnf("Scaling the deployment '%s' in namespace '%s' back to '%d' replicas wasn't successful", originalReplicas)
+		term.Println("Please, try to contact administrators to scale the deployment back manually")
 		return err
 	}
 
-	ctx.Printlnf("The deployment was scaled back to '%d'", originalReplicas)
+	term.Printlnf("The deployment was scaled back to '%d'", originalReplicas)
 	return nil
 }
 
-func restartHostOperator(ctx *clicontext.CommandContext, hostClient runtimeclient.Client, hostConfig configuration.ClusterConfig) error {
+func restartHostOperator(ctx context.Context, term ioutils.Terminal, hostClient runtimeclient.Client, hostConfig configuration.ClusterConfig) error {
 	deployments := &appsv1.DeploymentList{}
 	if err := hostClient.List(context.TODO(), deployments,
 		runtimeclient.InNamespace(hostConfig.SandboxNamespace),
@@ -101,7 +108,7 @@ func restartHostOperator(ctx *clicontext.CommandContext, hostClient runtimeclien
 			"It's not possible to restart the Host Operator deployment", hostConfig.SandboxNamespace, len(deployments.Items))
 	}
 
-	return restartDeployment(ctx, hostClient, hostConfig, deployments.Items[0].Name)
+	return restartDeployment(ctx, term, hostClient, hostConfig, deployments.Items[0].Name)
 }
 
 func printExistingDeployments(term ioutils.Terminal, cl runtimeclient.Client, cfg configuration.ClusterConfig) error {
@@ -117,11 +124,11 @@ func printExistingDeployments(term ioutils.Terminal, cl runtimeclient.Client, cf
 	return nil
 }
 
-func scaleToZero(cl runtimeclient.Client, namespacedName types.NamespacedName) (int32, error) {
+func scaleToZero(ctx context.Context, cl runtimeclient.Client, namespacedName types.NamespacedName) (int32, error) {
 
 	// get the deployment
 	deployment := &appsv1.Deployment{}
-	if err := cl.Get(context.TODO(), namespacedName, deployment); err != nil {
+	if err := cl.Get(ctx, namespacedName, deployment); err != nil {
 		return 0, err
 	}
 	// keep original number of replicas so we can bring it back
@@ -130,7 +137,7 @@ func scaleToZero(cl runtimeclient.Client, namespacedName types.NamespacedName) (
 	deployment.Spec.Replicas = &zero
 
 	// update the deployment so it scales to zero
-	return originalReplicas, cl.Update(context.TODO(), deployment)
+	return originalReplicas, cl.Update(ctx, deployment)
 }
 
 func scaleBack(term ioutils.Terminal, cl runtimeclient.Client, namespacedName types.NamespacedName, originalReplicas int32) error {
