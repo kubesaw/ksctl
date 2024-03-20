@@ -61,7 +61,7 @@ func ByName(name string) LookupUserSignup {
 	return func(cfg configuration.ClusterConfig, cl runtimeclient.Client) (*toolchainv1alpha1.UserSignup, error) {
 		userSignup := &toolchainv1alpha1.UserSignup{}
 		err := cl.Get(context.TODO(), types.NamespacedName{
-			Namespace: cfg.KubeSawNamespace,
+			Namespace: cfg.OperatorNamespace,
 			Name:      name,
 		}, userSignup)
 		return userSignup, err
@@ -71,7 +71,7 @@ func ByName(name string) LookupUserSignup {
 func ByEmailAddress(emailAddress string) LookupUserSignup {
 	return func(cfg configuration.ClusterConfig, cl runtimeclient.Client) (*toolchainv1alpha1.UserSignup, error) {
 		usersignups := toolchainv1alpha1.UserSignupList{}
-		if err := cl.List(context.TODO(), &usersignups, runtimeclient.InNamespace(cfg.KubeSawNamespace), runtimeclient.MatchingLabels{
+		if err := cl.List(context.TODO(), &usersignups, runtimeclient.InNamespace(cfg.OperatorNamespace), runtimeclient.MatchingLabels{
 			toolchainv1alpha1.UserSignupUserEmailHashLabelKey: hash.EncodeString(emailAddress),
 		}); err != nil {
 			return nil, err

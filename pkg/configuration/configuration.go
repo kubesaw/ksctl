@@ -152,11 +152,11 @@ func getAllClusterNames(config KsctlConfig) []string {
 // plus all cluster names defined in the KsctlConfig
 type ClusterConfig struct {
 	ClusterAccessDefinition
-	AllClusterNames  []string
-	ClusterName      string
-	Token            string
-	KubeSawNamespace string
-	PathToConfigFile string
+	AllClusterNames   []string
+	ClusterName       string
+	Token             string
+	OperatorNamespace string
+	PathToConfigFile  string
 }
 
 // LoadClusterConfig loads ClusterConfig object from the config file and checks that all required parameters are set
@@ -173,29 +173,29 @@ func LoadClusterConfig(term ioutils.Terminal, clusterName string) (ClusterConfig
 	if clusterDef.Token == "" {
 		return ClusterConfig{}, fmt.Errorf("ksctl command failed: the token in your ksctl.yaml file is missing")
 	}
-	var kubeSawNamespace string
+	var operatorNamespace string
 	if clusterName == HostName {
-		kubeSawNamespace = os.Getenv("HOST_OPERATOR_NAMESPACE")
-		if kubeSawNamespace == "" {
-			kubeSawNamespace = "toolchain-host-operator"
+		operatorNamespace = os.Getenv("HOST_OPERATOR_NAMESPACE")
+		if operatorNamespace == "" {
+			operatorNamespace = "toolchain-host-operator"
 		}
 	} else {
-		kubeSawNamespace = os.Getenv("MEMBER_OPERATOR_NAMESPACE")
-		if kubeSawNamespace == "" {
-			kubeSawNamespace = "toolchain-member-operator"
+		operatorNamespace = os.Getenv("MEMBER_OPERATOR_NAMESPACE")
+		if operatorNamespace == "" {
+			operatorNamespace = "toolchain-member-operator"
 		}
 	}
 
 	if Verbose {
 		term.Printlnf("Using '%s' configuration for '%s' cluster running at '%s' and in namespace '%s'\n",
-			clusterName, clusterDef.ServerName, clusterDef.ServerAPI, kubeSawNamespace)
+			clusterName, clusterDef.ServerName, clusterDef.ServerAPI, operatorNamespace)
 	}
 	return ClusterConfig{
 		ClusterAccessDefinition: clusterDef,
 		AllClusterNames:         getAllClusterNames(ksctlConfig),
 		ClusterName:             clusterName,
 		Token:                   clusterDef.Token,
-		KubeSawNamespace:        kubeSawNamespace,
+		OperatorNamespace:       operatorNamespace,
 		PathToConfigFile:        path,
 	}, nil
 }
@@ -207,7 +207,7 @@ func (c ClusterConfig) GetServerParam() string {
 
 // GetNamespaceParam returns the `--namespace=` param along with its actual value
 func (c ClusterConfig) GetNamespaceParam() string {
-	return "--namespace=" + c.KubeSawNamespace
+	return "--namespace=" + c.OperatorNamespace
 }
 
 // ConfigurePath returns the path to the 'configure' directory, using the clusterConfigName arg if it's not empty,

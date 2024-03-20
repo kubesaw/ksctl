@@ -56,7 +56,7 @@ func setupKubectlCmd(newCmd newCmd) *cobra.Command {
 			return err
 		}
 		if !cmd.Flag("namespace").Changed { // default to kubeSaw namespace
-			kubeConfigFlags.Namespace = &cfg.KubeSawNamespace
+			kubeConfigFlags.Namespace = &cfg.OperatorNamespace
 		}
 		kubeConfigFlags.APIServer = &cfg.ServerAPI
 		kubeConfigFlags.BearerToken = &cfg.Token

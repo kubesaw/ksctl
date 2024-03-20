@@ -50,7 +50,7 @@ func TestLoadClusterConfig(t *testing.T) {
 
 						// then
 						require.NoError(t, err)
-						assert.Equal(t, namespaceName, cfg.KubeSawNamespace)
+						assert.Equal(t, namespaceName, cfg.OperatorNamespace)
 						assert.Equal(t, "--namespace="+namespaceName, cfg.GetNamespaceParam())
 						assert.Equal(t, clusterConfigParam.ClusterType, cfg.ClusterType)
 						assert.Equal(t, "cool-token", cfg.Token)
@@ -62,7 +62,7 @@ func TestLoadClusterConfig(t *testing.T) {
 						assert.True(t, strings.HasPrefix(cfg.PathToConfigFile, os.TempDir()))
 						assert.Contains(t, term.Output(), fmt.Sprintf("Using config file: '%s'", configuration.ConfigFileFlag))
 						assert.Contains(t, term.Output(), fmt.Sprintf("Using '%s' configuration for '%s' cluster running at '%s' and in namespace '%s'",
-							cfg.ClusterName, cfg.ServerName, cfg.ServerAPI, cfg.KubeSawNamespace))
+							cfg.ClusterName, cfg.ServerName, cfg.ServerAPI, cfg.OperatorNamespace))
 					})
 
 					t.Run("without verbose logs", func(t *testing.T) {
@@ -79,7 +79,7 @@ func TestLoadClusterConfig(t *testing.T) {
 						// don't repeat assertions above, just check that logs do NOT contain the following messages
 						assert.NotContains(t, term.Output(), fmt.Sprintf("Using config file: '%s'", configuration.ConfigFileFlag))
 						assert.NotContains(t, term.Output(), fmt.Sprintf("Using '%s' configuration for '%s' cluster running at '%s' and in namespace '%s'",
-							cfg.ClusterType, cfg.ServerName, cfg.ServerAPI, cfg.KubeSawNamespace))
+							cfg.ClusterType, cfg.ServerName, cfg.ServerAPI, cfg.OperatorNamespace))
 					})
 				})
 			}
@@ -100,7 +100,7 @@ func TestLoadClusterConfig(t *testing.T) {
 
 					// then
 					require.NoError(t, err, "ksctl command failed: The kubeSaw namespace is not set for the cluster "+clusterConfigParam.ClusterName)
-					assert.Equal(t, "custom-namespace", cfg.KubeSawNamespace)
+					assert.Equal(t, "custom-namespace", cfg.OperatorNamespace)
 				})
 			}
 
@@ -226,7 +226,7 @@ func TestLoadingClusterConfigWithNonexistentClusterName(t *testing.T) {
 	assert.Contains(t, err.Error(), "the provided cluster-name 'dummy' is not present in your ksctl.yaml file. The available cluster names are")
 	assert.Contains(t, err.Error(), "host")
 	assert.Contains(t, err.Error(), "member-1")
-	assert.Empty(t, cfg.KubeSawNamespace)
+	assert.Empty(t, cfg.OperatorNamespace)
 }
 
 func TestLoad(t *testing.T) {
