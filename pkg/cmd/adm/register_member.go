@@ -37,11 +37,10 @@ func NewRegisterMemberCmd() *cobra.Command {
 		Long:  `Downloads the 'add-cluster.sh' script from the 'toolchain-cicd' repo and calls it twice: once to register the Host cluster in the Member cluster and once to register the Member cluster in the host cluster.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
 			newCommand := func(name string, args ...string) *exec.Cmd {
 				return exec.Command(name, args...)
 			}
-			return registerMemberCluster(ctx, newCommand, hostKubeconfig, memberKubeconfig)
+			return registerMemberCluster(context.Background(), term, client.DefaultNewClient, newCommand, hostKubeconfig, memberKubeconfig)
 		},
 	}
 	defaultKubeconfigPath := ""
@@ -55,15 +54,15 @@ func NewRegisterMemberCmd() *cobra.Command {
 	return cmd
 }
 
-func registerMemberCluster(ctx *clicontext.CommandContext, newCommand client.CommandCreator, hostKubeconfig, memberKubeconfig string) error {
-	ctx.AskForConfirmation(ioutils.WithMessagef("register member cluster from kubeconfig %s. Be aware that the ksctl disables automatic approval to prevent new users being provisioned to the new member cluster. "+
+func registerMemberCluster(ctx context.Context, term ioutils.Terminal, newClient clicontext.NewClientFunc, newCommand client.CommandCreator, hostKubeconfig, memberKubeconfig string) error {
+	term.AskForConfirmation(ioutils.WithMessagef("register member cluster from kubeconfig %s. Be aware that the ksctl disables automatic approval to prevent new users being provisioned to the new member cluster. "+
 		"You will need to enable it again manually.", memberKubeconfig))
 
-	hostClusterConfig, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+	hostClusterConfig, err := configuration.LoadClusterConfig(term, configuration.HostName)
 	if err != nil {
 		return err
 	}
-	hostClusterClient, err := ctx.NewClient(hostClusterConfig.Token, hostClusterConfig.ServerAPI)
+	hostClusterClient, err := newClient(hostClusterConfig.Token, hostClusterConfig.ServerAPI)
 	if err != nil {
 		return err
 	}
@@ -72,23 +71,23 @@ func registerMemberCluster(ctx *clicontext.CommandContext, newCommand client.Com
 		return err
 	}
 
-	if err := runAddClusterScript(ctx, newCommand, configuration.Host, hostKubeconfig, memberKubeconfig); err != nil {
+	if err := runAddClusterScript(term, newCommand, configuration.Host, hostKubeconfig, memberKubeconfig); err != nil {
 		return err
 	}
-	if err := runAddClusterScript(ctx, newCommand, configuration.Member, hostKubeconfig, memberKubeconfig); err != nil {
+	if err := runAddClusterScript(term, newCommand, configuration.Member, hostKubeconfig, memberKubeconfig); err != nil {
 		return err
 	}
 
 	warningMessage := "The automatic approval was disabled!\n Configure the new member cluster in ToolchainConfig and apply the changes to the cluster."
 
-	if err := restartHostOperator(ctx, hostClusterClient, hostClusterConfig); err != nil {
+	if err := restartHostOperator(ctx, term, hostClusterClient, hostClusterConfig); err != nil {
 		return fmt.Errorf("%w\nIn Additon, there is another warning you should be aware of:\n%s", err, warningMessage)
 	}
 
-	ctx.Printlnf("!!!!!!!!!!!!!!!")
-	ctx.Printlnf("!!! WARNING !!!")
-	ctx.Printlnf("!!!!!!!!!!!!!!!")
-	ctx.Printlnf(warningMessage)
+	term.Printlnf("!!!!!!!!!!!!!!!")
+	term.Printlnf("!!! WARNING !!!")
+	term.Printlnf("!!!!!!!!!!!!!!!")
+	term.Printlnf(warningMessage)
 	return nil
 }
 
