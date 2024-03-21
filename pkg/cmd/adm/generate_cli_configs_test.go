@@ -7,20 +7,15 @@ import (
 	"path"
 	"testing"
 
-	commontest "github.com/codeready-toolchain/toolchain-common/pkg/test"
-	"github.com/kubesaw/ksctl/pkg/assets"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	. "github.com/kubesaw/ksctl/pkg/test"
-	routev1 "github.com/openshift/api/route/v1"
 	"github.com/stretchr/testify/assert"
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/rest"
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/h2non/gock"
 	"github.com/stretchr/testify/require"
@@ -63,7 +58,9 @@ func TestGenerateCliConfigs(t *testing.T) {
 
 	configFile := createKubeSawAdminsFile(t, "kubesaw.host.openshiftapps.com", kubeSawAdminsContent)
 
-	_, newClient, newExternalClient := newFakeClientFuncs(t, kubeSawAdmins.Clusters)
+	newExternalClient := func(config *rest.Config) (*rest.RESTClient, error) {
+		return DefaultNewExternalClientFromConfig(config)
+	}
 	term := NewFakeTerminalWithResponse("Y")
 	term.Tee(os.Stdout)
 
@@ -75,7 +72,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir}
 
 			// when
-			err = generate(term, flags, newClient, newExternalClient)
+			err = generate(term, flags, newExternalClient)
 
 			// then
 			require.NoError(t, err)
@@ -103,7 +100,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir}
 
 			// when
-			err = generate(term, flags, newClient, newExternalClient)
+			err = generate(term, flags, newExternalClient)
 
 			// then
 			require.NoError(t, err)
@@ -123,7 +120,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir, dev: true}
 
 			// when
-			err = generate(term, flags, newClient, newExternalClient)
+			err = generate(term, flags, newExternalClient)
 
 			// then
 			require.NoError(t, err)
@@ -137,9 +134,6 @@ func TestGenerateCliConfigs(t *testing.T) {
 			// given
 			ctx := &generateContext{
 				Terminal: NewFakeTerminalWithResponse("y"),
-				newClient: func(config *rest.Config, options runtimeclient.Options) (runtimeclient.Client, error) {
-					return commontest.NewFakeClient(t), nil
-				},
 				newRESTClient: func(config *rest.Config) (*rest.RESTClient, error) {
 					return nil, fmt.Errorf("some error")
 				},
@@ -160,7 +154,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: "does/not/exist", outDir: tempDir}
 
 			// when
-			err = generate(term, flags, newClient, newExternalClient)
+			err = generate(term, flags, newExternalClient)
 
 			// then
 			require.Error(t, err)
@@ -174,7 +168,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			flags := generateFlags{kubeconfigs: []string{"does/not/exist"}, kubeSawAdminsFile: configFile, outDir: tempDir}
 
 			// when
-			err = generate(term, flags, newClient, newExternalClient)
+			err = generate(term, flags, newExternalClient)
 
 			// then
 			require.Error(t, err)
@@ -197,7 +191,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir}
 
 			// when
-			err = generate(term, flags, newClient, newExternalClient)
+			err = generate(term, flags, newExternalClient)
 
 			// then
 			require.ErrorContains(t, err, "notmocked/token\": gock: cannot match any request")
@@ -319,43 +313,6 @@ func setupGockForServiceAccounts(t *testing.T, apiEndpoint string, sas ...*corev
 			Reply(200).
 			BodyString(string(resultTokenRequestStr))
 	}
-}
-
-func newFakeClientFuncs(t *testing.T, clusters assets.Clusters) (map[string]*commontest.FakeClient, NewClientFromConfigFunc, NewRESTClientFromConfigFunc) {
-	fakeClientsPerName := map[string]*commontest.FakeClient{}
-	fakeClientsPerHost := map[string]*commontest.FakeClient{}
-
-	addClient := func(clusterName, host string) {
-		consoleRoute := &routev1.Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "openshift-console",
-				Name:      "console",
-			},
-			Spec: routev1.RouteSpec{
-				Host: fmt.Sprintf("console-openshift-console.sandbox.%s.openshift.com", clusterName),
-				Port: &routev1.RoutePort{
-					TargetPort: intstr.FromString("https"),
-				},
-			},
-		}
-		fakeClient := commontest.NewFakeClient(t, consoleRoute)
-		fakeClientsPerName[clusterName] = fakeClient
-		fakeClientsPerHost[host] = fakeClient
-	}
-	if clusters.Host.API != "" {
-		addClient("host", clusters.Host.API)
-	}
-	for _, member := range clusters.Members {
-		addClient(member.Name, member.API)
-	}
-
-	return fakeClientsPerName,
-		func(config *rest.Config, options runtimeclient.Options) (runtimeclient.Client, error) {
-			return fakeClientsPerHost[config.Host], nil
-		},
-		func(config *rest.Config) (*rest.RESTClient, error) {
-			return DefaultNewExternalClientFromConfig(config)
-		}
 }
 
 func newServiceAccount(namespace, name string) *corev1.ServiceAccount {

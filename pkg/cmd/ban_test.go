@@ -7,7 +7,6 @@ import (
 
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
-	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/cmd"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
@@ -20,10 +19,10 @@ import (
 func TestBanCmdWhenAnswerIsY(t *testing.T) {
 	// given
 	userSignup := NewUserSignup()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("y")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Ban(ctx, userSignup.Name)
@@ -39,7 +38,7 @@ func TestBanCmdWhenAnswerIsY(t *testing.T) {
 	t.Run("don't ban twice", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.Ban(ctx, userSignup.Name)
@@ -55,10 +54,10 @@ func TestBanCmdWhenAnswerIsY(t *testing.T) {
 func TestBanCmdWhenAnswerIsN(t *testing.T) {
 	// given
 	userSignup := NewUserSignup()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("n")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Ban(ctx, userSignup.Name)
@@ -75,10 +74,10 @@ func TestBanCmdWhenAnswerIsN(t *testing.T) {
 func TestBanCmdWhenNotFound(t *testing.T) {
 	// given
 	userSignup := NewUserSignup()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("n")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Ban(ctx, "some")
@@ -99,9 +98,9 @@ func TestCreateBannedUser(t *testing.T) {
 	t.Run("BannedUser creation is successful", func(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		term := NewFakeTerminal()
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
@@ -116,9 +115,9 @@ func TestCreateBannedUser(t *testing.T) {
 	t.Run("BannedUser should not be created", func(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		term := NewFakeTerminal()
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
@@ -133,9 +132,9 @@ func TestCreateBannedUser(t *testing.T) {
 	t.Run("confirmation func returns error", func(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		term := NewFakeTerminal()
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
@@ -150,12 +149,12 @@ func TestCreateBannedUser(t *testing.T) {
 	t.Run("get of UserSignup fails", func(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 			return fmt.Errorf("some error")
 		}
 		term := NewFakeTerminal()
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
@@ -170,12 +169,12 @@ func TestCreateBannedUser(t *testing.T) {
 	t.Run("creation of BannedUser fails", func(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 			return fmt.Errorf("some error")
 		}
 		term := NewFakeTerminal()
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
@@ -195,8 +194,7 @@ func TestCreateBannedUser(t *testing.T) {
 		newClient := func(token, apiEndpoint string) (runtimeclient.Client, error) {
 			return nil, fmt.Errorf("some error")
 		}
-		newRESTClient := client.DefaultNewRESTClient
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
@@ -214,9 +212,9 @@ func TestCreateBannedUserLacksPermissions(t *testing.T) {
 	SetFileConfig(t, Host(NoToken()))
 
 	userSignup := NewUserSignup()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+	newClient, fakeClient := NewFakeClients(t, userSignup)
 	term := NewFakeTerminal()
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {

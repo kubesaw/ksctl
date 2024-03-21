@@ -25,34 +25,34 @@ type KsctlConfig struct {
 }
 
 // Load reads in config file and ENV variables if set.
-func Load(term ioutils.Terminal) (KsctlConfig, string, error) {
+func Load(term ioutils.Terminal) (KsctlConfig, error) {
 	path := ConfigFileFlag
 	if path == "" {
 		// Find home directory.
 		home, err := homedir.Dir()
 		if err != nil {
-			return KsctlConfig{}, "", errs.Wrap(err, "unable to read home directory")
+			return KsctlConfig{}, errs.Wrap(err, "unable to read home directory")
 		}
 		path = filepath.Join(home, ".ksctl.yaml")
 
 		if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
 			if _, err := os.Stat(filepath.Join(home, ".sandbox.yaml")); err != nil && !os.IsNotExist(err) {
-				return KsctlConfig{}, "", err
+				return KsctlConfig{}, err
 			} else if err == nil {
 				path = filepath.Join(home, ".sandbox.yaml")
 				term.Println("The default location of ~/.sandbox.yaml file is deprecated. Rename it to ~/.ksctl.yaml")
 			}
 		} else if err != nil {
-			return KsctlConfig{}, "", err
+			return KsctlConfig{}, err
 		}
 	}
 
 	info, err := os.Stat(path)
 	if err != nil {
-		return KsctlConfig{}, "", errs.Wrapf(err, "unable to read the file '%s'", path)
+		return KsctlConfig{}, errs.Wrapf(err, "unable to read the file '%s'", path)
 	}
 	if info.IsDir() {
-		return KsctlConfig{}, "", fmt.Errorf("the '%s' is not file but a directory", path)
+		return KsctlConfig{}, fmt.Errorf("the '%s' is not file but a directory", path)
 	}
 
 	if Verbose {
@@ -61,13 +61,13 @@ func Load(term ioutils.Terminal) (KsctlConfig, string, error) {
 
 	bytes, err := os.ReadFile(path)
 	if err != nil {
-		return KsctlConfig{}, "", err
+		return KsctlConfig{}, err
 	}
 	ksctlConfig := KsctlConfig{}
 	if err := yaml.Unmarshal(bytes, &ksctlConfig); err != nil {
-		return KsctlConfig{}, "", err
+		return KsctlConfig{}, err
 	}
-	return ksctlConfig, path, nil
+	return ksctlConfig, nil
 }
 
 const HostName = "host"
@@ -110,7 +110,7 @@ type ClusterNamespaces map[string]string
 
 // LoadClusterAccessDefinition loads ClusterAccessDefinition object from the config file and checks that all required parameters are set
 func LoadClusterAccessDefinition(term ioutils.Terminal, clusterName string) (ClusterAccessDefinition, error) {
-	ksctlConfig, _, err := Load(term)
+	ksctlConfig, err := Load(term)
 	if err != nil {
 		return ClusterAccessDefinition{}, err
 	}
@@ -156,13 +156,12 @@ type ClusterConfig struct {
 	ClusterName       string
 	Token             string
 	OperatorNamespace string // namespace where either the host-operator or the member-operator is deployed (depends on the cluster context)
-	PathToConfigFile  string
 }
 
 // LoadClusterConfig loads ClusterConfig object from the config file and checks that all required parameters are set
 // as well as the token for the given name
 func LoadClusterConfig(term ioutils.Terminal, clusterName string) (ClusterConfig, error) {
-	ksctlConfig, path, err := Load(term)
+	ksctlConfig, err := Load(term)
 	if err != nil {
 		return ClusterConfig{}, err
 	}
@@ -196,7 +195,6 @@ func LoadClusterConfig(term ioutils.Terminal, clusterName string) (ClusterConfig
 		ClusterName:             clusterName,
 		Token:                   clusterDef.Token,
 		OperatorNamespace:       operatorNamespace,
-		PathToConfigFile:        path,
 	}, nil
 }
 

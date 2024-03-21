@@ -16,10 +16,10 @@ import (
 func TestDeactivateCmdWhenAnswerIsY(t *testing.T) {
 	// given
 	userSignup := NewUserSignup()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("y")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Deactivate(ctx, userSignup.Name)
@@ -37,10 +37,10 @@ func TestDeactivateCmdWhenAnswerIsY(t *testing.T) {
 func TestDeactivateCmdWhenAnswerIsN(t *testing.T) {
 	// given
 	userSignup := NewUserSignup()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("n")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Deactivate(ctx, userSignup.Name)
@@ -57,10 +57,10 @@ func TestDeactivateCmdWhenAnswerIsN(t *testing.T) {
 func TestDeactivateCmdWhenNotFound(t *testing.T) {
 	// given
 	userSignup := NewUserSignup()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("n")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Deactivate(ctx, "some")

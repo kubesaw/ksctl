@@ -21,10 +21,10 @@ import (
 func TestStatusCmdWhenIsReady(t *testing.T) {
 	// given
 	toolchainStatus := NewToolchainStatus(ToBeReady())
-	newClient, newRESTClient, _ := NewFakeClients(t, toolchainStatus)
+	newClient, _ := NewFakeClients(t, toolchainStatus)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminal()
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Status(ctx)
@@ -39,10 +39,10 @@ func TestStatusCmdWhenIsReady(t *testing.T) {
 func TestStatusCmdWhenIsNotReady(t *testing.T) {
 	// given
 	toolchainStatus := NewToolchainStatus(ToBeNotReady())
-	newClient, newRESTClient, _ := NewFakeClients(t, toolchainStatus)
+	newClient, _ := NewFakeClients(t, toolchainStatus)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminal()
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Status(ctx)
@@ -57,10 +57,10 @@ func TestStatusCmdWhenIsNotReady(t *testing.T) {
 func TestStatusCmdWhenConditionNotFound(t *testing.T) {
 	// given
 	toolchainStatus := NewToolchainStatus(toolchainv1alpha1.Condition{})
-	newClient, newRESTClient, _ := NewFakeClients(t, toolchainStatus)
+	newClient, _ := NewFakeClients(t, toolchainStatus)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminal()
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Status(ctx)
@@ -75,10 +75,10 @@ func TestStatusCmdWhenConditionNotFound(t *testing.T) {
 func TestStatusCmdWithInsufficientPermissions(t *testing.T) {
 	// given
 	toolchainStatus := NewToolchainStatus(toolchainv1alpha1.Condition{})
-	newClient, newRESTClient, _ := NewFakeClients(t, toolchainStatus)
+	newClient, _ := NewFakeClients(t, toolchainStatus)
 	SetFileConfig(t, Host(NoToken()))
 	term := NewFakeTerminal()
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Status(ctx)
@@ -93,13 +93,13 @@ func TestStatusCmdWithInsufficientPermissions(t *testing.T) {
 func TestStatusCmdWhenGetFailed(t *testing.T) {
 	// given
 	toolchainStatus := NewToolchainStatus(toolchainv1alpha1.Condition{})
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, toolchainStatus)
+	newClient, fakeClient := NewFakeClients(t, toolchainStatus)
 	SetFileConfig(t, Host())
 	fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 		return fmt.Errorf("some error")
 	}
 	term := NewFakeTerminal()
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.Status(ctx)

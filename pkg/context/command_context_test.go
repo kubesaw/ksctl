@@ -15,9 +15,9 @@ func TestLoadClusterConfig(t *testing.T) {
 	SetFileConfig(t, Host())
 
 	t.Run("success", func(t *testing.T) {
-		newClient, newRESTClient, _ := NewFakeClients(t)
+		newClient, _ := NewFakeClients(t)
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		_, err := configuration.LoadClusterConfig(ctx, "host")
@@ -29,9 +29,9 @@ func TestLoadClusterConfig(t *testing.T) {
 	t.Run("fail", func(t *testing.T) {
 		// given
 		SetFileConfig(t, Host(NoToken()), Member(NoToken()))
-		newClient, newRESTClient, _ := NewFakeClients(t)
+		newClient, _ := NewFakeClients(t)
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		_, err := configuration.LoadClusterConfig(ctx, "host")

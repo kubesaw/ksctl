@@ -28,7 +28,7 @@ one or more users specified by their MasterUserRecord name. One SpaceBinding wil
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
+			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 
 			return AddSpaceUsers(ctx, spaceName, role, users)
 		},

@@ -39,7 +39,7 @@ only one parameter which is the name of the UserSignup to be approved`,
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
+			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			switch {
 			case usersignupName != "":
 				return Approve(ctx, ByName(usersignupName), skipPhone, targetCluster)

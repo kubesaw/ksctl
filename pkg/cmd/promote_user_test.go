@@ -19,10 +19,10 @@ import (
 func TestPromoteUserCmdWhenAnswerIsY(t *testing.T) {
 	// given
 	mur := masteruserrecord.NewMasterUserRecord(t, "testmur", masteruserrecord.TierName("deactivate30"))
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, mur, newUserTier("deactivate180"))
+	newClient, fakeClient := NewFakeClients(t, mur, newUserTier("deactivate180"))
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("Y")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.PromoteUser(ctx, mur.Name, "deactivate180")
@@ -40,10 +40,10 @@ func TestPromoteUserCmdWhenAnswerIsY(t *testing.T) {
 func TestPromoteUserCmdWhenAnswerIsN(t *testing.T) {
 	// given
 	mur := masteruserrecord.NewMasterUserRecord(t, "testmur", masteruserrecord.TierName("deactivate30"))
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, mur, newUserTier("deactivate180"))
+	newClient, fakeClient := NewFakeClients(t, mur, newUserTier("deactivate180"))
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("n")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.PromoteUser(ctx, mur.Name, "deactivate180")
@@ -60,10 +60,10 @@ func TestPromoteUserCmdWhenAnswerIsN(t *testing.T) {
 func TestPromoteUserCmdWhenMasterUserRecordNotFound(t *testing.T) {
 	// given
 	mur := masteruserrecord.NewMasterUserRecord(t, "testmur", masteruserrecord.TierName("deactivate30"))
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, mur, newUserTier("deactivate180"))
+	newClient, fakeClient := NewFakeClients(t, mur, newUserTier("deactivate180"))
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("Y")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.PromoteUser(ctx, "another", "deactivate180") // attempt to promote a mur that does not exist
@@ -80,10 +80,10 @@ func TestPromoteUserCmdWhenMasterUserRecordNotFound(t *testing.T) {
 func TestPromoteUserCmdWhenUserTierNotFound(t *testing.T) {
 	// given
 	mur := masteruserrecord.NewMasterUserRecord(t, "testmur", masteruserrecord.TierName("deactivate30"))
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, mur)
+	newClient, fakeClient := NewFakeClients(t, mur)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("Y")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.PromoteUser(ctx, mur.Name, "deactivate180")

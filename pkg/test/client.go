@@ -18,7 +18,7 @@ import (
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewFakeClients(t *testing.T, initObjs ...runtime.Object) (clicontext.NewClientFunc, clicontext.NewRESTClientFunc, *test.FakeClient) {
+func NewFakeClients(t *testing.T, initObjs ...runtime.Object) (clicontext.NewClientFunc, *test.FakeClient) {
 	fakeClient := test.NewFakeClient(t, initObjs...)
 	fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 		stringDataToData(obj)
@@ -35,21 +35,10 @@ func NewFakeClients(t *testing.T, initObjs ...runtime.Object) (clicontext.NewCli
 			assert.Contains(t, apiEndpoint, ".com")
 			return fakeClient, nil
 		},
-		func(token string, apiEndpoint string) (*rest.RESTClient, error) {
-			return NewFakeExternalClient(t, token, apiEndpoint), nil
-		},
 		fakeClient
 }
 
 func NewFakeExternalClient(t *testing.T, token string, apiEndpoint string) *rest.RESTClient {
-	// mock request to download a script from GitHub
-	gock.New("https://raw.githubusercontent.com").
-		Get("codeready-toolchain/toolchain-cicd/master/scripts/add-cluster.sh").
-		Persist(). // make sure multiple requests are all handled by Gock
-		Reply(200)
-
-	// gock.Observe(gock.DumpRequest)
-	t.Cleanup(gock.OffAll)
 	cl, err := client.NewRESTClient(token, apiEndpoint)
 	require.NoError(t, err)
 	// override the underlying client's transport with Gock to intercep requests
