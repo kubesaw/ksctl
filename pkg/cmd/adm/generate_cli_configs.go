@@ -41,7 +41,7 @@ func NewGenerateCliConfigsCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			return generate(term, f, runtimeclient.New, DefaultNewExternalClientFromConfig)
+			return generate(term, f, DefaultNewExternalClientFromConfig)
 		},
 	}
 	command.Flags().StringVarP(&f.kubeSawAdminsFile, "kubesaw-admins", "c", "", "Use the given sandbox config file")
@@ -75,7 +75,7 @@ var DefaultNewExternalClientFromConfig = func(config *rest.Config) (*rest.RESTCl
 	return rest.RESTClientFor(config)
 }
 
-func generate(term ioutils.Terminal, flags generateFlags, newClient NewClientFromConfigFunc, newExternalClient NewRESTClientFromConfigFunc) error {
+func generate(term ioutils.Terminal, flags generateFlags, newExternalClient NewRESTClientFromConfigFunc) error {
 	if err := client.AddToScheme(); err != nil {
 		return err
 	}
@@ -88,7 +88,6 @@ func generate(term ioutils.Terminal, flags generateFlags, newClient NewClientFro
 
 	ctx := &generateContext{
 		Terminal:        term,
-		newClient:       newClient,
 		newRESTClient:   newExternalClient,
 		kubeSawAdmins:   kubeSawAdmins,
 		kubeconfigPaths: flags.kubeconfigs,
@@ -159,7 +158,6 @@ func writeSandboxUserConfigs(term ioutils.Terminal, configDirPath string, sandbo
 
 type generateContext struct {
 	ioutils.Terminal
-	newClient       NewClientFromConfigFunc
 	newRESTClient   NewRESTClientFromConfigFunc
 	kubeSawAdmins   *assets.KubeSawAdmins
 	kubeconfigPaths []string
