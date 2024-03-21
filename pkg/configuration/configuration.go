@@ -155,7 +155,7 @@ type ClusterConfig struct {
 	AllClusterNames   []string
 	ClusterName       string
 	Token             string
-	OperatorNamespace string
+	OperatorNamespace string // namespace where either the host-operator or the member-operator is deployed (depends on the cluster context)
 	PathToConfigFile  string
 }
 
