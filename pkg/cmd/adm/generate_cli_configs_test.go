@@ -42,6 +42,10 @@ func TestGenerateCliConfigs(t *testing.T) {
 	require.NoError(t, err)
 	kubeconfigFiles := createKubeconfigFiles(t, sandboxKubeconfigContent, sandboxKubeconfigContentMember2)
 
+	setupGockForListServiceAccounts(t, HostServerAPI, configuration.Host)
+	setupGockForListServiceAccounts(t, Member1ServerAPI, configuration.Member)
+	setupGockForListServiceAccounts(t, Member2ServerAPI, configuration.Member)
+
 	setupGockForServiceAccounts(t, HostServerAPI,
 		newServiceAccount("sandbox-sre-host", "john"),
 		newServiceAccount("sandbox-sre-host", "bob"),
@@ -110,6 +114,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 
 		t.Run("in dev mode", func(t *testing.T) {
 			// given
+			setupGockForListServiceAccounts(t, HostServerAPI, configuration.Member)
 			setupGockForServiceAccounts(t, HostServerAPI,
 				newServiceAccount("sandbox-sre-member", "john"),
 				newServiceAccount("sandbox-sre-member", "bob"),
@@ -140,7 +145,26 @@ func TestGenerateCliConfigs(t *testing.T) {
 			}
 
 			// when
-			_, err := buildClientFromKubeconfigFiles(ctx, "https://dummy.openshift.com", kubeconfigFiles)
+			_, err := buildClientFromKubeconfigFiles(ctx, "https://dummy.openshift.com", kubeconfigFiles, sandboxSRENamespace(configuration.Host))
+
+			// then
+			require.Error(t, err)
+			require.ErrorContains(t, err, "could not setup client from any of the provided kubeconfig files")
+		})
+
+		t.Run("test buildClientFromKubeconfigFiles cannot list service accounts", func(t *testing.T) {
+			// given
+			path := fmt.Sprintf("api/v1/namespaces/%s/serviceaccounts/", sandboxSRENamespace(configuration.Host))
+			gock.New("https://dummy.openshift.com").Get(path).Persist().Reply(403)
+			ctx := &generateContext{
+				Terminal:        term,
+				newRESTClient:   newExternalClient,
+				kubeSawAdmins:   kubeSawAdmins,
+				kubeconfigPaths: kubeconfigFiles,
+			}
+
+			// when
+			_, err := buildClientFromKubeconfigFiles(ctx, "https://dummy.openshift.com", kubeconfigFiles, sandboxSRENamespace(configuration.Host))
 
 			// then
 			require.Error(t, err)
@@ -293,6 +317,30 @@ func (a *sandboxUserConfigAssertion) hasCluster(clusterName, subDomain string, c
 	assert.Equal(a.t, fmt.Sprintf("https://api.sandbox.%s.openshiftapps.com:6443", subDomain), a.sandboxUserConfig.ClusterAccessDefinitions[clusterName].ServerAPI)
 
 	assert.Equal(a.t, fmt.Sprintf("token-secret-for-%s", a.saBaseName), a.sandboxUserConfig.ClusterAccessDefinitions[clusterName].Token)
+}
+
+func setupGockForListServiceAccounts(t *testing.T, apiEndpoint string, clusterType configuration.ClusterType) {
+	resultServiceAccounts := &corev1.ServiceAccountList{
+		TypeMeta: metav1.TypeMeta{},
+		ListMeta: metav1.ListMeta{},
+		Items: []corev1.ServiceAccount{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: sandboxSRENamespace(clusterType),
+					Name:      clusterType.String(),
+				},
+			},
+		},
+	}
+	resultServiceAccountsStr, err := json.Marshal(resultServiceAccounts)
+	require.NoError(t, err)
+	path := fmt.Sprintf("api/v1/namespaces/%s/serviceaccounts/", sandboxSRENamespace(clusterType))
+	t.Logf("mocking access to List %s/%s", apiEndpoint, path)
+	gock.New(apiEndpoint).
+		Get(path).
+		Persist().
+		Reply(200).
+		BodyString(string(resultServiceAccountsStr))
 }
 
 func setupGockForServiceAccounts(t *testing.T, apiEndpoint string, sas ...*corev1.ServiceAccount) {
