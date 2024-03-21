@@ -27,8 +27,8 @@ func TestCreateSocialEvent(t *testing.T) {
 
 		t.Run("1-day event without description", func(t *testing.T) {
 			// given
-			newClient, newRESTClient, fakeClient := NewFakeClients(t, userTier, spaceTier)
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			newClient, fakeClient := NewFakeClients(t, userTier, spaceTier)
+			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-21" // summer 🏝
 			endDate := "2022-06-21"   // ends same day
 			description := ""
@@ -55,8 +55,8 @@ func TestCreateSocialEvent(t *testing.T) {
 
 		t.Run("2-day event", func(t *testing.T) {
 			// given
-			newClient, newRESTClient, fakeClient := NewFakeClients(t, userTier, spaceTier)
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			newClient, fakeClient := NewFakeClients(t, userTier, spaceTier)
+			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-21" // summer 🏝
 			endDate := "2022-06-22"
 			description := "summer workshop"
@@ -81,8 +81,8 @@ func TestCreateSocialEvent(t *testing.T) {
 
 		t.Run("invalid start date", func(t *testing.T) {
 			// given
-			newClient, newRESTClient, _ := NewFakeClients(t, userTier, spaceTier)
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			newClient, _ := NewFakeClients(t, userTier, spaceTier)
+			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-xx" // invalid!
 			endDate := "2022-06-22"
 			description := "summer workshop"
@@ -97,8 +97,8 @@ func TestCreateSocialEvent(t *testing.T) {
 
 		t.Run("invalid end date", func(t *testing.T) {
 			// given
-			newClient, newRESTClient, _ := NewFakeClients(t, userTier, spaceTier)
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			newClient, _ := NewFakeClients(t, userTier, spaceTier)
+			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-21"
 			endDate := "2022-06-32" // invalid value!
 			description := "summer workshop"
@@ -113,8 +113,8 @@ func TestCreateSocialEvent(t *testing.T) {
 
 		t.Run("end date before start date", func(t *testing.T) {
 			// given
-			newClient, newRESTClient, _ := NewFakeClients(t, userTier, spaceTier)
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			newClient, _ := NewFakeClients(t, userTier, spaceTier)
+			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-21"
 			endDate := "2022-06-11" // before start date!
 			description := "summer workshop"
@@ -129,8 +129,8 @@ func TestCreateSocialEvent(t *testing.T) {
 
 		t.Run("usertier does not exist", func(t *testing.T) {
 			// given
-			newClient, newRESTClient, _ := NewFakeClients(t, spaceTier) // no user tier
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			newClient, _ := NewFakeClients(t, spaceTier) // no user tier
+			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-21"
 			endDate := "2022-06-22"
 			description := "summer workshop"
@@ -145,8 +145,8 @@ func TestCreateSocialEvent(t *testing.T) {
 
 		t.Run("nstemplatetier does not exist", func(t *testing.T) {
 			// given
-			newClient, newRESTClient, _ := NewFakeClients(t, userTier) // no space tier
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			newClient, _ := NewFakeClients(t, userTier) // no space tier
+			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-21"
 			endDate := "2022-06-22"
 			description := "summer workshop"

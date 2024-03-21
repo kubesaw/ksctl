@@ -17,12 +17,11 @@ type ClusterConfigCommandContext struct {
 }
 
 // NewClusterConfigCommandContext returns the context of the admin command to run
-func NewClusterConfigCommandContext(term ioutils.Terminal, cfg configuration.ClusterConfig, newClient NewClientFunc, newRESTClient NewRESTClientFunc, files assets.FS, clusterConfigName string) *ClusterConfigCommandContext {
+func NewClusterConfigCommandContext(term ioutils.Terminal, cfg configuration.ClusterConfig, newClient NewClientFunc, files assets.FS, clusterConfigName string) *ClusterConfigCommandContext {
 	return &ClusterConfigCommandContext{
 		CommandContext: CommandContext{
-			Terminal:      term,
-			NewClient:     newClient,
-			NewRESTClient: newRESTClient,
+			Terminal:  term,
+			NewClient: newClient,
 		},
 		Files:             files,
 		ClusterConfig:     cfg,

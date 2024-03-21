@@ -26,14 +26,14 @@ import (
 func TestNewClientOK(t *testing.T) {
 	// given
 	t.Cleanup(gock.OffAll)
-	gock.New("https://example.com").
+	gock.New("http://example.com").
 		Get("api").
 		Persist().
 		Reply(200).
 		BodyString("{}")
 
 	// when
-	cl, err := client.NewClient("cool-token", "https://example.com")
+	cl, err := client.NewClient("cool-token", "http://example.com")
 
 	// then
 	require.NoError(t, err)
@@ -56,9 +56,9 @@ func TestPatchUserSignup(t *testing.T) {
 	t.Run("update is successful", func(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		term := NewFakeTerminal()
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := client.PatchUserSignup(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup) (bool, error) {
@@ -75,9 +75,9 @@ func TestPatchUserSignup(t *testing.T) {
 	t.Run("UserSignup should not be updated", func(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		term := NewFakeTerminal()
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := client.PatchUserSignup(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup) (bool, error) {
@@ -93,9 +93,9 @@ func TestPatchUserSignup(t *testing.T) {
 	t.Run("change UserSignup func returns error", func(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		term := NewFakeTerminal()
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := client.PatchUserSignup(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup) (bool, error) {
@@ -111,12 +111,12 @@ func TestPatchUserSignup(t *testing.T) {
 	t.Run("get of UserSignup fails", func(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 			return fmt.Errorf("some error")
 		}
 		term := NewFakeTerminal()
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := client.PatchUserSignup(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup) (bool, error) {
@@ -131,12 +131,12 @@ func TestPatchUserSignup(t *testing.T) {
 	t.Run("update of UserSignup fails", func(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		fakeClient.MockPatch = func(ctx context.Context, obj runtimeclient.Object, patch runtimeclient.Patch, opts ...runtimeclient.PatchOption) error {
 			return fmt.Errorf("some error")
 		}
 		term := NewFakeTerminal()
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := client.PatchUserSignup(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup) (bool, error) {
@@ -157,8 +157,7 @@ func TestPatchUserSignup(t *testing.T) {
 		newClient := func(_, _ string) (runtimeclient.Client, error) {
 			return nil, fmt.Errorf("some error")
 		}
-		newRESTClient := client.DefaultNewRESTClient
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := client.PatchUserSignup(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup) (bool, error) {
@@ -177,9 +176,9 @@ func TestUpdateUserSignupLacksPermissions(t *testing.T) {
 	SetFileConfig(t, Host(NoToken()))
 
 	userSignup := NewUserSignup()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+	newClient, fakeClient := NewFakeClients(t, userSignup)
 	term := NewFakeTerminal()
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := client.PatchUserSignup(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup) (bool, error) {

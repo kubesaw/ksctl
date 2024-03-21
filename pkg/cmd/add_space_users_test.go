@@ -25,11 +25,11 @@ func TestAddSpaceUsers(t *testing.T) {
 		// given
 		mur1 := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
 		mur2 := masteruserrecord.NewMasterUserRecord(t, "bob", masteruserrecord.TierName("deactivate30"))
-		newClient, newRESTClient, fakeClient := initAddSpaceUsersTest(t, mur1, mur2)
+		newClient, fakeClient := initAddSpaceUsersTest(t, mur1, mur2)
 
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.AddSpaceUsers(ctx, "testspace", "admin", []string{"alice", "bob"})
@@ -47,11 +47,11 @@ func TestAddSpaceUsers(t *testing.T) {
 		// given
 		mur1 := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
 		mur2 := masteruserrecord.NewMasterUserRecord(t, "bob", masteruserrecord.TierName("deactivate30"))
-		newClient, newRESTClient, fakeClient := initAddSpaceUsersTest(t, mur1, mur2)
+		newClient, fakeClient := initAddSpaceUsersTest(t, mur1, mur2)
 
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.AddSpaceUsers(ctx, "testspace", "viewer", []string{"alice", "bob"})
@@ -69,11 +69,11 @@ func TestAddSpaceUsers(t *testing.T) {
 		// given
 		mur1 := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
 		mur2 := masteruserrecord.NewMasterUserRecord(t, "bob", masteruserrecord.TierName("deactivate30"))
-		newClient, newRESTClient, fakeClient := initAddSpaceUsersTest(t, mur1, mur2)
+		newClient, fakeClient := initAddSpaceUsersTest(t, mur1, mur2)
 
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("N")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.AddSpaceUsers(ctx, "testspace", "admin", []string{"alice", "bob"})
@@ -91,11 +91,11 @@ func TestAddSpaceUsers(t *testing.T) {
 		// given
 		mur1 := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
 		mur2 := masteruserrecord.NewMasterUserRecord(t, "bob", masteruserrecord.TierName("deactivate30"))
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, mur1, mur2) // no space
+		newClient, fakeClient := NewFakeClients(t, mur1, mur2) // no space
 
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("N")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.AddSpaceUsers(ctx, "testspace", "admin", []string{"alice", "bob"})
@@ -111,11 +111,11 @@ func TestAddSpaceUsers(t *testing.T) {
 
 	t.Run("when first mur not found", func(t *testing.T) {
 		// given
-		newClient, newRESTClient, fakeClient := initAddSpaceUsersTest(t) // no murs
+		newClient, fakeClient := initAddSpaceUsersTest(t) // no murs
 
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("N")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.AddSpaceUsers(ctx, "testspace", "admin", []string{"alice", "bob"})
@@ -132,11 +132,11 @@ func TestAddSpaceUsers(t *testing.T) {
 	t.Run("when second mur not found", func(t *testing.T) {
 		// given
 		mur1 := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
-		newClient, newRESTClient, fakeClient := initAddSpaceUsersTest(t, mur1) // mur2 missing
+		newClient, fakeClient := initAddSpaceUsersTest(t, mur1) // mur2 missing
 
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("N")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.AddSpaceUsers(ctx, "testspace", "admin", []string{"alice", "bob"})
@@ -153,11 +153,11 @@ func TestAddSpaceUsers(t *testing.T) {
 	t.Run("when role is invalid", func(t *testing.T) {
 		// given
 		mur1 := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
-		newClient, newRESTClient, fakeClient := initAddSpaceUsersTest(t, mur1) // mur2 missing
+		newClient, fakeClient := initAddSpaceUsersTest(t, mur1) // mur2 missing
 
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("N")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.AddSpaceUsers(ctx, "testspace", "badrole", []string{"alice", "bob"}) // invalid role
@@ -177,14 +177,14 @@ func TestAddSpaceUsers(t *testing.T) {
 		// given
 		mur1 := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
 		mur2 := masteruserrecord.NewMasterUserRecord(t, "bob", masteruserrecord.TierName("deactivate30"))
-		newClient, newRESTClient, fakeClient := initAddSpaceUsersTest(t, mur1, mur2)
+		newClient, fakeClient := initAddSpaceUsersTest(t, mur1, mur2)
 		fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 			return fmt.Errorf("client error")
 		}
 
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.AddSpaceUsers(ctx, "testspace", "admin", []string{"alice", "bob"})
@@ -199,7 +199,7 @@ func TestAddSpaceUsers(t *testing.T) {
 	})
 }
 
-func initAddSpaceUsersTest(t *testing.T, murs ...*toolchainv1alpha1.MasterUserRecord) (clicontext.NewClientFunc, clicontext.NewRESTClientFunc, *test.FakeClient) {
+func initAddSpaceUsersTest(t *testing.T, murs ...*toolchainv1alpha1.MasterUserRecord) (clicontext.NewClientFunc, *test.FakeClient) {
 	space := newSpace()
 	nsTemplateTier := newNSTemplateTier("base")
 	roles := make(map[string]toolchainv1alpha1.NSTemplateTierSpaceRole)
@@ -214,8 +214,8 @@ func initAddSpaceUsersTest(t *testing.T, murs ...*toolchainv1alpha1.MasterUserRe
 	for _, mur := range murs {
 		objs = append(objs, mur)
 	}
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, objs...)
-	return newClient, newRESTClient, fakeClient
+	newClient, fakeClient := NewFakeClients(t, objs...)
+	return newClient, fakeClient
 }
 
 func assertSpaceBindings(t *testing.T, fakeClient *test.FakeClient, expectedMurs []string, expectedRole string) {
