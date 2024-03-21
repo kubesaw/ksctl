@@ -17,10 +17,10 @@ func TestDisableUserCmdWhenAnswerIsY(t *testing.T) {
 	// given
 	// this mur will be disabled
 	mur1 := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, mur1)
+	newClient, fakeClient := NewFakeClients(t, mur1)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("y")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.DisableUser(ctx, mur1.Name)
@@ -39,10 +39,10 @@ func TestDisableUserCmdWhenAnswerIsY(t *testing.T) {
 func TestDisableUserCmdWhenAnswerIsN(t *testing.T) {
 	// given
 	mur := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, mur)
+	newClient, fakeClient := NewFakeClients(t, mur)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("n")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.DisableUser(ctx, mur.Name)
@@ -59,10 +59,10 @@ func TestDisableUserCmdWhenAnswerIsN(t *testing.T) {
 func TestDisableUserCmdWhenNotFound(t *testing.T) {
 	// given
 	mur := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, mur)
+	newClient, fakeClient := NewFakeClients(t, mur)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("n")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.DisableUser(ctx, "some")

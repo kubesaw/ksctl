@@ -28,11 +28,11 @@ func TestRemoveSpaceUsers(t *testing.T) {
 			sb1 := spacebinding.NewSpaceBinding(mur1, space, "alice")
 			mur2 := masteruserrecord.NewMasterUserRecord(t, "bob", masteruserrecord.TierName("deactivate30"))
 			sb2 := spacebinding.NewSpaceBinding(mur2, space, "bob")
-			newClient, newRESTClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
+			newClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
 
 			SetFileConfig(t, Host())
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
 			err := cmd.RemoveSpaceUsers(ctx, "testspace", []string{"alice", "bob"})
@@ -53,11 +53,11 @@ func TestRemoveSpaceUsers(t *testing.T) {
 			sb1 := spacebinding.NewSpaceBinding(mur1, space, "alice")
 			mur2 := masteruserrecord.NewMasterUserRecord(t, "bob", masteruserrecord.TierName("deactivate30"))
 			sb2 := spacebinding.NewSpaceBinding(mur2, space, "bob")
-			newClient, newRESTClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
+			newClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
 
 			SetFileConfig(t, Host())
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
 			err := cmd.RemoveSpaceUsers(ctx, "testspace", []string{"alice"})
@@ -79,11 +79,11 @@ func TestRemoveSpaceUsers(t *testing.T) {
 		sb1 := spacebinding.NewSpaceBinding(mur1, space, "alice")
 		mur2 := masteruserrecord.NewMasterUserRecord(t, "bob", masteruserrecord.TierName("deactivate30"))
 		sb2 := spacebinding.NewSpaceBinding(mur2, space, "bob")
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
+		newClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
 
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("N")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.RemoveSpaceUsers(ctx, "testspace", []string{"alice", "bob"})
@@ -104,11 +104,11 @@ func TestRemoveSpaceUsers(t *testing.T) {
 		sb1 := spacebinding.NewSpaceBinding(mur1, space, "alice")
 		mur2 := masteruserrecord.NewMasterUserRecord(t, "bob", masteruserrecord.TierName("deactivate30"))
 		sb2 := spacebinding.NewSpaceBinding(mur2, space, "bob")
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, sb1, sb2) // no space
+		newClient, fakeClient := NewFakeClients(t, sb1, sb2) // no space
 
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("N")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.RemoveSpaceUsers(ctx, "testspace", []string{"alice", "bob"})
@@ -129,11 +129,11 @@ func TestRemoveSpaceUsers(t *testing.T) {
 		sb1 := spacebinding.NewSpaceBinding(mur1, space, "alice")
 		mur2 := masteruserrecord.NewMasterUserRecord(t, "bob", masteruserrecord.TierName("deactivate30"))
 		sb2 := spacebinding.NewSpaceBinding(mur2, space, "bob")
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
+		newClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
 
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("N")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.RemoveSpaceUsers(ctx, "testspace", []string{"alice", "notexist"})
@@ -154,14 +154,14 @@ func TestRemoveSpaceUsers(t *testing.T) {
 		sb1 := spacebinding.NewSpaceBinding(mur1, space, "alice")
 		mur2 := masteruserrecord.NewMasterUserRecord(t, "bob", masteruserrecord.TierName("deactivate30"))
 		sb2 := spacebinding.NewSpaceBinding(mur2, space, "bob")
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
+		newClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
 		fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 			return fmt.Errorf("client error")
 		}
 
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.RemoveSpaceUsers(ctx, "testspace", []string{"alice", "bob"})

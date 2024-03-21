@@ -36,7 +36,7 @@ func NewCreateSocialEventCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
+			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return CreateSocialEvent(ctx, startDate, endDate, description, userTier, spaceTier, maxAttendees, preferSameCluster)
 		},
 	}
