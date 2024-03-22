@@ -45,7 +45,7 @@ func NewGenerateCliConfigsCmd() *cobra.Command {
 			return generate(term, f, DefaultNewExternalClientFromConfig)
 		},
 	}
-	command.Flags().StringVarP(&f.kubeSawAdminsFile, "kubesaw-admins", "c", "", "Use the given sandbox config file")
+	command.Flags().StringVarP(&f.kubeSawAdminsFile, "kubesaw-admins", "c", "", "Use the given kubesaw-admin file")
 	flags.MustMarkRequired(command, "kubesaw-admins")
 	command.Flags().BoolVarP(&f.dev, "dev", "d", false, "If running in a dev cluster")
 
@@ -94,8 +94,8 @@ func generate(term ioutils.Terminal, flags generateFlags, newExternalClient NewR
 		kubeconfigPaths: flags.kubeconfigs,
 	}
 
-	// sandboxUserConfigsPerName contains all sandboxUserConfig objects that will be marshalled to ksctl.yaml files
-	sandboxUserConfigsPerName := map[string]configuration.SandboxUserConfig{}
+	// ksctlConfigsPerName contains all ksctlConfig objects that will be marshalled to ksctl.yaml files
+	ksctlConfigsPerName := map[string]configuration.KsctlConfig{}
 
 	// use host API either from the kubesaw-admins.yaml or from kubeconfig if --dev flag was used
 	hostSpec := kubeSawAdmins.Clusters.Host
@@ -109,7 +109,7 @@ func generate(term ioutils.Terminal, flags generateFlags, newExternalClient NewR
 	}
 
 	// firstly generate for the host cluster
-	if err := generateForCluster(ctx, configuration.Host, "host", hostSpec, sandboxUserConfigsPerName); err != nil {
+	if err := generateForCluster(ctx, configuration.Host, "host", hostSpec, ksctlConfigsPerName); err != nil {
 		return err
 	}
 
@@ -122,29 +122,29 @@ func generate(term ioutils.Terminal, flags generateFlags, newExternalClient NewR
 			memberSpec.API = hostSpec.API
 		}
 
-		if err := generateForCluster(ctx, configuration.Member, member.Name, memberSpec, sandboxUserConfigsPerName); err != nil {
+		if err := generateForCluster(ctx, configuration.Member, member.Name, memberSpec, ksctlConfigsPerName); err != nil {
 			return err
 		}
 	}
 
-	return writeSandboxUserConfigs(term, flags.outDir, sandboxUserConfigsPerName)
+	return writeKsctlConfigs(term, flags.outDir, ksctlConfigsPerName)
 }
 
 func serverName(API string) string {
 	return strings.Split(strings.Split(API, "api.")[1], ":")[0]
 }
 
-// writeSandboxUserConfigs marshals the given SandboxUserConfig objects and stored them in sandbox-sre/out/config/<name>/ directories
-func writeSandboxUserConfigs(term ioutils.Terminal, configDirPath string, sandboxUserConfigsPerName map[string]configuration.SandboxUserConfig) error {
+// writeKsctlConfigs marshals the given KsctlConfig objects and stored them in sandbox-sre/out/config/<name>/ directories
+func writeKsctlConfigs(term ioutils.Terminal, configDirPath string, ksctlConfigsPerName map[string]configuration.KsctlConfig) error {
 	if err := os.RemoveAll(configDirPath); err != nil {
 		return err
 	}
-	for name, sandboxUserConfig := range sandboxUserConfigsPerName {
+	for name, ksctlConfig := range ksctlConfigsPerName {
 		pathDir := fmt.Sprintf("%s/%s", configDirPath, name)
 		if err := os.MkdirAll(pathDir, 0744); err != nil {
 			return err
 		}
-		content, err := yaml.Marshal(sandboxUserConfig)
+		content, err := yaml.Marshal(ksctlConfig)
 		if err != nil {
 			return err
 		}
@@ -167,7 +167,7 @@ type generateContext struct {
 // contains tokens mapped by SA name
 type tokenPerSA map[string]string
 
-func generateForCluster(ctx *generateContext, clusterType configuration.ClusterType, clusterName string, clusterSpec assets.ClusterConfig, sandboxUserConfigsPerName map[string]configuration.SandboxUserConfig) error {
+func generateForCluster(ctx *generateContext, clusterType configuration.ClusterType, clusterName string, clusterSpec assets.ClusterConfig, ksctlConfigsPerName map[string]configuration.KsctlConfig) error {
 	ctx.PrintContextSeparatorf("Generating the content of the ksctl.yaml files for %s cluster running at %s", clusterName, clusterSpec.API)
 
 	// find config we can build client for the cluster from
@@ -204,7 +204,7 @@ func generateForCluster(ctx *generateContext, clusterType configuration.ClusterT
 		}
 	}
 
-	addToSandboxUserConfigs(clusterDef, clusterName, sandboxUserConfigsPerName, tokenPerSAName)
+	addToKsctlConfigs(clusterDef, clusterName, ksctlConfigsPerName, tokenPerSAName)
 
 	return nil
 }
@@ -260,17 +260,17 @@ func getServiceAccountToken(cl *rest.RESTClient, namespacedName types.Namespaced
 	return result.Status.Token, nil
 }
 
-// addToSandboxUserConfigs adds to sandboxUserConfig objects information about the cluster as well as the SA token
-func addToSandboxUserConfigs(clusterDev configuration.ClusterDefinition, clusterName string, sandboxUserConfigsPerName map[string]configuration.SandboxUserConfig, tokensPerSA tokenPerSA) {
+// addToKsctlConfigs adds to ksctlConfig objects information about the cluster as well as the SA token
+func addToKsctlConfigs(clusterDev configuration.ClusterDefinition, clusterName string, ksctlConfigsPerName map[string]configuration.KsctlConfig, tokensPerSA tokenPerSA) {
 	for name, token := range tokensPerSA {
-		if _, ok := sandboxUserConfigsPerName[name]; !ok {
-			sandboxUserConfigsPerName[name] = configuration.SandboxUserConfig{
+		if _, ok := ksctlConfigsPerName[name]; !ok {
+			ksctlConfigsPerName[name] = configuration.KsctlConfig{
 				Name:                     name,
 				ClusterAccessDefinitions: map[string]configuration.ClusterAccessDefinition{},
 			}
 		}
 		clusterName := utils.KebabToCamelCase(clusterName)
-		sandboxUserConfigsPerName[name].ClusterAccessDefinitions[clusterName] = configuration.ClusterAccessDefinition{
+		ksctlConfigsPerName[name].ClusterAccessDefinitions[clusterName] = configuration.ClusterAccessDefinition{
 			ClusterDefinition: clusterDev,
 			Token:             token,
 		}

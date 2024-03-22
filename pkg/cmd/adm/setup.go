@@ -33,7 +33,7 @@ ksctl adm setup ./path/to/kubesaw-stage.openshiftapps.com/kubesaw-admins.yaml --
 			return Setup(term, resources.Resources, f)
 		},
 	}
-	command.Flags().StringVarP(&f.kubeSawAdminsFile, "kubesaw-admins", "c", "", "Use the given sandbox config file")
+	command.Flags().StringVarP(&f.kubeSawAdminsFile, "kubesaw-admins", "c", "", "Use the given kubesaw-admin file")
 	command.Flags().StringVarP(&f.outDir, "out-dir", "o", "", "Directory where generated manifests should be stored")
 	command.Flags().BoolVarP(&f.singleCluster, "single-cluster", "s", false, "If host and member are deployed to the same cluster")
 	command.Flags().StringVar(&f.hostRootDir, "host-root-dir", "host", "The root directory name for host manifests")

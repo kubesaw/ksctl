@@ -5,7 +5,7 @@ import (
 	"path"
 )
 
-func EnsureSandboxCliConfigFile() (string, error) {
+func EnsureKsctlConfigFile() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
