@@ -22,7 +22,7 @@ func NewUnregisterMemberCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
+			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return UnregisterMemberCluster(ctx, args[0])
 		},
 	}
@@ -45,7 +45,7 @@ func UnregisterMemberCluster(ctx *clicontext.CommandContext, clusterName string)
 	clusterResourceName := fmt.Sprintf("%s-%s", clusterDef.ClusterType, clusterDef.ServerName)
 
 	toolchainCluster := &toolchainv1alpha1.ToolchainCluster{}
-	if err := hostClusterClient.Get(context.TODO(), types.NamespacedName{Namespace: hostClusterConfig.SandboxNamespace, Name: clusterResourceName}, toolchainCluster); err != nil {
+	if err := hostClusterClient.Get(context.TODO(), types.NamespacedName{Namespace: hostClusterConfig.OperatorNamespace, Name: clusterResourceName}, toolchainCluster); err != nil {
 		return err
 	}
 	if err := ctx.PrintObject(toolchainCluster, "Toolchain Member cluster"); err != nil {

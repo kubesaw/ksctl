@@ -21,7 +21,7 @@ func NewRetargetCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
+			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return Retarget(ctx, args[0], args[1])
 		},
 	}
@@ -43,7 +43,7 @@ func Retarget(ctx *clicontext.CommandContext, spaceName, targetCluster string) e
 		return err
 	}
 
-	space, err := client.GetSpace(hostClusterClient, hostClusterConfig.SandboxNamespace, spaceName)
+	space, err := client.GetSpace(hostClusterClient, hostClusterConfig.OperatorNamespace, spaceName)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func Retarget(ctx *clicontext.CommandContext, spaceName, targetCluster string) e
 	if creator == "" {
 		return fmt.Errorf("spaces without the creator label are not supported")
 	}
-	userSignup, err := client.GetUserSignup(hostClusterClient, hostClusterConfig.SandboxNamespace, creator)
+	userSignup, err := client.GetUserSignup(hostClusterClient, hostClusterConfig.OperatorNamespace, creator)
 	if err != nil {
 		return err
 	}

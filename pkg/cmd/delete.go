@@ -22,7 +22,7 @@ only one parameter which is the name of the UserSignup to be deleted`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
+			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return Delete(ctx, args...)
 		},
 	}
@@ -37,7 +37,7 @@ func Delete(ctx *clicontext.CommandContext, args ...string) error {
 	if err != nil {
 		return err
 	}
-	userSignup, err := client.GetUserSignup(cl, cfg.SandboxNamespace, args[0])
+	userSignup, err := client.GetUserSignup(cl, cfg.OperatorNamespace, args[0])
 	if err != nil {
 		return err
 	}

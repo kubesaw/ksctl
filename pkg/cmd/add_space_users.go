@@ -28,7 +28,7 @@ one or more users specified by their MasterUserRecord name. One SpaceBinding wil
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
+			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 
 			return AddSpaceUsers(ctx, spaceName, role, users)
 		},
@@ -55,7 +55,7 @@ func AddSpaceUsers(ctx *clicontext.CommandContext, spaceName, role string, users
 
 	// get Space
 	ctx.Println("Checking space...")
-	space, err := client.GetSpace(cl, cfg.SandboxNamespace, spaceName)
+	space, err := client.GetSpace(cl, cfg.OperatorNamespace, spaceName)
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func AddSpaceUsers(ctx *clicontext.CommandContext, spaceName, role string, users
 	ctx.Println("Checking users...")
 	spaceBindingsToCreate := []*toolchainv1alpha1.SpaceBinding{}
 	for _, murName := range usersToAdd {
-		mur, err := client.GetMasterUserRecord(cl, cfg.SandboxNamespace, murName)
+		mur, err := client.GetMasterUserRecord(cl, cfg.OperatorNamespace, murName)
 		if err != nil {
 			return err
 		}

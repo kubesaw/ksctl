@@ -18,10 +18,10 @@ import (
 func TestPromoteSpaceCmdWhenAnswerIsY(t *testing.T) {
 	// given
 	space := newSpace()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, space, newNSTemplateTier("advanced"))
+	newClient, fakeClient := NewFakeClients(t, space, newNSTemplateTier("advanced"))
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("Y")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.PromoteSpace(ctx, space.Name, "advanced")
@@ -39,10 +39,10 @@ func TestPromoteSpaceCmdWhenAnswerIsY(t *testing.T) {
 func TestPromoteSpaceCmdWhenAnswerIsN(t *testing.T) {
 	// given
 	space := newSpace()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, space, newNSTemplateTier("advanced"))
+	newClient, fakeClient := NewFakeClients(t, space, newNSTemplateTier("advanced"))
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("n")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.PromoteSpace(ctx, space.Name, "advanced")
@@ -59,10 +59,10 @@ func TestPromoteSpaceCmdWhenAnswerIsN(t *testing.T) {
 func TestPromoteSpaceCmdWhenSpaceNotFound(t *testing.T) {
 	// given
 	space := newSpace()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, space, newNSTemplateTier("advanced"))
+	newClient, fakeClient := NewFakeClients(t, space, newNSTemplateTier("advanced"))
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("Y")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.PromoteSpace(ctx, "another", "advanced") // attempt to promote a space that does not exist
@@ -79,10 +79,10 @@ func TestPromoteSpaceCmdWhenSpaceNotFound(t *testing.T) {
 func TestPromoteSpaceCmdWhenNSTemplateTierNotFound(t *testing.T) {
 	// given
 	space := newSpace()
-	newClient, newRESTClient, fakeClient := NewFakeClients(t, space)
+	newClient, fakeClient := NewFakeClients(t, space)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("Y")
-	ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
 	err := cmd.PromoteSpace(ctx, space.Name, "advanced")

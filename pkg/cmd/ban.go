@@ -24,7 +24,7 @@ only one parameter which is the name of the UserSignup to be used for banning`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
+			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return Ban(ctx, args...)
 		},
 	}
@@ -58,7 +58,7 @@ func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName string, con
 		return err
 	}
 
-	userSignup, err := client.GetUserSignup(cl, cfg.SandboxNamespace, userSignupName)
+	userSignup, err := client.GetUserSignup(cl, cfg.OperatorNamespace, userSignupName)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName string, con
 	}
 
 	bannedUsers := &toolchainv1alpha1.BannedUserList{}
-	if err := cl.List(context.TODO(), bannedUsers, runtimeclient.MatchingLabels(bannedUser.Labels), runtimeclient.InNamespace(cfg.SandboxNamespace)); err != nil {
+	if err := cl.List(context.TODO(), bannedUsers, runtimeclient.MatchingLabels(bannedUser.Labels), runtimeclient.InNamespace(cfg.OperatorNamespace)); err != nil {
 		return err
 	}
 

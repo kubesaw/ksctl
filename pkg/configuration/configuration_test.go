@@ -50,7 +50,7 @@ func TestLoadClusterConfig(t *testing.T) {
 
 						// then
 						require.NoError(t, err)
-						assert.Equal(t, namespaceName, cfg.SandboxNamespace)
+						assert.Equal(t, namespaceName, cfg.OperatorNamespace)
 						assert.Equal(t, "--namespace="+namespaceName, cfg.GetNamespaceParam())
 						assert.Equal(t, clusterConfigParam.ClusterType, cfg.ClusterType)
 						assert.Equal(t, "cool-token", cfg.Token)
@@ -59,10 +59,9 @@ func TestLoadClusterConfig(t *testing.T) {
 						assert.Equal(t, "cool-server.com", cfg.ServerName)
 						assert.Len(t, cfg.AllClusterNames, 1)
 						assert.Contains(t, cfg.AllClusterNames, utils.CamelCaseToKebabCase(clusterName))
-						assert.True(t, strings.HasPrefix(cfg.PathToConfigFile, os.TempDir()))
 						assert.Contains(t, term.Output(), fmt.Sprintf("Using config file: '%s'", configuration.ConfigFileFlag))
 						assert.Contains(t, term.Output(), fmt.Sprintf("Using '%s' configuration for '%s' cluster running at '%s' and in namespace '%s'",
-							cfg.ClusterName, cfg.ServerName, cfg.ServerAPI, cfg.SandboxNamespace))
+							cfg.ClusterName, cfg.ServerName, cfg.ServerAPI, cfg.OperatorNamespace))
 					})
 
 					t.Run("without verbose logs", func(t *testing.T) {
@@ -79,7 +78,7 @@ func TestLoadClusterConfig(t *testing.T) {
 						// don't repeat assertions above, just check that logs do NOT contain the following messages
 						assert.NotContains(t, term.Output(), fmt.Sprintf("Using config file: '%s'", configuration.ConfigFileFlag))
 						assert.NotContains(t, term.Output(), fmt.Sprintf("Using '%s' configuration for '%s' cluster running at '%s' and in namespace '%s'",
-							cfg.ClusterType, cfg.ServerName, cfg.ServerAPI, cfg.SandboxNamespace))
+							cfg.ClusterType, cfg.ServerName, cfg.ServerAPI, cfg.OperatorNamespace))
 					})
 				})
 			}
@@ -88,7 +87,7 @@ func TestLoadClusterConfig(t *testing.T) {
 				clusterConfigParam.ClusterName = testCase.transform(clusterConfigParam.ClusterName)
 				clusterName := clusterConfigParam.ClusterName
 
-				t.Run("when sandbox namespace is set via global variable for "+clusterConfigParam.ClusterName, func(t *testing.T) {
+				t.Run("when kubeSaw namespace is set via global variable for "+clusterConfigParam.ClusterName, func(t *testing.T) {
 					// given
 					restore := test.SetEnvVarAndRestore(t, strings.ToUpper(clusterConfigParam.ClusterType.String())+"_OPERATOR_NAMESPACE", "custom-namespace")
 					t.Cleanup(restore)
@@ -99,8 +98,8 @@ func TestLoadClusterConfig(t *testing.T) {
 					cfg, err := configuration.LoadClusterConfig(term, clusterName)
 
 					// then
-					require.NoError(t, err, "sandbox command failed: The sandbox namespace is not set for the cluster "+clusterConfigParam.ClusterName)
-					assert.Equal(t, "custom-namespace", cfg.SandboxNamespace)
+					require.NoError(t, err, "ksctl command failed: The kubeSaw namespace is not set for the cluster "+clusterConfigParam.ClusterName)
+					assert.Equal(t, "custom-namespace", cfg.OperatorNamespace)
 				})
 			}
 
@@ -117,7 +116,7 @@ func TestLoadClusterConfig(t *testing.T) {
 					cfg, err := configuration.LoadClusterConfig(term, clusterName)
 
 					// then
-					require.EqualError(t, err, "sandbox command failed: 'cluster type' is not set for cluster '"+clusterConfigParam.ClusterName+"'")
+					require.EqualError(t, err, "ksctl command failed: 'cluster type' is not set for cluster '"+clusterConfigParam.ClusterName+"'")
 					assert.Empty(t, cfg.ClusterType)
 				})
 			}
@@ -135,7 +134,7 @@ func TestLoadClusterConfig(t *testing.T) {
 					cfg, err := configuration.LoadClusterConfig(term, clusterName)
 
 					// then
-					require.EqualError(t, err, "sandbox command failed: the token in your ksctl.yaml file is missing")
+					require.EqualError(t, err, "ksctl command failed: the token in your ksctl.yaml file is missing")
 					assert.Empty(t, cfg.Token)
 				})
 			}
@@ -153,7 +152,7 @@ func TestLoadClusterConfig(t *testing.T) {
 					cfg, err := configuration.LoadClusterConfig(term, clusterName)
 
 					// then
-					require.EqualError(t, err, "sandbox command failed: The server API is not set for the cluster "+clusterName)
+					require.EqualError(t, err, "ksctl command failed: The server API is not set for the cluster "+clusterName)
 					assert.Empty(t, cfg.ServerAPI)
 				})
 			}
@@ -171,7 +170,7 @@ func TestLoadClusterConfig(t *testing.T) {
 					cfg, err := configuration.LoadClusterConfig(term, clusterName)
 
 					// then
-					require.EqualError(t, err, "sandbox command failed: The server name is not set for the cluster "+clusterName)
+					require.EqualError(t, err, "ksctl command failed: The server name is not set for the cluster "+clusterName)
 					assert.Empty(t, cfg.ServerName)
 				})
 			}
@@ -226,7 +225,7 @@ func TestLoadingClusterConfigWithNonexistentClusterName(t *testing.T) {
 	assert.Contains(t, err.Error(), "the provided cluster-name 'dummy' is not present in your ksctl.yaml file. The available cluster names are")
 	assert.Contains(t, err.Error(), "host")
 	assert.Contains(t, err.Error(), "member-1")
-	assert.Empty(t, cfg.SandboxNamespace)
+	assert.Empty(t, cfg.OperatorNamespace)
 }
 
 func TestLoad(t *testing.T) {
@@ -238,46 +237,13 @@ func TestLoad(t *testing.T) {
 		configuration.Verbose = true
 
 		// when
-		sandboxUserConfig, path, err := configuration.Load(term)
+		ksctlConfig, err := configuration.Load(term)
 
 		// then
 		require.NoError(t, err)
-		expectedConfig := NewSandboxUserConfig(Host(), Member())
-		assert.Equal(t, expectedConfig, sandboxUserConfig)
+		expectedConfig := NewKsctlConfig(Host(), Member())
+		assert.Equal(t, expectedConfig, ksctlConfig)
 		assert.Contains(t, term.Output(), "Using config file")
-		assert.True(t, strings.HasPrefix(path, os.TempDir()))
-
-		t.Run("reload again the same", func(t *testing.T) {
-			// given
-			term := NewFakeTerminal()
-
-			// when
-			sandboxUserConfig, theSamePath, err := configuration.Load(term)
-
-			// then
-			require.NoError(t, err)
-			assert.Equal(t, expectedConfig, sandboxUserConfig)
-			assert.Contains(t, term.Output(), "Using config file")
-			assert.True(t, strings.HasPrefix(path, os.TempDir()))
-			assert.Equal(t, path, theSamePath)
-		})
-
-		t.Run("load a new one", func(t *testing.T) {
-			// given
-			term := NewFakeTerminal()
-			SetFileConfig(t, Host(), Member())
-
-			// when
-			sandboxUserConfig, newPath, err := configuration.Load(term)
-
-			// then
-			require.NoError(t, err)
-			expectedConfig := NewSandboxUserConfig(Host(), Member())
-			assert.Equal(t, expectedConfig, sandboxUserConfig)
-			assert.Contains(t, term.Output(), "Using config file")
-			assert.True(t, strings.HasPrefix(path, os.TempDir()))
-			assert.NotEqual(t, path, newPath)
-		})
 	})
 
 	t.Run("without verbose messages", func(t *testing.T) {
@@ -287,14 +253,13 @@ func TestLoad(t *testing.T) {
 		configuration.Verbose = false
 
 		// when
-		sandboxUserConfig, path, err := configuration.Load(term)
+		ksctlConfig, err := configuration.Load(term)
 
 		// then
 		require.NoError(t, err)
-		expectedConfig := NewSandboxUserConfig(Host(), Member())
-		assert.Equal(t, expectedConfig, sandboxUserConfig)
+		expectedConfig := NewKsctlConfig(Host(), Member())
+		assert.Equal(t, expectedConfig, ksctlConfig)
 		assert.NotContains(t, term.Output(), "Using config file")
-		assert.True(t, strings.HasPrefix(path, os.TempDir()))
 	})
 
 }
@@ -306,7 +271,7 @@ func TestLoadFails(t *testing.T) {
 		configuration.ConfigFileFlag = "/tmp/should-not-exist.yaml"
 
 		// when
-		_, _, err := configuration.Load(term)
+		_, err := configuration.Load(term)
 
 		// then
 		require.Error(t, err)
@@ -318,7 +283,7 @@ func TestLoadFails(t *testing.T) {
 		configuration.ConfigFileFlag = os.TempDir()
 
 		// when
-		_, _, err := configuration.Load(term)
+		_, err := configuration.Load(term)
 
 		// then
 		require.Error(t, err)

@@ -39,7 +39,7 @@ only one parameter which is the name of the UserSignup to be approved`,
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
+			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			switch {
 			case usersignupName != "":
 				return Approve(ctx, ByName(usersignupName), skipPhone, targetCluster)
@@ -61,7 +61,7 @@ func ByName(name string) LookupUserSignup {
 	return func(cfg configuration.ClusterConfig, cl runtimeclient.Client) (*toolchainv1alpha1.UserSignup, error) {
 		userSignup := &toolchainv1alpha1.UserSignup{}
 		err := cl.Get(context.TODO(), types.NamespacedName{
-			Namespace: cfg.SandboxNamespace,
+			Namespace: cfg.OperatorNamespace,
 			Name:      name,
 		}, userSignup)
 		return userSignup, err
@@ -71,7 +71,7 @@ func ByName(name string) LookupUserSignup {
 func ByEmailAddress(emailAddress string) LookupUserSignup {
 	return func(cfg configuration.ClusterConfig, cl runtimeclient.Client) (*toolchainv1alpha1.UserSignup, error) {
 		usersignups := toolchainv1alpha1.UserSignupList{}
-		if err := cl.List(context.TODO(), &usersignups, runtimeclient.InNamespace(cfg.SandboxNamespace), runtimeclient.MatchingLabels{
+		if err := cl.List(context.TODO(), &usersignups, runtimeclient.InNamespace(cfg.OperatorNamespace), runtimeclient.MatchingLabels{
 			toolchainv1alpha1.UserSignupUserEmailHashLabelKey: hash.EncodeString(emailAddress),
 		}); err != nil {
 			return nil, err

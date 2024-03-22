@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	authv1 "k8s.io/api/authentication/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -41,10 +42,10 @@ func NewGenerateCliConfigsCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			return generate(term, f, runtimeclient.New, DefaultNewExternalClientFromConfig)
+			return generate(term, f, DefaultNewExternalClientFromConfig)
 		},
 	}
-	command.Flags().StringVarP(&f.kubeSawAdminsFile, "kubesaw-admins", "c", "", "Use the given sandbox config file")
+	command.Flags().StringVarP(&f.kubeSawAdminsFile, "kubesaw-admins", "c", "", "Use the given kubesaw-admin file")
 	flags.MustMarkRequired(command, "kubesaw-admins")
 	command.Flags().BoolVarP(&f.dev, "dev", "d", false, "If running in a dev cluster")
 
@@ -75,7 +76,7 @@ var DefaultNewExternalClientFromConfig = func(config *rest.Config) (*rest.RESTCl
 	return rest.RESTClientFor(config)
 }
 
-func generate(term ioutils.Terminal, flags generateFlags, newClient NewClientFromConfigFunc, newExternalClient NewRESTClientFromConfigFunc) error {
+func generate(term ioutils.Terminal, flags generateFlags, newExternalClient NewRESTClientFromConfigFunc) error {
 	if err := client.AddToScheme(); err != nil {
 		return err
 	}
@@ -88,14 +89,13 @@ func generate(term ioutils.Terminal, flags generateFlags, newClient NewClientFro
 
 	ctx := &generateContext{
 		Terminal:        term,
-		newClient:       newClient,
 		newRESTClient:   newExternalClient,
 		kubeSawAdmins:   kubeSawAdmins,
 		kubeconfigPaths: flags.kubeconfigs,
 	}
 
-	// sandboxUserConfigsPerName contains all sandboxUserConfig objects that will be marshalled to ksctl.yaml files
-	sandboxUserConfigsPerName := map[string]configuration.SandboxUserConfig{}
+	// ksctlConfigsPerName contains all ksctlConfig objects that will be marshalled to ksctl.yaml files
+	ksctlConfigsPerName := map[string]configuration.KsctlConfig{}
 
 	// use host API either from the kubesaw-admins.yaml or from kubeconfig if --dev flag was used
 	hostSpec := kubeSawAdmins.Clusters.Host
@@ -109,7 +109,7 @@ func generate(term ioutils.Terminal, flags generateFlags, newClient NewClientFro
 	}
 
 	// firstly generate for the host cluster
-	if err := generateForCluster(ctx, configuration.Host, "host", hostSpec, sandboxUserConfigsPerName); err != nil {
+	if err := generateForCluster(ctx, configuration.Host, "host", hostSpec, ksctlConfigsPerName); err != nil {
 		return err
 	}
 
@@ -122,29 +122,29 @@ func generate(term ioutils.Terminal, flags generateFlags, newClient NewClientFro
 			memberSpec.API = hostSpec.API
 		}
 
-		if err := generateForCluster(ctx, configuration.Member, member.Name, memberSpec, sandboxUserConfigsPerName); err != nil {
+		if err := generateForCluster(ctx, configuration.Member, member.Name, memberSpec, ksctlConfigsPerName); err != nil {
 			return err
 		}
 	}
 
-	return writeSandboxUserConfigs(term, flags.outDir, sandboxUserConfigsPerName)
+	return writeKsctlConfigs(term, flags.outDir, ksctlConfigsPerName)
 }
 
 func serverName(API string) string {
 	return strings.Split(strings.Split(API, "api.")[1], ":")[0]
 }
 
-// writeSandboxUserConfigs marshals the given SandboxUserConfig objects and stored them in sandbox-sre/out/config/<name>/ directories
-func writeSandboxUserConfigs(term ioutils.Terminal, configDirPath string, sandboxUserConfigsPerName map[string]configuration.SandboxUserConfig) error {
+// writeKsctlConfigs marshals the given KsctlConfig objects and stored them in sandbox-sre/out/config/<name>/ directories
+func writeKsctlConfigs(term ioutils.Terminal, configDirPath string, ksctlConfigsPerName map[string]configuration.KsctlConfig) error {
 	if err := os.RemoveAll(configDirPath); err != nil {
 		return err
 	}
-	for name, sandboxUserConfig := range sandboxUserConfigsPerName {
+	for name, ksctlConfig := range ksctlConfigsPerName {
 		pathDir := fmt.Sprintf("%s/%s", configDirPath, name)
 		if err := os.MkdirAll(pathDir, 0744); err != nil {
 			return err
 		}
-		content, err := yaml.Marshal(sandboxUserConfig)
+		content, err := yaml.Marshal(ksctlConfig)
 		if err != nil {
 			return err
 		}
@@ -159,7 +159,6 @@ func writeSandboxUserConfigs(term ioutils.Terminal, configDirPath string, sandbo
 
 type generateContext struct {
 	ioutils.Terminal
-	newClient       NewClientFromConfigFunc
 	newRESTClient   NewRESTClientFromConfigFunc
 	kubeSawAdmins   *assets.KubeSawAdmins
 	kubeconfigPaths []string
@@ -168,11 +167,11 @@ type generateContext struct {
 // contains tokens mapped by SA name
 type tokenPerSA map[string]string
 
-func generateForCluster(ctx *generateContext, clusterType configuration.ClusterType, clusterName string, clusterSpec assets.ClusterConfig, sandboxUserConfigsPerName map[string]configuration.SandboxUserConfig) error {
+func generateForCluster(ctx *generateContext, clusterType configuration.ClusterType, clusterName string, clusterSpec assets.ClusterConfig, ksctlConfigsPerName map[string]configuration.KsctlConfig) error {
 	ctx.PrintContextSeparatorf("Generating the content of the ksctl.yaml files for %s cluster running at %s", clusterName, clusterSpec.API)
 
 	// find config we can build client for the cluster from
-	externalClient, err := buildClientFromKubeconfigFiles(ctx, clusterSpec.API, ctx.kubeconfigPaths)
+	externalClient, err := buildClientFromKubeconfigFiles(ctx, clusterSpec.API, ctx.kubeconfigPaths, sandboxSRENamespace(clusterType))
 	if err != nil {
 		return err
 	}
@@ -205,14 +204,14 @@ func generateForCluster(ctx *generateContext, clusterType configuration.ClusterT
 		}
 	}
 
-	addToSandboxUserConfigs(clusterDef, clusterName, sandboxUserConfigsPerName, tokenPerSAName)
+	addToKsctlConfigs(clusterDef, clusterName, ksctlConfigsPerName, tokenPerSAName)
 
 	return nil
 }
 
 // buildClientFromKubeconfigFiles goes through the list of kubeconfigs and tries to build the runtimeclient.Client & rest.RESTClient.
 // As soon as the build is successful, then it returns the built instances. If the build fails for all of the kubeconfig files, then it returns an error.
-func buildClientFromKubeconfigFiles(ctx *generateContext, API string, kubeconfigPaths []string) (*rest.RESTClient, error) {
+func buildClientFromKubeconfigFiles(ctx *generateContext, API string, kubeconfigPaths []string, saNamespace string) (*rest.RESTClient, error) {
 	for _, kubeconfigPath := range kubeconfigPaths {
 		kubeconfig, err := clientcmd.BuildConfigFromFlags(API, kubeconfigPath)
 		if err != nil {
@@ -223,6 +222,14 @@ func buildClientFromKubeconfigFiles(ctx *generateContext, API string, kubeconfig
 		externalCl, err := ctx.newRESTClient(kubeconfig)
 		if err != nil {
 			ctx.Printlnf("Unable to build config from kubeconfig file located at '%s' for the cluster '%s': %s", kubeconfigPath, API, err.Error())
+			ctx.Printlnf("trying next one...")
+			continue
+		}
+		sas := &v1.ServiceAccountList{}
+		if err := externalCl.Get().
+			AbsPath(fmt.Sprintf("api/v1/namespaces/%s/serviceaccounts/", saNamespace)).
+			Do(context.TODO()).Into(sas); err != nil {
+			ctx.Printlnf("Unable to use restclient built with kubeconfig file located at '%s' for the cluster '%s': %s", kubeconfigPath, API, err.Error())
 			ctx.Printlnf("trying next one...")
 			continue
 		}
@@ -253,17 +260,17 @@ func getServiceAccountToken(cl *rest.RESTClient, namespacedName types.Namespaced
 	return result.Status.Token, nil
 }
 
-// addToSandboxUserConfigs adds to sandboxUserConfig objects information about the cluster as well as the SA token
-func addToSandboxUserConfigs(clusterDev configuration.ClusterDefinition, clusterName string, sandboxUserConfigsPerName map[string]configuration.SandboxUserConfig, tokensPerSA tokenPerSA) {
+// addToKsctlConfigs adds to ksctlConfig objects information about the cluster as well as the SA token
+func addToKsctlConfigs(clusterDev configuration.ClusterDefinition, clusterName string, ksctlConfigsPerName map[string]configuration.KsctlConfig, tokensPerSA tokenPerSA) {
 	for name, token := range tokensPerSA {
-		if _, ok := sandboxUserConfigsPerName[name]; !ok {
-			sandboxUserConfigsPerName[name] = configuration.SandboxUserConfig{
+		if _, ok := ksctlConfigsPerName[name]; !ok {
+			ksctlConfigsPerName[name] = configuration.KsctlConfig{
 				Name:                     name,
 				ClusterAccessDefinitions: map[string]configuration.ClusterAccessDefinition{},
 			}
 		}
 		clusterName := utils.KebabToCamelCase(clusterName)
-		sandboxUserConfigsPerName[name].ClusterAccessDefinitions[clusterName] = configuration.ClusterAccessDefinition{
+		ksctlConfigsPerName[name].ClusterAccessDefinitions[clusterName] = configuration.ClusterAccessDefinition{
 			ClusterDefinition: clusterDev,
 			Token:             token,
 		}

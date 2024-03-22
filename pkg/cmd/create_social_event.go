@@ -36,7 +36,7 @@ func NewCreateSocialEventCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
+			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return CreateSocialEvent(ctx, startDate, endDate, description, userTier, spaceTier, maxAttendees, preferSameCluster)
 		},
 	}
@@ -79,7 +79,7 @@ func CreateSocialEvent(ctx *clicontext.CommandContext, startDate, endDate, descr
 	}
 	// check that the user and space tiers exist
 	if err := cl.Get(context.TODO(), types.NamespacedName{
-		Namespace: cfg.SandboxNamespace,
+		Namespace: cfg.OperatorNamespace,
 		Name:      userTier,
 	}, &toolchainv1alpha1.UserTier{}); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -87,7 +87,7 @@ func CreateSocialEvent(ctx *clicontext.CommandContext, startDate, endDate, descr
 		}
 	}
 	if err := cl.Get(context.TODO(), types.NamespacedName{
-		Namespace: cfg.SandboxNamespace,
+		Namespace: cfg.OperatorNamespace,
 		Name:      spaceTier,
 	}, &toolchainv1alpha1.NSTemplateTier{}); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -97,7 +97,7 @@ func CreateSocialEvent(ctx *clicontext.CommandContext, startDate, endDate, descr
 
 	se := &toolchainv1alpha1.SocialEvent{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cfg.SandboxNamespace,
+			Namespace: cfg.OperatorNamespace,
 			Name:      code,
 		},
 		Spec: toolchainv1alpha1.SocialEventSpec{

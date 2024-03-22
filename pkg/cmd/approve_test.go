@@ -23,10 +23,10 @@ func TestApprove(t *testing.T) {
 	t.Run("when answer is Y", func(t *testing.T) {
 		// given
 		userSignup := NewUserSignup()
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.Approve(ctx, dummyGet(userSignup), false, "")
@@ -46,10 +46,10 @@ func TestApprove(t *testing.T) {
 	t.Run("when answer is N", func(t *testing.T) {
 		// given
 		userSignup := NewUserSignup()
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("n")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.Approve(ctx, dummyGet(userSignup), false, "")
@@ -66,10 +66,10 @@ func TestApprove(t *testing.T) {
 	t.Run("reactivate deactivated user", func(t *testing.T) {
 		// given
 		userSignup := NewUserSignup(UserSignupDeactivated(true))
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.Approve(ctx, dummyGet(userSignup), false, "")
@@ -85,10 +85,10 @@ func TestApprove(t *testing.T) {
 	t.Run("user is already active - automatically approved", func(t *testing.T) {
 		// given
 		userSignup := NewUserSignup(UserSignupAutomaticallyApproved(true))
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.Approve(ctx, dummyGet(userSignup), false, "")
@@ -101,10 +101,10 @@ func TestApprove(t *testing.T) {
 	t.Run("user is already active - approved by admin", func(t *testing.T) {
 		// given
 		userSignup := NewUserSignup(UserSignupApprovedByAdmin(true))
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.Approve(ctx, dummyGet(userSignup), false, "")
@@ -118,10 +118,10 @@ func TestApprove(t *testing.T) {
 	t.Run("when usersignup is already approved", func(t *testing.T) {
 		// given
 		userSignup := NewUserSignup(UserSignupAutomaticallyApproved(true))
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.Approve(ctx, dummyGet(userSignup), false, "")
@@ -138,10 +138,10 @@ func TestApprove(t *testing.T) {
 	t.Run("when getting usersignup failed", func(t *testing.T) {
 		// given
 		userSignup := NewUserSignup()
-		newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
 		err := cmd.Approve(ctx, func(configuration.ClusterConfig, runtimeclient.Client) (*toolchainv1alpha1.UserSignup, error) {
@@ -162,10 +162,10 @@ func TestApprove(t *testing.T) {
 		t.Run("when usersignup has phone hash", func(t *testing.T) {
 			// given
 			userSignup := NewUserSignup()
-			newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+			newClient, fakeClient := NewFakeClients(t, userSignup)
 			SetFileConfig(t, Host())
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
 			err := cmd.Approve(ctx, dummyGet(userSignup), false, "")
@@ -185,10 +185,10 @@ func TestApprove(t *testing.T) {
 		t.Run("when usersignup doesn't have phone hash but skip phone verification flag is set", func(t *testing.T) {
 			// given
 			userSignup := NewUserSignup(UserSignupRemoveLabel(toolchainv1alpha1.UserSignupUserPhoneHashLabelKey))
-			newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+			newClient, fakeClient := NewFakeClients(t, userSignup)
 			SetFileConfig(t, Host())
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
 			err := cmd.Approve(ctx, dummyGet(userSignup), true, "")
@@ -208,10 +208,10 @@ func TestApprove(t *testing.T) {
 		t.Run("when usersignup doesn't have phone hash", func(t *testing.T) {
 			// given
 			userSignup := NewUserSignup(UserSignupRemoveLabel(toolchainv1alpha1.UserSignupUserPhoneHashLabelKey))
-			newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+			newClient, fakeClient := NewFakeClients(t, userSignup)
 			SetFileConfig(t, Host())
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
 			err := cmd.Approve(ctx, dummyGet(userSignup), false, "")
@@ -230,13 +230,13 @@ func TestApprove(t *testing.T) {
 		t.Run("when targetCluster is valid", func(t *testing.T) {
 			// given
 			userSignup := NewUserSignup()
-			newClient, newRESTClient, fakeClient := NewFakeClients(t, userSignup)
+			newClient, fakeClient := NewFakeClients(t, userSignup)
 			SetFileConfig(t,
 				Host(),
 				Member(ClusterName("member1"), ServerName("m1.devcluster.openshift.com")),
 				Member(ClusterName("member2"), ServerName("m2.devcluster.openshift.com")))
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
 			err := cmd.Approve(ctx, dummyGet(userSignup), false, "member1")
@@ -258,13 +258,13 @@ func TestApprove(t *testing.T) {
 		t.Run("when targetCluster is invalid", func(t *testing.T) {
 			// given
 			userSignup := NewUserSignup()
-			newClient, newRESTClient, _ := NewFakeClients(t, userSignup)
+			newClient, _ := NewFakeClients(t, userSignup)
 			SetFileConfig(t,
 				Host(),
 				Member(ClusterName("member1"), ServerName("m1.devcluster.openshift.com")),
 				Member(ClusterName("member2"), ServerName("m2.devcluster.openshift.com")))
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewCommandContext(term, newClient, newRESTClient)
+			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
 			err := cmd.Approve(ctx, dummyGet(userSignup), false, "non-existent-member")
@@ -286,7 +286,7 @@ func TestLookupUserSignupByName(t *testing.T) {
 
 	t.Run("when user is found", func(t *testing.T) {
 		userSignup := NewUserSignup()
-		_, _, fakeClient := NewFakeClients(t, userSignup)
+		_, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
 		cfg, err := configuration.LoadClusterConfig(term, "host")
@@ -301,7 +301,7 @@ func TestLookupUserSignupByName(t *testing.T) {
 	})
 
 	t.Run("when user is unknown", func(t *testing.T) {
-		_, _, fakeClient := NewFakeClients(t)
+		_, fakeClient := NewFakeClients(t)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
 		cfg, err := configuration.LoadClusterConfig(term, "host")
@@ -317,7 +317,7 @@ func TestLookupUserSignupByName(t *testing.T) {
 
 	t.Run("when error occurrs", func(t *testing.T) {
 		userSignup := NewUserSignup()
-		_, _, fakeClient := NewFakeClients(t, userSignup)
+		_, fakeClient := NewFakeClients(t, userSignup)
 		fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 			return fmt.Errorf("mock error")
 		}
@@ -338,7 +338,7 @@ func TestLookupUserSignupByEmailAddress(t *testing.T) {
 
 	t.Run("when user is found", func(t *testing.T) {
 		userSignup := NewUserSignup()
-		_, _, fakeClient := NewFakeClients(t, userSignup)
+		_, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
 		cfg, err := configuration.LoadClusterConfig(term, "host")
@@ -354,7 +354,7 @@ func TestLookupUserSignupByEmailAddress(t *testing.T) {
 
 	t.Run("when no match found", func(t *testing.T) {
 		userSignup := NewUserSignup()
-		_, _, fakeClient := NewFakeClients(t, userSignup)
+		_, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
 		cfg, err := configuration.LoadClusterConfig(term, "host")
@@ -370,7 +370,7 @@ func TestLookupUserSignupByEmailAddress(t *testing.T) {
 	t.Run("when too many matches found", func(t *testing.T) {
 		userSignup1 := NewUserSignup()
 		userSignup2 := NewUserSignup() // same email address as userSignup1
-		_, _, fakeClient := NewFakeClients(t, userSignup1, userSignup2)
+		_, fakeClient := NewFakeClients(t, userSignup1, userSignup2)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("Y")
 		cfg, err := configuration.LoadClusterConfig(term, "host")
@@ -385,7 +385,7 @@ func TestLookupUserSignupByEmailAddress(t *testing.T) {
 
 	t.Run("when error occurrs", func(t *testing.T) {
 		userSignup := NewUserSignup()
-		_, _, fakeClient := NewFakeClients(t, userSignup)
+		_, fakeClient := NewFakeClients(t, userSignup)
 		fakeClient.MockList = func(ctx context.Context, list runtimeclient.ObjectList, opts ...runtimeclient.ListOption) error {
 			return fmt.Errorf("mock error")
 		}

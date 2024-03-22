@@ -25,7 +25,7 @@ one or more users specified by their MasterUserRecord name.`,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
+			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 
 			return RemoveSpaceUsers(ctx, spaceName, users)
 		},
@@ -50,7 +50,7 @@ func RemoveSpaceUsers(ctx *clicontext.CommandContext, spaceName string, usersToR
 
 	// get Space
 	ctx.Println("Checking space...")
-	space, err := client.GetSpace(cl, cfg.SandboxNamespace, spaceName)
+	space, err := client.GetSpace(cl, cfg.OperatorNamespace, spaceName)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func RemoveSpaceUsers(ctx *clicontext.CommandContext, spaceName string, usersToR
 	// get SpaceBindings to delete
 	spaceBindingsToDelete := []*toolchainv1alpha1.SpaceBinding{}
 	for _, murName := range usersToRemove {
-		sbs, err := client.ListSpaceBindings(cl, cfg.SandboxNamespace, client.ForSpace(spaceName), client.ForMasterUserRecord(murName))
+		sbs, err := client.ListSpaceBindings(cl, cfg.OperatorNamespace, client.ForSpace(spaceName), client.ForMasterUserRecord(murName))
 		if err != nil {
 			return err
 		}

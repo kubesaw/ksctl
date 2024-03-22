@@ -23,7 +23,7 @@ func NewStatusCmd() *cobra.Command {
 		Args:  cobra.MaximumNArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
+			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return Status(ctx)
 		},
 	}
@@ -39,7 +39,7 @@ func Status(ctx *clicontext.CommandContext) error {
 		return err
 	}
 	namespacedName := types.NamespacedName{
-		Namespace: cfg.SandboxNamespace,
+		Namespace: cfg.OperatorNamespace,
 		Name:      "toolchain-status",
 	}
 	status := &toolchainv1alpha1.ToolchainStatus{}

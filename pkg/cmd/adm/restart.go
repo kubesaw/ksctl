@@ -29,7 +29,7 @@ If no deployment name is provided, then it lists all existing deployments in the
 		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient, client.DefaultNewRESTClient)
+			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return restart(ctx, targetCluster, args...)
 		},
 	}
@@ -58,7 +58,7 @@ func restart(ctx *clicontext.CommandContext, clusterName string, deployments ...
 	deploymentName := deployments[0]
 
 	if !ctx.AskForConfirmation(
-		ioutils.WithMessagef("restart the deployment '%s' in namespace '%s'", deploymentName, cfg.SandboxNamespace)) {
+		ioutils.WithMessagef("restart the deployment '%s' in namespace '%s'", deploymentName, cfg.OperatorNamespace)) {
 		return nil
 	}
 	return restartDeployment(ctx, cl, cfg, deploymentName)
@@ -66,7 +66,7 @@ func restart(ctx *clicontext.CommandContext, clusterName string, deployments ...
 
 func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, cfg configuration.ClusterConfig, deploymentName string) error {
 	namespacedName := types.NamespacedName{
-		Namespace: cfg.SandboxNamespace,
+		Namespace: cfg.OperatorNamespace,
 		Name:      deploymentName,
 	}
 
@@ -92,13 +92,13 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 func restartHostOperator(ctx *clicontext.CommandContext, hostClient runtimeclient.Client, hostConfig configuration.ClusterConfig) error {
 	deployments := &appsv1.DeploymentList{}
 	if err := hostClient.List(context.TODO(), deployments,
-		runtimeclient.InNamespace(hostConfig.SandboxNamespace),
+		runtimeclient.InNamespace(hostConfig.OperatorNamespace),
 		runtimeclient.MatchingLabels{"olm.owner.namespace": "toolchain-host-operator"}); err != nil {
 		return err
 	}
 	if len(deployments.Items) != 1 {
 		return fmt.Errorf("there should be a single deployment matching the label olm.owner.namespace=toolchain-host-operator in %s ns, but %d was found. "+
-			"It's not possible to restart the Host Operator deployment", hostConfig.SandboxNamespace, len(deployments.Items))
+			"It's not possible to restart the Host Operator deployment", hostConfig.OperatorNamespace, len(deployments.Items))
 	}
 
 	return restartDeployment(ctx, hostClient, hostConfig, deployments.Items[0].Name)
@@ -106,14 +106,14 @@ func restartHostOperator(ctx *clicontext.CommandContext, hostClient runtimeclien
 
 func printExistingDeployments(term ioutils.Terminal, cl runtimeclient.Client, cfg configuration.ClusterConfig) error {
 	deployments := &appsv1.DeploymentList{}
-	if err := cl.List(context.TODO(), deployments, runtimeclient.InNamespace(cfg.SandboxNamespace)); err != nil {
+	if err := cl.List(context.TODO(), deployments, runtimeclient.InNamespace(cfg.OperatorNamespace)); err != nil {
 		return err
 	}
 	deploymentList := "\n"
 	for _, deployment := range deployments.Items {
 		deploymentList += fmt.Sprintf("%s\n", deployment.Name)
 	}
-	term.PrintContextSeparatorWithBodyf(deploymentList, "Existing deployments in %s namespace", cfg.SandboxNamespace)
+	term.PrintContextSeparatorWithBodyf(deploymentList, "Existing deployments in %s namespace", cfg.OperatorNamespace)
 	return nil
 }
 
