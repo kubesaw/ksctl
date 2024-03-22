@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	authv1 "k8s.io/api/authentication/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -170,7 +171,7 @@ func generateForCluster(ctx *generateContext, clusterType configuration.ClusterT
 	ctx.PrintContextSeparatorf("Generating the content of the ksctl.yaml files for %s cluster running at %s", clusterName, clusterSpec.API)
 
 	// find config we can build client for the cluster from
-	externalClient, err := buildClientFromKubeconfigFiles(ctx, clusterSpec.API, ctx.kubeconfigPaths)
+	externalClient, err := buildClientFromKubeconfigFiles(ctx, clusterSpec.API, ctx.kubeconfigPaths, sandboxSRENamespace(clusterType))
 	if err != nil {
 		return err
 	}
@@ -210,7 +211,7 @@ func generateForCluster(ctx *generateContext, clusterType configuration.ClusterT
 
 // buildClientFromKubeconfigFiles goes through the list of kubeconfigs and tries to build the runtimeclient.Client & rest.RESTClient.
 // As soon as the build is successful, then it returns the built instances. If the build fails for all of the kubeconfig files, then it returns an error.
-func buildClientFromKubeconfigFiles(ctx *generateContext, API string, kubeconfigPaths []string) (*rest.RESTClient, error) {
+func buildClientFromKubeconfigFiles(ctx *generateContext, API string, kubeconfigPaths []string, saNamespace string) (*rest.RESTClient, error) {
 	for _, kubeconfigPath := range kubeconfigPaths {
 		kubeconfig, err := clientcmd.BuildConfigFromFlags(API, kubeconfigPath)
 		if err != nil {
@@ -221,6 +222,14 @@ func buildClientFromKubeconfigFiles(ctx *generateContext, API string, kubeconfig
 		externalCl, err := ctx.newRESTClient(kubeconfig)
 		if err != nil {
 			ctx.Printlnf("Unable to build config from kubeconfig file located at '%s' for the cluster '%s': %s", kubeconfigPath, API, err.Error())
+			ctx.Printlnf("trying next one...")
+			continue
+		}
+		sas := &v1.ServiceAccountList{}
+		if err := externalCl.Get().
+			AbsPath(fmt.Sprintf("api/v1/namespaces/%s/serviceaccounts/", saNamespace)).
+			Do(context.TODO()).Into(sas); err != nil {
+			ctx.Printlnf("Unable to use restclient built with kubeconfig file located at '%s' for the cluster '%s': %s", kubeconfigPath, API, err.Error())
 			ctx.Printlnf("trying next one...")
 			continue
 		}
