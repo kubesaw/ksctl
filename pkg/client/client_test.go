@@ -187,7 +187,7 @@ func TestUpdateUserSignupLacksPermissions(t *testing.T) {
 	}, "updated")
 
 	// then
-	require.EqualError(t, err, "sandbox command failed: the token in your ksctl.yaml file is missing")
+	require.EqualError(t, err, "ksctl command failed: the token in your ksctl.yaml file is missing")
 	AssertUserSignupSpec(t, fakeClient, userSignup)
 }
 
