@@ -92,16 +92,16 @@ func WithValues(clusterDef ClusterDefinitionWithName, options ...ConfigOption) C
 	return clusterDef
 }
 
-// NewSandboxUserConfig creates SandboxUserConfig object with the given cluster definitions
-func NewSandboxUserConfig(clusterDefs ...ClusterDefinitionWithName) configuration.SandboxUserConfig {
-	sandboxUserConfig := configuration.SandboxUserConfig{
+// NewKsctlConfig creates KsctlConfig object with the given cluster definitions
+func NewKsctlConfig(clusterDefs ...ClusterDefinitionWithName) configuration.KsctlConfig {
+	ksctlConfig := configuration.KsctlConfig{
 		Name:                     "john",
 		ClusterAccessDefinitions: map[string]configuration.ClusterAccessDefinition{},
 	}
 	for _, clusterDefWithName := range clusterDefs {
-		sandboxUserConfig.ClusterAccessDefinitions[clusterDefWithName.ClusterName] = clusterDefWithName.ClusterAccessDefinition
+		ksctlConfig.ClusterAccessDefinitions[clusterDefWithName.ClusterName] = clusterDefWithName.ClusterAccessDefinition
 	}
-	return sandboxUserConfig
+	return ksctlConfig
 }
 
 // SetFileConfig generates the configuration file to use during a test
@@ -116,8 +116,8 @@ func SetFileConfig(t *testing.T, clusterDefs ...ClusterDefinitionWithName) {
 		configuration.ConfigFileFlag = ""
 	})
 
-	sandboxUserConfig := NewSandboxUserConfig(clusterDefs...)
-	out, err := yaml.Marshal(sandboxUserConfig)
+	ksctlConfig := NewKsctlConfig(clusterDefs...)
+	out, err := yaml.Marshal(ksctlConfig)
 	require.NoError(t, err)
 	err = os.WriteFile(fileName, out, 0600)
 	require.NoError(t, err)

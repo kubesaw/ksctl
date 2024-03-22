@@ -43,7 +43,7 @@ func Retarget(ctx *clicontext.CommandContext, spaceName, targetCluster string) e
 		return err
 	}
 
-	space, err := client.GetSpace(hostClusterClient, hostClusterConfig.SandboxNamespace, spaceName)
+	space, err := client.GetSpace(hostClusterClient, hostClusterConfig.OperatorNamespace, spaceName)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func Retarget(ctx *clicontext.CommandContext, spaceName, targetCluster string) e
 	if creator == "" {
 		return fmt.Errorf("spaces without the creator label are not supported")
 	}
-	userSignup, err := client.GetUserSignup(hostClusterClient, hostClusterConfig.SandboxNamespace, creator)
+	userSignup, err := client.GetUserSignup(hostClusterClient, hostClusterConfig.OperatorNamespace, creator)
 	if err != nil {
 		return err
 	}

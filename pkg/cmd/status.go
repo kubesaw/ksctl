@@ -39,7 +39,7 @@ func Status(ctx *clicontext.CommandContext) error {
 		return err
 	}
 	namespacedName := types.NamespacedName{
-		Namespace: cfg.SandboxNamespace,
+		Namespace: cfg.OperatorNamespace,
 		Name:      "toolchain-status",
 	}
 	status := &toolchainv1alpha1.ToolchainStatus{}
