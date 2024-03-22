@@ -37,7 +37,7 @@ func Delete(ctx *clicontext.CommandContext, args ...string) error {
 	if err != nil {
 		return err
 	}
-	userSignup, err := client.GetUserSignup(cl, cfg.SandboxNamespace, args[0])
+	userSignup, err := client.GetUserSignup(cl, cfg.OperatorNamespace, args[0])
 	if err != nil {
 		return err
 	}

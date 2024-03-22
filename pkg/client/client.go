@@ -118,7 +118,7 @@ func PatchUserSignup(ctx *clicontext.CommandContext, name string, changeUserSign
 	if err != nil {
 		return err
 	}
-	userSignup, err := GetUserSignup(cl, cfg.SandboxNamespace, name)
+	userSignup, err := GetUserSignup(cl, cfg.OperatorNamespace, name)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func PatchMasterUserRecord(ctx *clicontext.CommandContext, name string, changeMa
 	if err != nil {
 		return err
 	}
-	mur, err := GetMasterUserRecord(cl, cfg.SandboxNamespace, name)
+	mur, err := GetMasterUserRecord(cl, cfg.OperatorNamespace, name)
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func PatchSpace(ctx *clicontext.CommandContext, name string, changeSpace func(*t
 	if err != nil {
 		return err
 	}
-	space, err := GetSpace(cl, cfg.SandboxNamespace, name)
+	space, err := GetSpace(cl, cfg.OperatorNamespace, name)
 	if err != nil {
 		return err
 	}
@@ -248,7 +248,7 @@ func ListSpaceBindings(cl runtimeclient.Client, namespace string, opts ...SpaceB
 
 func GetNSTemplateTier(cfg configuration.ClusterConfig, cl runtimeclient.Client, name string) (*toolchainv1alpha1.NSTemplateTier, error) {
 	namespacedName := types.NamespacedName{
-		Namespace: cfg.SandboxNamespace,
+		Namespace: cfg.OperatorNamespace,
 		Name:      name,
 	}
 	obj := &toolchainv1alpha1.NSTemplateTier{}
@@ -260,7 +260,7 @@ func GetNSTemplateTier(cfg configuration.ClusterConfig, cl runtimeclient.Client,
 
 func GetUserTier(cfg configuration.ClusterConfig, cl runtimeclient.Client, name string) (*toolchainv1alpha1.UserTier, error) {
 	namespacedName := types.NamespacedName{
-		Namespace: cfg.SandboxNamespace,
+		Namespace: cfg.OperatorNamespace,
 		Name:      name,
 	}
 	obj := &toolchainv1alpha1.UserTier{}
