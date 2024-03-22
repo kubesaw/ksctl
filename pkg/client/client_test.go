@@ -34,7 +34,7 @@ func TestNewClientOK(t *testing.T) {
 		BodyString("{}")
 
 	// when
-	cl, err := client.NewClientWitTransport("cool-token", "https://example.com", http.DefaultTransport)
+	cl, err := client.NewClientWithTransport("cool-token", "https://example.com", http.DefaultTransport)
 
 	// then
 	require.NoError(t, err)

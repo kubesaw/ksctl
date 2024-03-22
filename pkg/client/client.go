@@ -55,14 +55,14 @@ func AddToScheme() error {
 var DefaultNewClient = NewClient
 
 func NewClient(token, apiEndpoint string) (runtimeclient.Client, error) {
-	return NewClientWitTransport(token, apiEndpoint, &http.Transport{
+	return NewClientWithTransport(token, apiEndpoint, &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true, // nolint: gosec
 		},
 	})
 }
 
-func NewClientWitTransport(token, apiEndpoint string, transport http.RoundTripper) (runtimeclient.Client, error) {
+func NewClientWithTransport(token, apiEndpoint string, transport http.RoundTripper) (runtimeclient.Client, error) {
 	if err := AddToScheme(); err != nil {
 		return nil, err
 	}
