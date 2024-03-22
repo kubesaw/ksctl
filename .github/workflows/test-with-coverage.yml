@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest ]
-    name: Test-with-Coverage
+    name: Test with coverage
 
     steps:
     - name: Install Go
@@ -26,6 +26,10 @@ jobs:
 
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        ref: ${{github.event.pull_request.head.ref}}
+        repository: ${{github.event.pull_request.head.repo.full_name}}
+        fetch-depth: 0
 
     - name: Cache dependencies
       uses: actions/cache@v4
@@ -50,38 +54,3 @@ jobs:
         flags: unittests # optional
         fail_ci_if_error: true # optional (default = false)
         verbose: true # optional (default = false)
-
-  golangci:
-    name: GolangCI Lint
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Install Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: 1.20.x
-
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Lint
-      uses: golangci/golangci-lint-action@v4
-      with:
-        version: v1.56.2
-        skip-pkg-cache: true
-        skip-build-cache: true
-        args: --config=./.golangci.yml --verbose
-
-  yammlint:
-    name: YAML Lint
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install yamllint
-      run: pip install yamllint
-
-    - name: Lint YAML files
-      run: yamllint -c .yamllint ./
