@@ -257,7 +257,7 @@ func createKubeconfigFiles(t *testing.T, contents ...string) []string {
 	return fileNames
 }
 
-const sandboxKubeconfigContent = `
+const ksctlKubeconfigContent = `
 apiVersion: v1
 clusters:
 - cluster:
@@ -286,7 +286,7 @@ users:
     token: my-cool-token
 `
 
-const sandboxKubeconfigContentMember2 = `
+const ksctlKubeconfigContentMember2 = `
 apiVersion: v1
 clusters:
 - cluster:
