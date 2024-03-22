@@ -3,7 +3,6 @@ package client_test
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"testing"
 
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
@@ -34,7 +33,7 @@ func TestNewClientOK(t *testing.T) {
 		BodyString("{}")
 
 	// when
-	cl, err := client.NewClientWithTransport("cool-token", "https://example.com", http.DefaultTransport)
+	cl, err := client.NewClientWithTransport("cool-token", "https://example.com", gock.DefaultTransport)
 
 	// then
 	require.NoError(t, err)
