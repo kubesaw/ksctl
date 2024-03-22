@@ -5,7 +5,8 @@ on:
     - master
     tags-ignore:
     - '*.*'
-  pull_request:
+  pull_request_target:
+    types: [ opened, synchronize, reopened, ready_for_review ]
     branches:
     - master
 
@@ -15,7 +16,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest ]
-    name: Test on ${{ matrix.os }}
+    name: Test-with-Coverage
 
     steps:
     - name: Install Go
