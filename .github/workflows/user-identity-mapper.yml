@@ -1,0 +1,62 @@
+name: user-identity-mapper
+on:
+  push:
+    branches:
+    - master
+    tags-ignore:
+    - '*.*'
+
+env:
+  GOPATH: /tmp/go
+  GO_VERSION: 1.20.x
+  IMAGE_REGISTRY: quay.io
+  REGISTRY_USER: "codeready-toolchain+push"
+  REGISTRY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+
+jobs:
+  image:
+    name: Build and push to quay.io
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+  
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles ('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Buildah Action
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: codeready-toolchain/user-identity-mapper
+          tags: latest 
+          containerfiles: |
+            cmd/user-identity-mapper/Dockerfile
+      
+      - name: Log into quay.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.IMAGE_REGISTRY }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+          
+      - name: Push to quay.io
+        id: push-to-quay
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: ${{ steps.build-image.outputs.tags }}
+          registry: quay.io
