@@ -55,6 +55,14 @@ func AddToScheme() error {
 var DefaultNewClient = NewClient
 
 func NewClient(token, apiEndpoint string) (runtimeclient.Client, error) {
+	return NewClientWithTransport(token, apiEndpoint, &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true, // nolint: gosec
+		},
+	})
+}
+
+func NewClientWithTransport(token, apiEndpoint string, transport http.RoundTripper) (runtimeclient.Client, error) {
 	if err := AddToScheme(); err != nil {
 		return nil, err
 	}
@@ -63,11 +71,7 @@ func NewClient(token, apiEndpoint string) (runtimeclient.Client, error) {
 		return nil, err
 	}
 
-	cfg.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true, // nolint: gosec
-		},
-	}
+	cfg.Transport = transport
 	cfg.BearerToken = string(token)
 	cfg.QPS = 40.0
 	cfg.Burst = 50

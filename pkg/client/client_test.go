@@ -26,14 +26,14 @@ import (
 func TestNewClientOK(t *testing.T) {
 	// given
 	t.Cleanup(gock.OffAll)
-	gock.New("http://example.com").
+	gock.New("https://some-dummy-example.com").
 		Get("api").
 		Persist().
 		Reply(200).
 		BodyString("{}")
 
 	// when
-	cl, err := client.NewClient("cool-token", "http://example.com")
+	cl, err := client.NewClientWithTransport("cool-token", "https://some-dummy-example.com", gock.DefaultTransport)
 
 	// then
 	require.NoError(t, err)
