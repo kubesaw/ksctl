@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-  
+
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
@@ -42,17 +42,17 @@ jobs:
         uses: redhat-actions/buildah-build@v2
         with:
           image: codeready-toolchain/user-identity-mapper
-          tags: latest 
+          tags: latest
           containerfiles: |
             cmd/user-identity-mapper/Dockerfile
-      
+
       - name: Log into quay.io
         uses: redhat-actions/podman-login@v1
         with:
           registry: ${{ env.IMAGE_REGISTRY }}
           username: ${{ env.REGISTRY_USER }}
           password: ${{ env.REGISTRY_PASSWORD }}
-          
+
       - name: Push to quay.io
         id: push-to-quay
         uses: redhat-actions/push-to-registry@v2
