@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/kubesaw/ksctl/pkg/cmd/adm"
+	"github.com/kubesaw/ksctl/pkg/cmd/generate"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	"github.com/kubesaw/ksctl/pkg/version"
 	"github.com/spf13/cobra"
@@ -56,6 +57,7 @@ func init() {
 
 	// administrative commands
 	rootCmd.AddCommand(adm.NewAdmCmd())
+	rootCmd.AddCommand(generate.NewGenerateCmd())
 
 	// also, by default, we're configuring the underlying http.Client to accept insecured connections.
 	// but gopkg.in/h2non/gock.v1 may change the client's Transport to intercept the requests.

@@ -1,4 +1,4 @@
-package adm
+package generate
 
 import (
 	"fmt"
