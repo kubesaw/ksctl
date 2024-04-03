@@ -1,4 +1,4 @@
-package adm
+package generate
 
 import (
 	"os"
@@ -19,12 +19,12 @@ type setupFlags struct {
 	singleCluster                                         bool
 }
 
-func NewSetupCmd() *cobra.Command {
+func NewAdminManifestsCmd() *cobra.Command {
 	f := setupFlags{}
 	command := &cobra.Command{
-		Use: "setup --kubesaw-admins=<path-to-kubesaw-admins-file> --out-dir <path-to-out-dir>",
-		Example: `ksctl adm setup ./path/to/kubesaw.openshiftapps.com/kubesaw-admins.yaml --out-dir ./components/auth/kubesaw-production
-ksctl adm setup ./path/to/kubesaw-stage.openshiftapps.com/kubesaw-admins.yaml --out-dir ./components/auth/kubesaw-staging -s`,
+		Use: "admin-manifests --kubesaw-admins=<path-to-kubesaw-admins-file> --out-dir <path-to-out-dir>",
+		Example: `ksctl generate admin-manifests ./path/to/kubesaw.openshiftapps.com/kubesaw-admins.yaml --out-dir ./components/auth/kubesaw-production
+ksctl generate admin-manifests ./path/to/kubesaw-stage.openshiftapps.com/kubesaw-admins.yaml --out-dir ./components/auth/kubesaw-staging -s`,
 		Short: "Generates user-management manifests",
 		Long:  `Reads the kubesaw-admins.yaml file and based on the content it generates user-management RBAC and manifests.`,
 		Args:  cobra.ExactArgs(0),

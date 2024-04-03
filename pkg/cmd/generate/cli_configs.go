@@ -1,4 +1,4 @@
-package adm
+package generate
 
 import (
 	"context"
@@ -33,10 +33,10 @@ type generateFlags struct {
 	kubeconfigs               []string
 }
 
-func NewGenerateCliConfigsCmd() *cobra.Command {
+func NewCliConfigsCmd() *cobra.Command {
 	f := generateFlags{}
 	command := &cobra.Command{
-		Use:   "generate-cli-configs --kubesaw-admins=<path-to-kubesaw-admins-file>",
+		Use:   "cli-configs --kubesaw-admins=<path-to-kubesaw-admins-file>",
 		Short: "Generate ksctl.yaml files",
 		Long:  `Generate ksctl.yaml files, that is used by ksctl, for every ServiceAccount defined in the given kubesaw-admins.yaml file`,
 		Args:  cobra.ExactArgs(0),
