@@ -28,11 +28,11 @@ coverage:
 
   # See http://docs.codecov.io/docs/ignoring-paths
   ignore:
-  - "github/*"
-  - "cmd/*"
+  - ".github/**/*"
+  - "**/main.go"
   - "make/*"
-  - "resources/*"
-  - "test-resources/*"
+  - "resources/**/*"
+  - "test-resources/**/*"
 
 # See https://docs.codecov.com/docs/pull-request-comments
 comment:
