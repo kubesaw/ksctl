@@ -22,8 +22,6 @@ func NewAdmCmd() *cobra.Command {
 func registerCommands(admCommand *cobra.Command) {
 	// commands with go runtime client
 	admCommand.AddCommand(NewRestartCmd())
-	admCommand.AddCommand(NewSetupCmd())
-	admCommand.AddCommand(NewGenerateCliConfigsCmd())
 	admCommand.AddCommand(NewUnregisterMemberCmd())
 	admCommand.AddCommand(NewMustGatherNamespaceCmd())
 
