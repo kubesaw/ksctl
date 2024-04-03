@@ -7,8 +7,8 @@ import (
 func NewGenerateCmd() *cobra.Command {
 	admCommand := &cobra.Command{
 		Use:   "generate",
-		Short: "Generate Commands",
-		Long:  `Actions for generating manifests and files.`,
+		Short: "Generate commands",
+		Long:  `Commands to generate manifests and CLI config files`,
 	}
 	registerCommands(admCommand)
 	return admCommand
