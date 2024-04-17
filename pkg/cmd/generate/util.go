@@ -26,14 +26,9 @@ func (c objectsCache) storeObject(ctx *clusterContext, obj runtimeclient.Object)
 
 func (c objectsCache) ensureObject(ctx *clusterContext, toEnsure runtimeclient.Object, updateExisting func(runtimeclient.Object) (bool, error)) error {
 	obj := toEnsure.DeepCopyObject().(runtimeclient.Object)
-	gvks, _, err := scheme.Scheme.ObjectKinds(obj)
-	if err != nil {
+	if err := setGVK(obj); err != nil {
 		return err
 	}
-	if len(gvks) > 1 {
-		return fmt.Errorf("multiple versions of a single GK not supported but found multiple for object %v", obj)
-	}
-	obj.GetObjectKind().SetGroupVersionKind(gvks[0])
 	path, theOtherTypePath, basePath, err := filePaths(ctx, obj)
 	if err != nil {
 		return err
@@ -63,16 +58,38 @@ func (c objectsCache) ensureObject(ctx *clusterContext, toEnsure runtimeclient.O
 	return nil
 }
 
+func setGVK(obj runtimeclient.Object) error {
+	gvks, _, err := scheme.Scheme.ObjectKinds(obj)
+	if err != nil {
+		return err
+	}
+	if len(gvks) > 1 {
+		return fmt.Errorf("multiple versions of a single GK not supported but found multiple for object %v", obj)
+	}
+	obj.GetObjectKind().SetGroupVersionKind(gvks[0])
+	return nil
+}
+
 func (c objectsCache) writeManifests(ctx *setupContext) error {
+	storeCtx := manifestStoreContext{
+		outDir:        ctx.outDir,
+		memberRootDir: ctx.memberRootDir,
+		hostRootDir:   ctx.hostRootDir,
+	}
 	for path, object := range c {
-		if err := writeManifest(ctx, path, object); err != nil {
+		if err := writeManifest(storeCtx, path, object); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeManifest(ctx *setupContext, filePath string, obj runtimeclient.Object) error {
+type manifestStoreContext struct {
+	outDir, hostRootDir, memberRootDir string
+	manageOutDirKustomize              bool
+}
+
+func writeManifest(ctx manifestStoreContext, filePath string, obj runtimeclient.Object) error {
 	dirPath := filepath.Dir(filePath)
 	if err := os.MkdirAll(dirPath, 0744); err != nil {
 		return err
@@ -101,15 +118,20 @@ func filePaths(ctx *clusterContext, obj runtimeclient.Object) (string, string, s
 	if obj.GetName() == "" {
 		return "", "", "", fmt.Errorf("missing name in the manifest of the type %s", reflect.TypeOf(obj).Elem().Name())
 	}
+	storeCtx := manifestStoreContext{
+		outDir:        ctx.outDir,
+		memberRootDir: ctx.memberRootDir,
+		hostRootDir:   ctx.hostRootDir,
+	}
 
-	defaultPath := filePath(rootDir(ctx.setupContext, ctx.clusterType), obj, plural.Resource)
-	theOtherTypePath := filePath(rootDir(ctx.setupContext, ctx.clusterType.TheOtherType()), obj, plural.Resource)
+	defaultPath := filePath(rootDir(storeCtx, ctx.clusterType), obj, plural.Resource)
+	theOtherTypePath := filePath(rootDir(storeCtx, ctx.clusterType.TheOtherType()), obj, plural.Resource)
 	basePath := filePath(baseDirectory(ctx.outDir), obj, plural.Resource)
 
 	return defaultPath, theOtherTypePath, basePath, nil
 }
 
-func rootDir(ctx *setupContext, clusterType configuration.ClusterType) string {
+func rootDir(ctx manifestStoreContext, clusterType configuration.ClusterType) string {
 	if clusterType == configuration.Host {
 		return filepath.Join(ctx.outDir, ctx.hostRootDir)
 	}
@@ -145,7 +167,7 @@ func baseDirectory(outDir string) string {
 	return filepath.Join(outDir, "base")
 }
 
-func ensureKustomization(ctx *setupContext, dirPath, item string) error {
+func ensureKustomization(ctx manifestStoreContext, dirPath, item string) error {
 	kustomization := &ktypes.Kustomization{
 		TypeMeta: ktypes.TypeMeta{
 			APIVersion: ktypes.KustomizationVersion,
@@ -180,8 +202,12 @@ func ensureKustomization(ctx *setupContext, dirPath, item string) error {
 		return err
 	}
 	parentDir := filepath.Dir(dirPath)
-	if ctx.outDir == parentDir {
-		if dirPath == baseDirectory(ctx.outDir) {
+	stopDir := ctx.outDir
+	if ctx.manageOutDirKustomize {
+		stopDir = filepath.Dir(ctx.outDir)
+	}
+	if stopDir == parentDir {
+		if dirPath == baseDirectory(ctx.outDir) && ctx.hostRootDir != "" && ctx.memberRootDir != "" {
 			return ensureKustomization(ctx, rootDir(ctx, configuration.Member), "../base")
 		}
 		return nil

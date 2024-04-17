@@ -161,8 +161,6 @@ func TestSetup(t *testing.T) {
 }
 
 func storeDummySA(t *testing.T, outDir string) {
-	ctx := newSetupContextWithDefaultFiles(t, nil)
-	ctx.outDir = outDir
 	sa := &corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "User",
@@ -173,7 +171,12 @@ func storeDummySA(t *testing.T, outDir string) {
 			Name:      "dummy-name",
 		},
 	}
-	err := writeManifest(ctx, filePath(filepath.Join(outDir, "dummy"), sa, "ServiceAccount"), sa)
+	storeCtx := manifestStoreContext{
+		outDir:        outDir,
+		memberRootDir: "member",
+		hostRootDir:   "host",
+	}
+	err := writeManifest(storeCtx, filePath(filepath.Join(outDir, "dummy"), sa, "ServiceAccount"), sa)
 	require.NoError(t, err)
 }
 
