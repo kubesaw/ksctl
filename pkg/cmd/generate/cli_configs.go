@@ -250,7 +250,7 @@ func buildClientFromKubeconfigFiles(ctx *generateContext, API string, kubeconfig
 func getServiceAccountToken(cl *rest.RESTClient, namespacedName types.NamespacedName, tokenExpirationDays int) (string, error) {
 	tokenRequest := &authv1.TokenRequest{
 		Spec: authv1.TokenRequestSpec{
-			ExpirationSeconds: pointer.Int64(int64(tokenExpirationDays * 24 * 60 * 60)), // token will be valid for 1 year
+			ExpirationSeconds: pointer.Int64(int64(tokenExpirationDays * 24 * 60 * 60)),
 		},
 	}
 	result := &authv1.TokenRequest{}
