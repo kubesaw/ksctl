@@ -3,23 +3,24 @@ package generate
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path"
 	"testing"
 
+	"github.com/h2non/gock"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-
-	"github.com/h2non/gock"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 )
 
 func TestGenerateCliConfigs(t *testing.T) {
@@ -46,15 +47,15 @@ func TestGenerateCliConfigs(t *testing.T) {
 	setupGockForListServiceAccounts(t, Member1ServerAPI, configuration.Member)
 	setupGockForListServiceAccounts(t, Member2ServerAPI, configuration.Member)
 
-	setupGockForServiceAccounts(t, HostServerAPI,
+	setupGockForServiceAccounts(t, HostServerAPI, 50,
 		newServiceAccount("sandbox-sre-host", "john"),
 		newServiceAccount("sandbox-sre-host", "bob"),
 	)
-	setupGockForServiceAccounts(t, Member1ServerAPI,
+	setupGockForServiceAccounts(t, Member1ServerAPI, 50,
 		newServiceAccount("sandbox-sre-member", "john"),
 		newServiceAccount("sandbox-sre-member", "bob"),
 	)
-	setupGockForServiceAccounts(t, Member2ServerAPI,
+	setupGockForServiceAccounts(t, Member2ServerAPI, 50,
 		newServiceAccount("sandbox-sre-member", "john"),
 		newServiceAccount("sandbox-sre-member", "bob"),
 	)
@@ -73,7 +74,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			// given
 			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
 			require.NoError(t, err)
-			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir}
+			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir, tokenExpirationDays: 50}
 
 			// when
 			err = generate(term, flags, newExternalClient)
@@ -101,7 +102,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			configFile := createKubeSawAdminsFile(t, "kubesaw.host.openshiftapps.com", kubeSawAdminsContent)
 			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
 			require.NoError(t, err)
-			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir}
+			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir, tokenExpirationDays: 50}
 
 			// when
 			err = generate(term, flags, newExternalClient)
@@ -115,14 +116,14 @@ func TestGenerateCliConfigs(t *testing.T) {
 		t.Run("in dev mode", func(t *testing.T) {
 			// given
 			setupGockForListServiceAccounts(t, HostServerAPI, configuration.Member)
-			setupGockForServiceAccounts(t, HostServerAPI,
+			setupGockForServiceAccounts(t, HostServerAPI, 50,
 				newServiceAccount("sandbox-sre-member", "john"),
 				newServiceAccount("sandbox-sre-member", "bob"),
 			)
 			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
 			require.NoError(t, err)
 			kubeconfigFiles := createKubeconfigFiles(t, ksctlKubeconfigContent)
-			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir, dev: true}
+			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir, dev: true, tokenExpirationDays: 50}
 
 			// when
 			err = generate(term, flags, newExternalClient)
@@ -157,10 +158,11 @@ func TestGenerateCliConfigs(t *testing.T) {
 			path := fmt.Sprintf("api/v1/namespaces/%s/serviceaccounts/", sandboxSRENamespace(configuration.Host))
 			gock.New("https://dummy.openshift.com").Get(path).Persist().Reply(403)
 			ctx := &generateContext{
-				Terminal:        term,
-				newRESTClient:   newExternalClient,
-				kubeSawAdmins:   kubeSawAdmins,
-				kubeconfigPaths: kubeconfigFiles,
+				Terminal:            term,
+				newRESTClient:       newExternalClient,
+				kubeSawAdmins:       kubeSawAdmins,
+				kubeconfigPaths:     kubeconfigFiles,
+				tokenExpirationDays: 365,
 			}
 
 			// when
@@ -228,7 +230,7 @@ func TestGetServiceAccountToken(t *testing.T) {
 	// given
 	require.NoError(t, client.AddToScheme())
 
-	setupGockForServiceAccounts(t, "https://api.example.com", newServiceAccount("openshift-customer-monitoring", "loki"))
+	setupGockForServiceAccounts(t, "https://api.example.com", 365, newServiceAccount("openshift-customer-monitoring", "loki"))
 	t.Cleanup(gock.OffAll)
 	cl, err := client.NewRESTClient("secret_token", "https://api.example.com")
 	cl.Client.Transport = gock.DefaultTransport // make sure that the underlying client's request are intercepted by Gock
@@ -238,7 +240,7 @@ func TestGetServiceAccountToken(t *testing.T) {
 	actualToken, err := getServiceAccountToken(cl, types.NamespacedName{
 		Namespace: "openshift-customer-monitoring",
 		Name:      "loki",
-	})
+	}, 365)
 
 	// then
 	require.NoError(t, err)
@@ -343,7 +345,7 @@ func setupGockForListServiceAccounts(t *testing.T, apiEndpoint string, clusterTy
 		BodyString(string(resultServiceAccountsStr))
 }
 
-func setupGockForServiceAccounts(t *testing.T, apiEndpoint string, sas ...*corev1.ServiceAccount) {
+func setupGockForServiceAccounts(t *testing.T, apiEndpoint string, tokenExpirationDays int, sas ...*corev1.ServiceAccount) {
 	for _, sa := range sas {
 		expectedToken := "token-secret-for-" + sa.Name
 		resultTokenRequest := &authv1.TokenRequest{
@@ -357,6 +359,30 @@ func setupGockForServiceAccounts(t *testing.T, apiEndpoint string, sas ...*corev
 		t.Logf("mocking access to POST %s/%s", apiEndpoint, path)
 		gock.New(apiEndpoint).
 			Post(path).
+			AddMatcher(func(request *http.Request, _ *gock.Request) (bool, error) {
+				requestBody, err := io.ReadAll(request.Body)
+				if err != nil {
+					return false, err
+				}
+				if err := request.Body.Close(); err != nil {
+					return false, err
+				}
+				tokenRequest := &authv1.TokenRequest{}
+				if err := json.Unmarshal(requestBody, tokenRequest); err != nil {
+					return false, err
+				}
+				fmt.Println(tokenRequest)
+				expectedExpiry := int64(tokenExpirationDays * 24 * 60 * 60)
+				if tokenRequest.Spec.ExpirationSeconds == nil {
+					assert.NotEmpty(t, tokenRequest.Spec.ExpirationSeconds)
+					return false, nil
+				}
+				if *tokenRequest.Spec.ExpirationSeconds != expectedExpiry {
+					assert.Equal(t, expectedExpiry, *tokenRequest.Spec.ExpirationSeconds)
+					return false, nil
+				}
+				return true, nil
+			}).
 			Persist().
 			Reply(200).
 			BodyString(string(resultTokenRequestStr))
