@@ -52,7 +52,7 @@ func NewCliConfigsCmd() *cobra.Command {
 
 	configDirPath := fmt.Sprintf("%s/src/github.com/kubesaw/ksctl/out/config", os.Getenv("GOPATH"))
 	command.Flags().StringVarP(&f.outDir, "out-dir", "o", configDirPath, "Directory where generated ksctl.yaml files should be stored")
-	command.Flags().IntVarP(&f.tokenExpirationDays, "token-expiration-days", "e", 365, "Expiration time of the ServiceAccount tokens in number of days")
+	command.Flags().IntVarP(&f.tokenExpirationDays, "token-expiration-days", "e", 365, "Expiration time of the ServiceAccount tokens in days")
 
 	defaultKubeconfigPath := ""
 	if home := homedir.HomeDir(); home != "" {
