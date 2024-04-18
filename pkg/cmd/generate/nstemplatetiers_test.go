@@ -117,7 +117,7 @@ func TestGenerateNSTemplateTiers(t *testing.T) {
 
 		// then
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "../../../test-resources/dummy.openshiftapps.com/")
+		assert.Contains(t, err.Error(), "unable to init NSTemplateTier generator")
 	})
 }
 
