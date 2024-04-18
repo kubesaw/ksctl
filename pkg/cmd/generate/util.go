@@ -63,7 +63,7 @@ func (c objectsCache) ensureObject(ctx *clusterContext, toEnsure runtimeclient.O
 	return nil
 }
 
-func (c objectsCache) writeManifests(ctx *setupContext) error {
+func (c objectsCache) writeManifests(ctx *adminManifestsContext) error {
 	for path, object := range c {
 		if err := writeManifest(ctx, path, object); err != nil {
 			return err
@@ -72,7 +72,7 @@ func (c objectsCache) writeManifests(ctx *setupContext) error {
 	return nil
 }
 
-func writeManifest(ctx *setupContext, filePath string, obj runtimeclient.Object) error {
+func writeManifest(ctx *adminManifestsContext, filePath string, obj runtimeclient.Object) error {
 	dirPath := filepath.Dir(filePath)
 	if err := os.MkdirAll(dirPath, 0744); err != nil {
 		return err
@@ -102,14 +102,14 @@ func filePaths(ctx *clusterContext, obj runtimeclient.Object) (string, string, s
 		return "", "", "", fmt.Errorf("missing name in the manifest of the type %s", reflect.TypeOf(obj).Elem().Name())
 	}
 
-	defaultPath := filePath(rootDir(ctx.setupContext, ctx.clusterType), obj, plural.Resource)
-	theOtherTypePath := filePath(rootDir(ctx.setupContext, ctx.clusterType.TheOtherType()), obj, plural.Resource)
+	defaultPath := filePath(rootDir(ctx.adminManifestsContext, ctx.clusterType), obj, plural.Resource)
+	theOtherTypePath := filePath(rootDir(ctx.adminManifestsContext, ctx.clusterType.TheOtherType()), obj, plural.Resource)
 	basePath := filePath(baseDirectory(ctx.outDir), obj, plural.Resource)
 
 	return defaultPath, theOtherTypePath, basePath, nil
 }
 
-func rootDir(ctx *setupContext, clusterType configuration.ClusterType) string {
+func rootDir(ctx *adminManifestsContext, clusterType configuration.ClusterType) string {
 	if clusterType == configuration.Host {
 		return filepath.Join(ctx.outDir, ctx.hostRootDir)
 	}
@@ -145,7 +145,7 @@ func baseDirectory(outDir string) string {
 	return filepath.Join(outDir, "base")
 }
 
-func ensureKustomization(ctx *setupContext, dirPath, item string) error {
+func ensureKustomization(ctx *adminManifestsContext, dirPath, item string) error {
 	kustomization := &ktypes.Kustomization{
 		TypeMeta: ktypes.TypeMeta{
 			APIVersion: ktypes.KustomizationVersion,

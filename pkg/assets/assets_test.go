@@ -61,8 +61,8 @@ func TestGetRoles(t *testing.T) {
 	// given
 	require.NoError(t, client.AddToScheme())
 	files := NewFakeFiles(t,
-		FakeFile("setup/roles/host.yaml", []byte(hostRoles)),
-		FakeFile("setup/roles/member.yaml", []byte(memberRoles)),
+		FakeFile("roles/host.yaml", []byte(hostRoles)),
+		FakeFile("roles/member.yaml", []byte(memberRoles)),
 	)
 
 	for _, clusterType := range configuration.ClusterTypes {

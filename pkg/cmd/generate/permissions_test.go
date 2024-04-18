@@ -86,7 +86,7 @@ func TestEnsureServiceAccount(t *testing.T) {
 
 	t.Run("create SA", func(t *testing.T) {
 		// given
-		ctx := newFakeClusterContext(newSetupContextWithDefaultFiles(t, nil), configuration.Host)
+		ctx := newFakeClusterContext(newAdminManifestsContextWithDefaultFiles(t, nil), configuration.Host)
 		cache := objectsCache{}
 
 		// when
@@ -104,7 +104,7 @@ func TestEnsureServiceAccount(t *testing.T) {
 
 	t.Run("create SA in the given namespace", func(t *testing.T) {
 		// given
-		ctx := newFakeClusterContext(newSetupContextWithDefaultFiles(t, nil), configuration.Host)
+		ctx := newFakeClusterContext(newAdminManifestsContextWithDefaultFiles(t, nil), configuration.Host)
 		cache := objectsCache{}
 
 		// when
@@ -130,7 +130,7 @@ func TestEnsureUserAndIdentity(t *testing.T) {
 
 	t.Run("create user, multiple identity & groups", func(t *testing.T) {
 		// given
-		ctx := newFakeClusterContext(newSetupContextWithDefaultFiles(t, nil), configuration.Host)
+		ctx := newFakeClusterContext(newAdminManifestsContextWithDefaultFiles(t, nil), configuration.Host)
 		cache := objectsCache{}
 
 		// when
@@ -150,7 +150,7 @@ func TestEnsureUserAndIdentity(t *testing.T) {
 
 	t.Run("don't create any group", func(t *testing.T) {
 		// given
-		ctx := newFakeClusterContext(newSetupContextWithDefaultFiles(t, nil), configuration.Host)
+		ctx := newFakeClusterContext(newAdminManifestsContextWithDefaultFiles(t, nil), configuration.Host)
 		cache := objectsCache{}
 
 		// when
@@ -170,7 +170,7 @@ func TestEnsureGroupsForUser(t *testing.T) {
 
 	t.Run("when creating group(s)", func(t *testing.T) {
 		// given
-		ctx := newFakeClusterContext(newSetupContextWithDefaultFiles(t, nil), configuration.Host)
+		ctx := newFakeClusterContext(newAdminManifestsContextWithDefaultFiles(t, nil), configuration.Host)
 		cache := objectsCache{}
 
 		// when
@@ -196,7 +196,7 @@ func TestEnsureGroupsForUser(t *testing.T) {
 }
 
 func newPermissionsManager(t *testing.T, clusterType configuration.ClusterType, config *assets.KubeSawAdmins) (permissionsManager, *clusterContext) { // nolint:unparam
-	ctx := newSetupContextWithDefaultFiles(t, config)
+	ctx := newAdminManifestsContextWithDefaultFiles(t, config)
 	clusterCtx := newFakeClusterContext(ctx, clusterType)
 	cache := objectsCache{}
 

@@ -24,9 +24,9 @@ var (
 func TestGetRole(t *testing.T) {
 	// given
 	files := NewFakeFiles(t,
-		FakeTemplate("setup/roles/host.yaml", installOperatorRole),
-		FakeTemplate("setup/roles/member.yaml", restartDeploymentRole, registerClusterRole))
-	ctx := newSetupContext(t, &assets.KubeSawAdmins{}, files)
+		FakeTemplate("roles/host.yaml", installOperatorRole),
+		FakeTemplate("roles/member.yaml", restartDeploymentRole, registerClusterRole))
+	ctx := newAdminManifestsContext(t, &assets.KubeSawAdmins{}, files)
 
 	t.Run("for host cluster type", func(t *testing.T) {
 		// given
@@ -89,12 +89,12 @@ func TestGetRole(t *testing.T) {
 func TestEnsureRole(t *testing.T) {
 	// given
 	files := NewFakeFiles(t,
-		FakeTemplate("setup/roles/host.yaml", installOperatorRole),
-		FakeTemplate("setup/roles/member.yaml", installOperatorRole, restartDeploymentRole, configureComponentRole, registerClusterRole))
+		FakeTemplate("roles/host.yaml", installOperatorRole),
+		FakeTemplate("roles/member.yaml", installOperatorRole, restartDeploymentRole, configureComponentRole, registerClusterRole))
 
 	t.Run("create install-operator role for host", func(t *testing.T) {
 		// given
-		ctx := newSetupContext(t, &assets.KubeSawAdmins{}, files)
+		ctx := newAdminManifestsContext(t, &assets.KubeSawAdmins{}, files)
 		hostCtx := newFakeClusterContext(ctx, configuration.Host)
 		memberCtx := newFakeClusterContext(ctx, configuration.Member)
 		cache := objectsCache{}
@@ -155,7 +155,7 @@ func TestEnsureRole(t *testing.T) {
 
 	t.Run("create restart-deployment role for member", func(t *testing.T) {
 		// given
-		ctx := newSetupContext(t, &assets.KubeSawAdmins{}, files)
+		ctx := newAdminManifestsContext(t, &assets.KubeSawAdmins{}, files)
 		memberCtx := newFakeClusterContext(ctx, configuration.Member)
 		cache := objectsCache{}
 
