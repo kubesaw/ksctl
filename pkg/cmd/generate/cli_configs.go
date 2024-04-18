@@ -31,6 +31,7 @@ type generateFlags struct {
 	kubeSawAdminsFile, outDir string
 	dev                       bool
 	kubeconfigs               []string
+	tokenExpirationDays       uint
 }
 
 func NewCliConfigsCmd() *cobra.Command {
@@ -51,6 +52,7 @@ func NewCliConfigsCmd() *cobra.Command {
 
 	configDirPath := fmt.Sprintf("%s/src/github.com/kubesaw/ksctl/out/config", os.Getenv("GOPATH"))
 	command.Flags().StringVarP(&f.outDir, "out-dir", "o", configDirPath, "Directory where generated ksctl.yaml files should be stored")
+	command.Flags().UintVarP(&f.tokenExpirationDays, "token-expiration-days", "e", 365, "Expiration time of the ServiceAccount tokens in days")
 
 	defaultKubeconfigPath := ""
 	if home := homedir.HomeDir(); home != "" {
@@ -88,10 +90,11 @@ func generate(term ioutils.Terminal, flags generateFlags, newExternalClient NewR
 	}
 
 	ctx := &generateContext{
-		Terminal:        term,
-		newRESTClient:   newExternalClient,
-		kubeSawAdmins:   kubeSawAdmins,
-		kubeconfigPaths: flags.kubeconfigs,
+		Terminal:            term,
+		newRESTClient:       newExternalClient,
+		kubeSawAdmins:       kubeSawAdmins,
+		kubeconfigPaths:     flags.kubeconfigs,
+		tokenExpirationDays: flags.tokenExpirationDays,
 	}
 
 	// ksctlConfigsPerName contains all ksctlConfig objects that will be marshalled to ksctl.yaml files
@@ -159,9 +162,10 @@ func writeKsctlConfigs(term ioutils.Terminal, configDirPath string, ksctlConfigs
 
 type generateContext struct {
 	ioutils.Terminal
-	newRESTClient   NewRESTClientFromConfigFunc
-	kubeSawAdmins   *assets.KubeSawAdmins
-	kubeconfigPaths []string
+	newRESTClient       NewRESTClientFromConfigFunc
+	kubeSawAdmins       *assets.KubeSawAdmins
+	kubeconfigPaths     []string
+	tokenExpirationDays uint
 }
 
 // contains tokens mapped by SA name
@@ -196,7 +200,7 @@ func generateForCluster(ctx *generateContext, clusterType configuration.ClusterT
 			ctx.Printlnf("Getting token for SA '%s' in namespace '%s'", sa.Name, saNamespace)
 			token, err := getServiceAccountToken(externalClient, types.NamespacedName{
 				Namespace: saNamespace,
-				Name:      sa.Name})
+				Name:      sa.Name}, ctx.tokenExpirationDays)
 			if token == "" || err != nil {
 				return err
 			}
@@ -243,10 +247,10 @@ func buildClientFromKubeconfigFiles(ctx *generateContext, API string, kubeconfig
 // NOTE: due to a changes in OpenShift 4.11, tokens are not listed as `secrets` in ServiceAccounts.
 // The recommended solution is to use the TokenRequest API when server version >= 4.11
 // (see https://docs.openshift.com/container-platform/4.11/release_notes/ocp-4-11-release-notes.html#ocp-4-11-notable-technical-changes)
-func getServiceAccountToken(cl *rest.RESTClient, namespacedName types.NamespacedName) (string, error) {
+func getServiceAccountToken(cl *rest.RESTClient, namespacedName types.NamespacedName, tokenExpirationDays uint) (string, error) {
 	tokenRequest := &authv1.TokenRequest{
 		Spec: authv1.TokenRequestSpec{
-			ExpirationSeconds: pointer.Int64(int64(365 * 24 * 60 * 60)), // token will be valid for 1 year
+			ExpirationSeconds: pointer.Int64(int64(tokenExpirationDays * 24 * 60 * 60)),
 		},
 	}
 	result := &authv1.TokenRequest{}
