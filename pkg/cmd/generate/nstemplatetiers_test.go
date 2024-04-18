@@ -106,6 +106,19 @@ func TestGenerateNSTemplateTiers(t *testing.T) {
 		require.Error(t, err)
 		assert.Equal(t, "lstat /does/not/exist: no such file or directory", err.Error()) // error occurred while creating TierTemplate resources
 	})
+
+	t.Run("failed to process wrong files", func(t *testing.T) {
+		// given
+		outTempDir, err := os.MkdirTemp("", "generate-tiers-test-")
+		require.NoError(t, err)
+
+		// when
+		err = NSTemplateTiers(term, "../../../test-resources/dummy.openshiftapps.com/", outTempDir, commontest.HostOperatorNs)
+
+		// then
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "../../../test-resources/dummy.openshiftapps.com/")
+	})
 }
 
 type templateRefs struct {
