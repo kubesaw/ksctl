@@ -49,7 +49,6 @@ func TestRestartDeployment(t *testing.T) {
 			require.NoError(t, err)
 			AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 3)
 			assert.Equal(t, 2, numberOfUpdateCalls)
-
 		})
 
 		t.Run("list deployments when no deployment name is provided for "+clusterName, func(t *testing.T) {
@@ -168,7 +167,7 @@ func TestRestartHostOperator(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := restartHostOperator(ctx, fakeClient, cfg)
+		err := restartHostOperator(ctx, fakeClient, cfg.OperatorNamespace)
 
 		// then
 		require.NoError(t, err)
@@ -185,7 +184,7 @@ func TestRestartHostOperator(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := restartHostOperator(ctx, fakeClient, cfg)
+		err := restartHostOperator(ctx, fakeClient, cfg.OperatorNamespace)
 
 		// then
 		require.Error(t, err)
@@ -205,7 +204,7 @@ func TestRestartHostOperator(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := restartHostOperator(ctx, fakeClient, cfg)
+		err := restartHostOperator(ctx, fakeClient, cfg.OperatorNamespace)
 
 		// then
 		require.Error(t, err)
