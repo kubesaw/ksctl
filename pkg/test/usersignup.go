@@ -8,7 +8,7 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/states"
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +19,7 @@ import (
 func NewUserSignup(modifiers ...UserSignupModifier) *toolchainv1alpha1.UserSignup {
 	signup := &toolchainv1alpha1.UserSignup{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      uuid.NewV4().String(),
+			Name:      uuid.NewString(),
 			Namespace: test.HostOperatorNs,
 			Labels: map[string]string{
 				toolchainv1alpha1.UserSignupUserEmailHashLabelKey: "fd2addbd8d82f0d2dc088fa122377eaa",

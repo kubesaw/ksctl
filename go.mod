@@ -11,7 +11,6 @@ require (
 	github.com/openshift/api v0.0.0-20230213134911-7ba313770556
 	github.com/operator-framework/api v0.13.0
 	github.com/pkg/errors v0.9.1
-	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/term v0.15.0
@@ -29,6 +28,7 @@ require (
 
 require (
 	github.com/charmbracelet/log v0.4.0
+	github.com/google/uuid v1.6.0
 	github.com/h2non/gock v1.2.0
 )
 
@@ -74,7 +74,6 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/google/uuid v1.1.2 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect

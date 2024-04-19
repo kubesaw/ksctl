@@ -12,7 +12,7 @@ import (
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -204,10 +204,10 @@ func initAddSpaceUsersTest(t *testing.T, murs ...*toolchainv1alpha1.MasterUserRe
 	nsTemplateTier := newNSTemplateTier("base")
 	roles := make(map[string]toolchainv1alpha1.NSTemplateTierSpaceRole)
 	roles["admin"] = toolchainv1alpha1.NSTemplateTierSpaceRole{
-		TemplateRef: uuid.NewV4().String(),
+		TemplateRef: uuid.NewString(),
 	}
 	roles["viewer"] = toolchainv1alpha1.NSTemplateTierSpaceRole{
-		TemplateRef: uuid.NewV4().String(),
+		TemplateRef: uuid.NewString(),
 	}
 	nsTemplateTier.Spec.SpaceRoles = roles
 	objs := []runtime.Object{space, nsTemplateTier}
