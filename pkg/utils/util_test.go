@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContains(t *testing.T) {
@@ -112,7 +113,7 @@ func TestGetToolchainClusterName(t *testing.T) {
 	} {
 		t.Run(expectedClusterName, func(t *testing.T) {
 			actualClusterName, err := GetToolchainClusterName(params.ClusterType, params.ServerAPI, params.Ordinal)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, expectedClusterName, actualClusterName)
 		})
 	}
