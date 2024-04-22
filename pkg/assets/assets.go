@@ -44,11 +44,7 @@ func GetKubeSawAdminsConfig(kubeSawAdminsFile string) (*KubeSawAdmins, error) {
 }
 
 func GetRoles(f fs.ReadFileFS, clusterType configuration.ClusterType) ([]runtimeclient.Object, error) {
-	return GetSetupTemplateObjects(f, fmt.Sprintf("roles/%s.yaml", clusterType))
-}
-
-func GetSetupTemplateObjects(f fs.ReadFileFS, filePath string) ([]runtimeclient.Object, error) {
-	return ParseTemplate(f, fmt.Sprintf("setup/%s", filePath))
+	return ParseTemplate(f, fmt.Sprintf("roles/%s.yaml", clusterType))
 }
 
 func ParseTemplate(f fs.ReadFileFS, fileName string) ([]runtimeclient.Object, error) {
