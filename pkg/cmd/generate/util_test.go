@@ -52,7 +52,7 @@ func verifyEnsureManifest(t *testing.T, clusterType configuration.ClusterType, o
 	for _, namespace := range []string{"johnspace", "second-namespace", ""} {
 		t.Run("for namespace "+namespace, func(t *testing.T) {
 			// given
-			ctx := newSetupContextWithDefaultFiles(t, nil)
+			ctx := newAdminManifestsContextWithDefaultFiles(t, nil)
 			cache := objectsCache{}
 			toBeStored, expected := prepareObjects(t, "john", namespace, object)
 
@@ -141,8 +141,8 @@ func verifyEnsureManifest(t *testing.T, clusterType configuration.ClusterType, o
 
 				t.Run("single-cluster mode enabled", func(t *testing.T) {
 					// given
-					ctx := newSetupContextWithDefaultFiles(t, nil)
-					ctx.setupFlags.singleCluster = true
+					ctx := newAdminManifestsContextWithDefaultFiles(t, nil)
+					ctx.adminManifestsFlags.singleCluster = true
 
 					t.Run("update after move to base", func(t *testing.T) {
 						// given
@@ -243,7 +243,7 @@ func verifyUpdates(t *testing.T, ctx *clusterContext, cache objectsCache, object
 
 func TestWriteManifests(t *testing.T) {
 	// given
-	ctx := newSetupContextWithDefaultFiles(t, nil)
+	ctx := newAdminManifestsContextWithDefaultFiles(t, nil)
 	cache := objectsCache{}
 	for _, clusterType := range configuration.ClusterTypes {
 		for _, namespace := range []string{"johnspace", "second-namespace", ""} {
@@ -277,7 +277,7 @@ func TestWriteManifest(t *testing.T) {
 	for _, rootDir := range []string{"host", "member", "base"} {
 		t.Run("for root dir "+rootDir, func(t *testing.T) {
 			// given
-			ctx := newSetupContextWithDefaultFiles(t, nil)
+			ctx := newAdminManifestsContextWithDefaultFiles(t, nil)
 			path := filepath.Join(ctx.outDir, rootDir, "test", "resource.yaml")
 			_, expectedObject := prepareObjects(t, "john", "john-comp", &corev1.ServiceAccount{})
 			storeCtx := manifestStoreContext{

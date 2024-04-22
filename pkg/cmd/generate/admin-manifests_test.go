@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestSetup(t *testing.T) {
+func TestAdminManifests(t *testing.T) {
 	// given
 	require.NoError(t, client.AddToScheme())
 	kubeSawAdmins := NewKubeSawAdmins(
@@ -50,14 +50,14 @@ func TestSetup(t *testing.T) {
 
 	t.Run("all created", func(t *testing.T) {
 		// given
-		outTempDir, err := os.MkdirTemp("", "setup-cli-test-")
+		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 		require.NoError(t, err)
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
+		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
 
 		// when
-		err = Setup(term, files, flags)
+		err = adminManifests(term, files, flags)
 
 		// then
 		require.NoError(t, err)
@@ -66,14 +66,14 @@ func TestSetup(t *testing.T) {
 
 	t.Run("in single-cluster mode", func(t *testing.T) {
 		// given
-		outTempDir, err := os.MkdirTemp("", "setup-cli-test-")
+		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 		require.NoError(t, err)
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), singleCluster())
+		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), singleCluster())
 
 		// when
-		err = Setup(term, files, flags)
+		err = adminManifests(term, files, flags)
 
 		// then
 		require.NoError(t, err)
@@ -82,14 +82,14 @@ func TestSetup(t *testing.T) {
 
 	t.Run("in custom host root directory", func(t *testing.T) {
 		// given
-		outTempDir, err := os.MkdirTemp("", "setup-cli-test-")
+		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 		require.NoError(t, err)
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), hostRootDir("host-cluster"))
+		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), hostRootDir("host-cluster"))
 
 		// when
-		err = Setup(term, files, flags)
+		err = adminManifests(term, files, flags)
 
 		// then
 		require.NoError(t, err)
@@ -98,14 +98,14 @@ func TestSetup(t *testing.T) {
 
 	t.Run("in custom member root directory", func(t *testing.T) {
 		// given
-		outTempDir, err := os.MkdirTemp("", "setup-cli-test-")
+		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 		require.NoError(t, err)
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), memberRootDir("member-clusters"))
+		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), memberRootDir("member-clusters"))
 
 		// when
-		err = Setup(term, files, flags)
+		err = adminManifests(term, files, flags)
 
 		// then
 		require.NoError(t, err)
@@ -114,15 +114,15 @@ func TestSetup(t *testing.T) {
 
 	t.Run("previous deleted", func(t *testing.T) {
 		// given
-		outTempDir, err := os.MkdirTemp("", "setup-cli-test-")
+		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 		require.NoError(t, err)
 		storeDummySA(t, outTempDir)
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
+		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
 
 		// when
-		err = Setup(term, files, flags)
+		err = adminManifests(term, files, flags)
 
 		// then
 		require.NoError(t, err)
@@ -131,13 +131,13 @@ func TestSetup(t *testing.T) {
 
 	t.Run("if out dir doesn't exist then it creates", func(t *testing.T) {
 		// given
-		outTempDir := filepath.Join(os.TempDir(), fmt.Sprintf("setup-cli-test-%s", uuid.NewV4().String()))
+		outTempDir := filepath.Join(os.TempDir(), fmt.Sprintf("admin-manifests-cli-test-%s", uuid.NewV4().String()))
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
+		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
 
 		// when
-		err = Setup(term, files, flags)
+		err = adminManifests(term, files, flags)
 
 		// then
 		require.NoError(t, err)
@@ -146,14 +146,14 @@ func TestSetup(t *testing.T) {
 
 	t.Run("fails for non-existing kubesaw-admins.yaml file", func(t *testing.T) {
 		// given
-		outTempDir, err := os.MkdirTemp("", "setup-cli-test-")
+		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 		require.NoError(t, err)
 		term := NewFakeTerminalWithResponse("Y")
 		term.Tee(os.Stdout)
-		flags := newSetupFlags(outDir(outTempDir), kubeSawAdminsFile("does/not/exist"))
+		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile("does/not/exist"))
 
 		// when
-		err = Setup(term, files, flags)
+		err = adminManifests(term, files, flags)
 
 		// then
 		require.Error(t, err)
@@ -180,7 +180,7 @@ func storeDummySA(t *testing.T, outDir string) {
 	require.NoError(t, err)
 }
 
-func verifyFiles(t *testing.T, flags setupFlags) {
+func verifyFiles(t *testing.T, flags adminManifestsFlags) {
 	dirEntries, err := os.ReadDir(flags.outDir)
 	require.NoError(t, err)
 	var dirNames []string
@@ -310,45 +310,45 @@ users:
     token: my-cool-token
 `
 
-type setupFlagsOption func(*setupFlags)
+type adminManifestsFlagsOption func(*adminManifestsFlags)
 
-func newSetupFlags(setupFlagsOptions ...setupFlagsOption) setupFlags {
-	flags := setupFlags{
+func newAdminManifestsFlags(adminManifestsFlagsOptions ...adminManifestsFlagsOption) adminManifestsFlags {
+	flags := adminManifestsFlags{
 		hostRootDir:   "host",
 		memberRootDir: "member",
 	}
-	for _, applyOption := range setupFlagsOptions {
+	for _, applyOption := range adminManifestsFlagsOptions {
 		applyOption(&flags)
 	}
 	return flags
 }
 
-func kubeSawAdminsFile(configName string) setupFlagsOption {
-	return func(flags *setupFlags) {
+func kubeSawAdminsFile(configName string) adminManifestsFlagsOption {
+	return func(flags *adminManifestsFlags) {
 		flags.kubeSawAdminsFile = configName
 	}
 }
 
-func outDir(outDir string) setupFlagsOption {
-	return func(flags *setupFlags) {
+func outDir(outDir string) adminManifestsFlagsOption {
+	return func(flags *adminManifestsFlags) {
 		flags.outDir = outDir
 	}
 }
 
-func hostRootDir(hostRootDir string) setupFlagsOption {
-	return func(flags *setupFlags) {
+func hostRootDir(hostRootDir string) adminManifestsFlagsOption {
+	return func(flags *adminManifestsFlags) {
 		flags.hostRootDir = hostRootDir
 	}
 }
 
-func memberRootDir(memberRootDir string) setupFlagsOption {
-	return func(flags *setupFlags) {
+func memberRootDir(memberRootDir string) adminManifestsFlagsOption {
+	return func(flags *adminManifestsFlags) {
 		flags.memberRootDir = memberRootDir
 	}
 }
 
-func singleCluster() setupFlagsOption {
-	return func(flags *setupFlags) {
+func singleCluster() adminManifestsFlagsOption {
+	return func(flags *adminManifestsFlags) {
 		flags.singleCluster = true
 	}
 }

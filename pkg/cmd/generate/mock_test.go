@@ -26,8 +26,8 @@ func newDefaultFiles(t *testing.T, fakeFiles ...test.FakeFileCreator) assets.FS 
 
 	files := test.NewFakeFiles(t,
 		append(fakeFiles,
-			test.FakeTemplate("setup/roles/host.yaml", roles...),
-			test.FakeTemplate("setup/roles/member.yaml", roles...))...,
+			test.FakeTemplate("roles/host.yaml", roles...),
+			test.FakeTemplate("roles/member.yaml", roles...))...,
 	)
 	return files
 }
@@ -41,23 +41,23 @@ func createKubeSawAdminsFile(t *testing.T, dirPrefix string, content []byte) str
 	return configFile
 }
 
-// setupContext part
+// adminManifestsContext part
 
-func newSetupContextWithDefaultFiles(t *testing.T, config *assets.KubeSawAdmins) *setupContext { //nolint:unparam
-	return newSetupContext(t, config, newDefaultFiles(t))
+func newAdminManifestsContextWithDefaultFiles(t *testing.T, config *assets.KubeSawAdmins) *adminManifestsContext { //nolint:unparam
+	return newAdminManifestsContext(t, config, newDefaultFiles(t))
 }
 
-func newSetupContext(t *testing.T, config *assets.KubeSawAdmins, files assets.FS) *setupContext {
+func newAdminManifestsContext(t *testing.T, config *assets.KubeSawAdmins, files assets.FS) *adminManifestsContext {
 	fakeTerminal := test.NewFakeTerminal()
 	fakeTerminal.Tee(os.Stdout)
 	require.NoError(t, client.AddToScheme())
 	temp, err := os.MkdirTemp("", "cli-tests-")
 	require.NoError(t, err)
-	return &setupContext{
+	return &adminManifestsContext{
 		Terminal:      fakeTerminal,
 		kubeSawAdmins: config,
 		files:         files,
-		setupFlags: setupFlags{
+		adminManifestsFlags: adminManifestsFlags{
 			outDir:        temp,
 			memberRootDir: "member",
 			hostRootDir:   "host",
@@ -67,9 +67,9 @@ func newSetupContext(t *testing.T, config *assets.KubeSawAdmins, files assets.FS
 
 // ClusterContext part
 
-func newFakeClusterContext(setupContext *setupContext, clusterType configuration.ClusterType) *clusterContext {
+func newFakeClusterContext(adminManifestsContext *adminManifestsContext, clusterType configuration.ClusterType) *clusterContext {
 	return &clusterContext{
-		setupContext: setupContext,
-		clusterType:  clusterType,
+		adminManifestsContext: adminManifestsContext,
+		clusterType:           clusterType,
 	}
 }

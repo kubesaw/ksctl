@@ -70,7 +70,7 @@ func setGVK(obj runtimeclient.Object) error {
 	return nil
 }
 
-func (c objectsCache) writeManifests(ctx *setupContext) error {
+func (c objectsCache) writeManifests(ctx *adminManifestsContext) error {
 	storeCtx := manifestStoreContext{
 		outDir:        ctx.outDir,
 		memberRootDir: ctx.memberRootDir,
