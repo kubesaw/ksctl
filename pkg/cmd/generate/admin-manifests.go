@@ -14,13 +14,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type setupFlags struct {
+type adminManifestsFlags struct {
 	kubeSawAdminsFile, outDir, hostRootDir, memberRootDir string
 	singleCluster                                         bool
 }
 
 func NewAdminManifestsCmd() *cobra.Command {
-	f := setupFlags{}
+	f := adminManifestsFlags{}
 	command := &cobra.Command{
 		Use: "admin-manifests --kubesaw-admins=<path-to-kubesaw-admins-file> --out-dir <path-to-out-dir>",
 		Example: `ksctl generate admin-manifests ./path/to/kubesaw.openshiftapps.com/kubesaw-admins.yaml --out-dir ./components/auth/kubesaw-production
@@ -30,7 +30,7 @@ ksctl generate admin-manifests ./path/to/kubesaw-stage.openshiftapps.com/kubesaw
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			return Setup(term, resources.Resources, f)
+			return adminManifests(term, resources.Resources, f)
 		},
 	}
 	command.Flags().StringVarP(&f.kubeSawAdminsFile, "kubesaw-admins", "c", "", "Use the given kubesaw-admin file")
@@ -45,7 +45,7 @@ ksctl generate admin-manifests ./path/to/kubesaw-stage.openshiftapps.com/kubesaw
 	return command
 }
 
-func Setup(term ioutils.Terminal, files assets.FS, flags setupFlags) error {
+func adminManifests(term ioutils.Terminal, files assets.FS, flags adminManifestsFlags) error {
 	if err := client.AddToScheme(); err != nil {
 		return err
 	}
@@ -64,11 +64,11 @@ func Setup(term ioutils.Terminal, files assets.FS, flags setupFlags) error {
 	if err != nil {
 		return err
 	}
-	ctx := &setupContext{
-		Terminal:      term,
-		kubeSawAdmins: kubeSawAdmins,
-		setupFlags:    flags,
-		files:         files,
+	ctx := &adminManifestsContext{
+		Terminal:            term,
+		kubeSawAdmins:       kubeSawAdmins,
+		adminManifestsFlags: flags,
+		files:               files,
 	}
 	objsCache := objectsCache{}
 	if err := ensureCluster(ctx, configuration.Host, objsCache); err != nil {
@@ -80,19 +80,19 @@ func Setup(term ioutils.Terminal, files assets.FS, flags setupFlags) error {
 	return objsCache.writeManifests(ctx)
 }
 
-type setupContext struct {
+type adminManifestsContext struct {
 	ioutils.Terminal
-	setupFlags
+	adminManifestsFlags
 	kubeSawAdmins *assets.KubeSawAdmins
 	files         assets.FS
 }
 
-func ensureCluster(ctx *setupContext, clusterType configuration.ClusterType, cache objectsCache) error {
+func ensureCluster(ctx *adminManifestsContext, clusterType configuration.ClusterType, cache objectsCache) error {
 	ctx.PrintContextSeparatorf("Generating manifests for %s cluster type", clusterType)
 
 	clusterCtx := &clusterContext{
-		setupContext: ctx,
-		clusterType:  clusterType,
+		adminManifestsContext: ctx,
+		clusterType:           clusterType,
 	}
 
 	if err := ensureServiceAccounts(clusterCtx, cache); err != nil {
