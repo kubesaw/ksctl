@@ -31,7 +31,7 @@ import (
 
 type storageAssertion interface {
 	assertObject(namespace, name string, object runtimeclient.Object, contentAssertions ...func())
-	listObjects(kind string, object runtimeclient.Object) ([]runtimeclient.Object, error)
+	listObjects(dirName, kind string, object runtimeclient.Object) ([]runtimeclient.Object, error)
 }
 
 type storageAssertionImpl struct {
@@ -71,11 +71,11 @@ func (a *objectsCacheAssertion) assertObjectDoesNotExist(namespace, name string,
 	return a
 }
 
-func (a *objectsCacheAssertion) listObjects(resource string, _ runtimeclient.Object) ([]runtimeclient.Object, error) {
+func (a *objectsCacheAssertion) listObjects(dirName, kind string, _ runtimeclient.Object) ([]runtimeclient.Object, error) {
 	var objects []runtimeclient.Object
 	prefix := filepath.Join(a.out, a.rootDirName)
 	for path, obj := range a.cache {
-		if strings.HasPrefix(path, prefix) && filepath.Base(filepath.Dir(path)) == resource {
+		if strings.HasPrefix(path, prefix) && filepath.Base(filepath.Dir(path)) == dirName && obj.GetObjectKind().GroupVersionKind().Kind == kind {
 			object := obj
 			objects = append(objects, object)
 		}
@@ -130,17 +130,23 @@ func inKStructure(t *testing.T, out, rootDirName string) *kStructureAssertion {
 	return kAssertion
 }
 
-func (a *kStructureAssertion) listObjects(kind string, object runtimeclient.Object) ([]runtimeclient.Object, error) {
+func (a *kStructureAssertion) listObjects(dirName, kind string, object runtimeclient.Object) ([]runtimeclient.Object, error) {
 	var objects []runtimeclient.Object
 
 	err := filepath.WalkDir(filepath.Join(a.out, a.rootDirName), func(path string, dirEntry fs.DirEntry, err error) error {
-		if filepath.Base(filepath.Dir(path)) == kind && dirEntry.Name() != "kustomization.yaml" {
+		if err != nil {
+			return err
+		}
+		if dirEntry != nil && !dirEntry.IsDir() && (filepath.Base(filepath.Dir(path)) == dirName || dirName == "") && dirEntry.Name() != "kustomization.yaml" {
 			obj := object.DeepCopyObject()
 			objFile, err := os.ReadFile(path)
 			require.NoError(a.t, err)
 			err = yaml.Unmarshal(objFile, obj)
 			require.NoError(a.t, err)
-			objects = append(objects, obj.(runtimeclient.Object))
+			if obj.GetObjectKind().GroupVersionKind().Kind == kind {
+				objects = append(objects, obj.(runtimeclient.Object))
+				assertKustomizationFiles(a.t, a.out, a.rootDirName, path)
+			}
 		}
 		return nil
 	})
@@ -183,6 +189,10 @@ func assertKustomizationFiles(t *testing.T, out, rootDirName string, filePath st
 	if filepath.Join(out, rootDirName) != filepath.Dir(filePath) {
 		assertKustomizationFiles(t, out, rootDirName, filepath.Dir(kFilePath))
 	} else {
+		if rootDirName == "" {
+			assertKustomizationFile(t, filepath.Join(out, "kustomization.yaml"), filepath.Base(filePath), true)
+			return
+		}
 		kFilePathBase := filepath.Join(baseDirectory(out), "kustomization.yaml")
 		basePresent := false
 		if _, err := os.Stat(kFilePathBase); err != nil && !os.IsNotExist(err) {
@@ -323,7 +333,7 @@ func extraGroupsUserIsNotPartOf(groups ...string) extraGroupsPresentInCluster {
 }
 
 func (a userAssertion) belongsToGroups(groups groupsUserBelongsTo, extraGroups extraGroupsPresentInCluster) userAssertion {
-	presentGroups, err := a.listObjects("groups", &userv1.Group{})
+	presentGroups, err := a.listObjects("groups", "Group", &userv1.Group{})
 	require.NoError(a.t, err)
 	allGroupsExpected := append(extraGroups, groups...)
 	require.Len(a.t, presentGroups, len(allGroupsExpected))
@@ -428,7 +438,7 @@ func (a *storageAssertionImpl) assertRole(namespace, roleName string, contentAss
 }
 
 func (a *objectsCacheAssertion) assertNumberOfRoles(expectedNumber int) *objectsCacheAssertion {
-	roles, err := a.listObjects("roles", &rbacv1.Role{})
+	roles, err := a.listObjects("roles", "Role", &rbacv1.Role{})
 	require.NoError(a.t, err)
 	assert.Len(a.t, roles, expectedNumber)
 	return a

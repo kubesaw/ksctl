@@ -280,9 +280,14 @@ func TestWriteManifest(t *testing.T) {
 			ctx := newAdminManifestsContextWithDefaultFiles(t, nil)
 			path := filepath.Join(ctx.outDir, rootDir, "test", "resource.yaml")
 			_, expectedObject := prepareObjects(t, "john", "john-comp", &corev1.ServiceAccount{})
+			storeCtx := manifestStoreContext{
+				outDir:        ctx.outDir,
+				memberRootDir: ctx.memberRootDir,
+				hostRootDir:   ctx.hostRootDir,
+			}
 
 			// when
-			err := writeManifest(ctx, path, expectedObject)
+			err := writeManifest(storeCtx, path, expectedObject)
 
 			// then
 			require.NoError(t, err)
