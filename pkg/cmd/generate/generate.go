@@ -17,4 +17,5 @@ func NewGenerateCmd() *cobra.Command {
 func registerCommands(generateCommand *cobra.Command) {
 	generateCommand.AddCommand(NewAdminManifestsCmd())
 	generateCommand.AddCommand(NewCliConfigsCmd())
+	generateCommand.AddCommand(NewNSTemplateTiersCmd())
 }
