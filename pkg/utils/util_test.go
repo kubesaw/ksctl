@@ -35,6 +35,16 @@ func TestGetToolchainClusterName(t *testing.T) {
 		Ordinal     int
 	}
 	for expectedClusterName, params := range map[string]Params{
+		"host-sandbox.x7a5.a2.openshiftapps.com": {
+			ClusterType: "host",
+			ServerAPI:   "https://api.sandbox.x7a5.a2.openshiftapps.com:6443",
+			Ordinal:     0,
+		},
+		"member-sandbox-m2.ab8k.b3.openshiftapps.com": {
+			ClusterType: "member",
+			ServerAPI:   "https://api.sandbox-m2.ab8k.b3.openshiftapps.com:6443",
+			Ordinal:     0,
+		},
 		"member-api-prefix-dropped": {
 			ClusterType: "member",
 			ServerAPI:   "https://api.api-prefix-dropped",
