@@ -33,6 +33,8 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint string, ordinal int)
 
 	var ordinalLength int
 	if ordinal > 0 {
+		// log10(x) + 1 determines the number of digits in a number (in base 10),
+		// i.e. the length of the suffix that we are potentially adding to the name
 		ordinalLength = int(math.Log10(float64(ordinal))) + 1
 	} else {
 		ordinalLength = 0
@@ -43,7 +45,7 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint string, ordinal int)
 	// in the original script.
 	fixedLength := len(clusterType) + ordinalLength + 1
 
-	maxAllowedClusterHostNameLen := 62 - fixedLength // I think 62 is here, because we might default the ordinal to 1 later on and we could theoretically
+	maxAllowedClusterHostNameLen := 62 - fixedLength // I think 62 is here, because we might default the ordinal to 1 later on
 
 	clusterHostName, err := sanitizeEnpointForUsageAsName(serverAPIEndpoint)
 	if err != nil {
@@ -51,6 +53,8 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint string, ordinal int)
 	}
 	if len(clusterHostName) >= maxAllowedClusterHostNameLen {
 		clusterHostName = clusterHostName[0:maxAllowedClusterHostNameLen]
+		// the original script uses this approach to ensure that the name ends with an alphanumeric
+		// character (i.e. that the name doesn't end with a '.' after shortening the hostname)
 		if ordinal <= 0 {
 			ordinal = 1
 		}
