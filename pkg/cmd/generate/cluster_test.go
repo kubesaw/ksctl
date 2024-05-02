@@ -23,7 +23,7 @@ func TestEnsureServiceAccounts(t *testing.T) {
 					HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("view")),
 					MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("view")))),
 			[]assets.User{})
-		ctx := newSetupContextWithDefaultFiles(t, kubeSawAdmins)
+		ctx := newAdminManifestsContextWithDefaultFiles(t, kubeSawAdmins)
 		cache := objectsCache{}
 
 		for _, clusterType := range configuration.ClusterTypes {
@@ -73,7 +73,7 @@ func TestEnsureServiceAccounts(t *testing.T) {
 				Sa("john", "openshift-customer-monitoring",
 					HostRoleBindings("toolchain-host-operator", Role("install-operator"), ClusterRole("view")),
 					HostClusterRoleBindings("cluster-monitoring-view"))), Users())
-		ctx := newSetupContextWithDefaultFiles(t, kubeSawAdmins)
+		ctx := newAdminManifestsContextWithDefaultFiles(t, kubeSawAdmins)
 		clusterCtx := newFakeClusterContext(ctx, configuration.Host)
 		t.Cleanup(gock.OffAll)
 		cache := objectsCache{}
@@ -106,7 +106,7 @@ func TestUsers(t *testing.T) {
 					MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("view")),
 					MemberClusterRoleBindings("cluster-monitoring-view"))))
 
-		ctx := newSetupContextWithDefaultFiles(t, kubeSawAdmins)
+		ctx := newAdminManifestsContextWithDefaultFiles(t, kubeSawAdmins)
 		cache := objectsCache{}
 
 		for _, clusterType := range configuration.ClusterTypes {

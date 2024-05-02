@@ -5,7 +5,7 @@ import (
 )
 
 type clusterContext struct {
-	*setupContext
+	*adminManifestsContext
 	clusterType configuration.ClusterType
 }
 

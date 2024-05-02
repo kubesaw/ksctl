@@ -5,16 +5,17 @@ import (
 )
 
 func NewGenerateCmd() *cobra.Command {
-	admCommand := &cobra.Command{
+	generateCommand := &cobra.Command{
 		Use:   "generate",
 		Short: "Generate commands",
 		Long:  `Commands to generate manifests and CLI config files`,
 	}
-	registerCommands(admCommand)
-	return admCommand
+	registerCommands(generateCommand)
+	return generateCommand
 }
 
-func registerCommands(admCommand *cobra.Command) {
-	admCommand.AddCommand(NewAdminManifestsCmd())
-	admCommand.AddCommand(NewCliConfigsCmd())
+func registerCommands(generateCommand *cobra.Command) {
+	generateCommand.AddCommand(NewAdminManifestsCmd())
+	generateCommand.AddCommand(NewCliConfigsCmd())
+	generateCommand.AddCommand(NewNSTemplateTiersCmd())
 }
