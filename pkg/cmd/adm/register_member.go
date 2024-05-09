@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -62,7 +61,7 @@ type registerMemberArgs struct {
 	hostNamespace    string
 	memberNamespace  string
 	useLetsEncrypt   bool
-	memberOrdinal    *uint
+	nameSuffix       string
 }
 
 func newRegisterMemberArgs() registerMemberArgs {
@@ -80,35 +79,6 @@ func newRegisterMemberArgs() registerMemberArgs {
 	args.useLetsEncrypt = true
 
 	return args
-}
-
-type optionalUint struct {
-	*uint
-}
-
-// Set(), String() and Type() are needed to make the optionalUint a custom flag type
-func (v optionalUint) Set(val string) error {
-	if len(val) > 0 {
-		vi, err := strconv.ParseUint(val, 10, 64)
-		if err != nil {
-			return err
-		}
-
-		*v.uint = uint(vi)
-	}
-	return nil
-}
-
-func (v optionalUint) String() string {
-	if v.uint != nil {
-		return fmt.Sprintf("%d", *v.uint)
-	} else {
-		return "<unspecified>"
-	}
-}
-
-func (v optionalUint) Type() string {
-	return "uint"
 }
 
 func NewRegisterMemberCmd() *cobra.Command {
@@ -129,7 +99,7 @@ func NewRegisterMemberCmd() *cobra.Command {
 	cmd.Flags().StringVar(&commandArgs.hostKubeconfig, "host-kubeconfig", commandArgs.hostKubeconfig, fmt.Sprintf("Path to the kubeconfig file of the host cluster (default: %s)", commandArgs.hostKubeconfig))
 	cmd.Flags().StringVar(&commandArgs.memberKubeconfig, "member-kubeconfig", commandArgs.memberKubeconfig, fmt.Sprintf("Path to the kubeconfig file of the member cluster (default: %s)", commandArgs.memberKubeconfig))
 	cmd.Flags().BoolVar(&commandArgs.useLetsEncrypt, "lets-encrypt", commandArgs.useLetsEncrypt, fmt.Sprintf("Whether to use Let's Encrypt certificates or rely on the cluster certs (default: %t)", commandArgs.useLetsEncrypt))
-	cmd.Flags().Var(optionalUint{commandArgs.memberOrdinal}, "member-ordinal", "The explicit ordinal of the member used when there are multiple members in a single cluster. This can be used to re-register a member in case some changes or cleanup is needed. If unspecified, a new member with the next available ordinal is created, otherwise this is meant to represent the numerical suffix of the name with 0 meaning no suffix, 1 meaning suffix \"1\", etc. (default: unspecified)")
+	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", commandArgs.nameSuffix, fmt.Sprintf("The suffix to append to the member name used when there are multiple members in a single cluster (default: %s)", commandArgs.nameSuffix))
 	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", commandArgs.hostNamespace, fmt.Sprintf("The namespace of the host operator in the host cluster (default: %s)", commandArgs.hostNamespace))
 	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", commandArgs.memberNamespace, fmt.Sprintf("The namespace of the member operator in the member cluster (default: %s)", commandArgs.memberNamespace))
 	return cmd
@@ -163,7 +133,7 @@ func registerMemberCluster(ctx *extendedCommandContext, newCommand client.Comman
 	return validated.perform(ctx, newCommand)
 }
 
-func runAddClusterScript(term ioutils.Terminal, newCommand client.CommandCreator, joiningClusterType configuration.ClusterType, hostKubeconfig, hostNs, memberKubeconfig, memberNs string, memberOrdinal int, useLetsEncrypt bool) error {
+func runAddClusterScript(term ioutils.Terminal, newCommand client.CommandCreator, joiningClusterType configuration.ClusterType, hostKubeconfig, hostNs, memberKubeconfig, memberNs, nameSuffix string, useLetsEncrypt bool) error {
 	if !term.AskForConfirmation(ioutils.WithMessagef("register the %s cluster by creating a ToolchainCluster CR, a Secret and a new ServiceAccount resource?", joiningClusterType)) {
 		return nil
 	}
@@ -173,8 +143,8 @@ func runAddClusterScript(term ioutils.Terminal, newCommand client.CommandCreator
 		return err
 	}
 	args := []string{script.Name(), "--type", joiningClusterType.String(), "--host-kubeconfig", hostKubeconfig, "--host-ns", hostNs, "--member-kubeconfig", memberKubeconfig, "--member-ns", memberNs}
-	if memberOrdinal > 0 {
-		args = append(args, "--multi-member", fmt.Sprintf("%d", memberOrdinal))
+	if len(nameSuffix) > 0 {
+		args = append(args, "--multi-member", nameSuffix)
 	}
 	if useLetsEncrypt {
 		args = append(args, "--lets-encrypt")
@@ -275,11 +245,10 @@ type registerMemberData struct {
 
 type registerMemberValidated struct {
 	registerMemberData
-	hostToolchainClusterName      string
-	memberToolchainClusterName    string
-	warnings                      []string
-	errors                        []string
-	memberToolchainClusterOrdinal int
+	hostToolchainClusterName   string
+	memberToolchainClusterName string
+	warnings                   []string
+	errors                     []string
 }
 
 func dataFromArgs(ctx *extendedCommandContext, args registerMemberArgs, waitForReadyTimeout time.Duration) (*registerMemberData, error) {
@@ -326,7 +295,7 @@ func dataFromArgs(ctx *extendedCommandContext, args registerMemberArgs, waitForR
 }
 
 func (d *registerMemberData) validate(ctx *extendedCommandContext) (*registerMemberValidated, error) {
-	hostToolchainClusterName, err := utils.GetToolchainClusterName(string(configuration.Host), d.hostApiEndpoint, 0)
+	hostToolchainClusterName, err := utils.GetToolchainClusterName(string(configuration.Host), d.hostApiEndpoint, "")
 	if err != nil {
 		return nil, err
 	}
@@ -337,13 +306,7 @@ func (d *registerMemberData) validate(ctx *extendedCommandContext) (*registerMem
 	if err != nil {
 		return nil, err
 	}
-	var ord int
-	if d.args.memberOrdinal == nil {
-		ord = len(membersInHost)
-	} else {
-		ord = int(*d.args.memberOrdinal)
-	}
-	memberToolchainClusterName, err := utils.GetToolchainClusterName(string(configuration.Member), d.memberApiEndpoint, int(ord))
+	memberToolchainClusterName, err := utils.GetToolchainClusterName(string(configuration.Member), d.memberApiEndpoint, d.args.nameSuffix)
 	if err != nil {
 		return nil, err
 	}
@@ -362,24 +325,23 @@ func (d *registerMemberData) validate(ctx *extendedCommandContext) (*registerMem
 		if hostsInMember.Items[0].Spec.APIEndpoint != d.hostApiEndpoint {
 			errors = append(errors, fmt.Sprintf("the member is already registered with another host (%s) so registering it with the new one (%s) would result in an invalid configuration", hostsInMember.Items[0].Spec.APIEndpoint, d.hostApiEndpoint))
 		} else if hostsInMember.Items[0].Name != hostToolchainClusterName {
-			errors = append(errors, fmt.Sprintf("the host is already in member namespace using ToolchainCluster object with name '%s' but the new registration would use a ToolchainCluster with name '%s' which would lead to invalid configuration", hostsInMember.Items[0].Name, hostToolchainClusterName))
+			errors = append(errors, fmt.Sprintf("the host is already in the member namespace using a ToolchainCluster object with the name '%s' but the new registration would use a ToolchainCluster with the name '%s' which would lead to an invalid configuration", hostsInMember.Items[0].Name, hostToolchainClusterName))
 		}
 	}
 	existingMemberToolchainCluster := findToolchainClusterForMember(membersInHost, d.memberApiEndpoint, d.memberOperatorNamespace)
 	if existingMemberToolchainCluster != nil {
-		warnings = append(warnings, fmt.Sprintf("there already is a registered member for the same member API endpoint and operator namespace: %s", runtimeclient.ObjectKeyFromObject(existingMemberToolchainCluster)))
+		warnings = append(warnings, fmt.Sprintf("there already is a registered member for the same member API endpoint and operator namespace (%s), proceeding will overwrite the objects representing it in the host and member clusters", runtimeclient.ObjectKeyFromObject(existingMemberToolchainCluster)))
 		if existingMemberToolchainCluster.Name != memberToolchainClusterName {
-			errors = append(errors, fmt.Sprintf("the newly registered member cluster would have a different name (%s) than the already existing one (%s) which would lead to invalid configuration. Consider using the --member-ordinal parameter to match the existing member registration if you intend to just update it instead of creating a new registration", memberToolchainClusterName, existingMemberToolchainCluster.Name))
+			errors = append(errors, fmt.Sprintf("the newly registered member cluster would have a different name (%s) than the already existing one (%s) which would lead to invalid configuration. Consider using the --name-suffix parameter to match the existing member registration if you intend to just update it instead of creating a new registration", memberToolchainClusterName, existingMemberToolchainCluster.Name))
 		}
 	}
 
 	return &registerMemberValidated{
-		registerMemberData:            *d,
-		hostToolchainClusterName:      hostToolchainClusterName,
-		memberToolchainClusterName:    memberToolchainClusterName,
-		memberToolchainClusterOrdinal: ord,
-		warnings:                      warnings,
-		errors:                        errors,
+		registerMemberData:         *d,
+		hostToolchainClusterName:   hostToolchainClusterName,
+		memberToolchainClusterName: memberToolchainClusterName,
+		warnings:                   warnings,
+		errors:                     errors,
 	}, nil
 }
 
@@ -414,7 +376,7 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext, newComman
 		Name:      v.hostToolchainClusterName,
 		Namespace: v.memberOperatorNamespace,
 	}
-	if err := runAddClusterScript(ctx, newCommand, configuration.Host, v.args.hostKubeconfig, v.hostOperatorNamespace, v.args.memberKubeconfig, v.memberOperatorNamespace, 0, v.args.useLetsEncrypt); err != nil {
+	if err := runAddClusterScript(ctx, newCommand, configuration.Host, v.args.hostKubeconfig, v.hostOperatorNamespace, v.args.memberKubeconfig, v.memberOperatorNamespace, "", v.args.useLetsEncrypt); err != nil {
 		return err
 	}
 
@@ -428,7 +390,7 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext, newComman
 		Name:      v.memberToolchainClusterName,
 		Namespace: v.hostOperatorNamespace,
 	}
-	if err := runAddClusterScript(ctx, newCommand, configuration.Member, v.args.hostKubeconfig, v.hostOperatorNamespace, v.args.memberKubeconfig, v.memberOperatorNamespace, v.memberToolchainClusterOrdinal, v.args.useLetsEncrypt); err != nil {
+	if err := runAddClusterScript(ctx, newCommand, configuration.Member, v.args.hostKubeconfig, v.hostOperatorNamespace, v.args.memberKubeconfig, v.memberOperatorNamespace, v.args.nameSuffix, v.args.useLetsEncrypt); err != nil {
 		return err
 	}
 

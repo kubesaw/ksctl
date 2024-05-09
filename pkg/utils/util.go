@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"math"
 	"net/url"
 	"strings"
 )
@@ -20,7 +19,7 @@ func Contains(slice []string, value string) bool {
 // GetToolchainClusterName produces a name for ToolchainCluster object that is both deterministic and "reasonably unique".
 // The `ordinal` must be greater than 0 if there are multiple ToolchainCluster objects pointing to the same cluster. This
 // needs to be determined by the caller prior to calling this method.
-func GetToolchainClusterName(clusterType, serverAPIEndpoint string, ordinal int) (string, error) {
+func GetToolchainClusterName(clusterType, serverAPIEndpoint, suffix string) (string, error) {
 	// NOTE: this function is ported from the original add-cluster.sh script to produce the same names during the transition
 	// period to the new operator-based approach to the member registration.
 	// Since add-cluster.sh was a bash script with a long history, the logic is a bit convoluted at places (especially in
@@ -31,19 +30,12 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint string, ordinal int)
 	// 2) the variable part is (a part of) the cluster hostname
 	// 3) it ends with a digit (supplied by the ordinal param) if it was shortened
 
-	var ordinalLength int
-	if ordinal > 0 {
-		// log10(x) + 1 determines the number of digits in a number (in base 10),
-		// i.e. the length of the suffix that we are potentially adding to the name
-		ordinalLength = int(math.Log10(float64(ordinal))) + 1
-	} else {
-		ordinalLength = 0
-	}
+	suffix = strings.TrimSpace(suffix)
 
 	// the name always contains the cluster type, a hypen between the cluster type and the numerical suffix (if needed)
 	// Interestingly, this is computed BEFORE we determine if we need the numerical suffix at all, but that's the logic
 	// in the original script.
-	fixedLength := len(clusterType) + ordinalLength + 1
+	fixedLength := len(clusterType) + len(suffix) + 1
 
 	maxAllowedClusterHostNameLen := 62 - fixedLength // I think 62 is here, because we might default the ordinal to 1 later on
 
@@ -55,15 +47,15 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint string, ordinal int)
 		clusterHostName = clusterHostName[0:maxAllowedClusterHostNameLen]
 		// the original script uses this approach to ensure that the name ends with an alphanumeric
 		// character (i.e. that the name doesn't end with a '.' after shortening the hostname)
-		if ordinal <= 0 {
-			ordinal = 1
+		if len(suffix) == 0 {
+			suffix = "1"
 		}
 	}
 
-	if ordinal <= 0 {
+	if len(suffix) == 0 {
 		return fmt.Sprintf("%s-%s", clusterType, clusterHostName), nil
 	}
-	return fmt.Sprintf("%s-%s%d", clusterType, clusterHostName, ordinal), nil
+	return fmt.Sprintf("%s-%s%s", clusterType, clusterHostName, suffix), nil
 }
 
 func sanitizeEnpointForUsageAsName(apiEndpoint string) (string, error) {
