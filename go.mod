@@ -2,8 +2,12 @@ module github.com/kubesaw/ksctl
 
 go 1.20
 
+replace github.com/codeready-toolchain/api => github.com/fbm3307/toolchainapi v0.0.0-20240513145519-e72bfb85209f
+
+replace github.com/codeready-toolchain/toolchain-common => github.com/fbm3307/toolchain-common v0.0.0-20240514062344-9c5a21b4313e
+
 require (
-	github.com/codeready-toolchain/api v0.0.0-20240322110702-5ab3840476e9
+	github.com/codeready-toolchain/api v0.0.0-20240507023248-73662d6db2c5
 	github.com/codeready-toolchain/toolchain-common v0.0.0-20240417084737-d3c148491687
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -64,7 +68,6 @@ require (
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.14 // indirect
-	github.com/gofrs/uuid v3.3.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -122,7 +125,7 @@ require (
 	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
-	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
