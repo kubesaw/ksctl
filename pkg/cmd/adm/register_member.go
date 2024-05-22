@@ -324,7 +324,8 @@ func (d *registerMemberData) validate(ctx *extendedCommandContext) (*registerMem
 	} else if len(hostsInMember.Items) == 1 {
 		if hostsInMember.Items[0].Spec.APIEndpoint != d.hostApiEndpoint {
 			errors = append(errors, fmt.Sprintf("the member is already registered with another host (%s) so registering it with the new one (%s) would result in an invalid configuration", hostsInMember.Items[0].Spec.APIEndpoint, d.hostApiEndpoint))
-		} else if hostsInMember.Items[0].Name != hostToolchainClusterName {
+		} 
+		if hostsInMember.Items[0].Name != hostToolchainClusterName {
 			errors = append(errors, fmt.Sprintf("the host is already in the member namespace using a ToolchainCluster object with the name '%s' but the new registration would use a ToolchainCluster with the name '%s' which would lead to an invalid configuration", hostsInMember.Items[0].Name, hostToolchainClusterName))
 		}
 	}
