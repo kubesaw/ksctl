@@ -672,16 +672,16 @@ func extractExampleSPCFromOutput(t *testing.T, output string) toolchainv1alpha1.
 
 func newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig string, useLetsEncrypt bool) registerMemberArgs {
 	args := newRegisterMemberArgs()
-	args.hostKubeconfig = hostKubeconfig
-	args.memberKubeconfig = memberKubeconfig
+	args.hostKubeConfig = hostKubeconfig
+	args.memberKubeConfig = memberKubeconfig
 	args.useLetsEncrypt = useLetsEncrypt
 	return args
 }
 
 func newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig string, useLetsEncrypt bool, nameSuffix string) registerMemberArgs {
 	args := newRegisterMemberArgs()
-	args.hostKubeconfig = hostKubeconfig
-	args.memberKubeconfig = memberKubeconfig
+	args.hostKubeConfig = hostKubeconfig
+	args.memberKubeConfig = memberKubeconfig
 	args.useLetsEncrypt = useLetsEncrypt
 	args.nameSuffix = nameSuffix
 	return args

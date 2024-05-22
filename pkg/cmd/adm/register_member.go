@@ -56,24 +56,24 @@ func newExtendedCommandContext(term ioutils.Terminal, clientCtor newClientFromRe
 }
 
 type registerMemberArgs struct {
-	hostKubeconfig   string
-	memberKubeconfig string
+	hostKubeConfig   string
+	memberKubeConfig string
 	hostNamespace    string
 	memberNamespace  string
-	useLetsEncrypt   bool
 	nameSuffix       string
+	useLetsEncrypt   bool
 }
 
 func newRegisterMemberArgs() registerMemberArgs {
 	args := registerMemberArgs{}
 
-	defaultKubeconfigPath := ""
+	defaultKubeConfigPath := ""
 	if home := homedir.HomeDir(); home != "" {
-		defaultKubeconfigPath = filepath.Join(home, ".kube", "config")
+		defaultKubeConfigPath = filepath.Join(home, ".kube", "config")
 	}
 
-	args.hostKubeconfig = defaultKubeconfigPath
-	args.memberKubeconfig = defaultKubeconfigPath
+	args.hostKubeConfig = defaultKubeConfigPath
+	args.memberKubeConfig = defaultKubeConfigPath
 	args.hostNamespace = "toolchain-host-operator"
 	args.memberNamespace = "toolchain-member-operator"
 	args.useLetsEncrypt = true
@@ -96,8 +96,8 @@ func NewRegisterMemberCmd() *cobra.Command {
 			return registerMemberCluster(ctx, newCommand, 5*time.Minute, commandArgs)
 		},
 	}
-	cmd.Flags().StringVar(&commandArgs.hostKubeconfig, "host-kubeconfig", commandArgs.hostKubeconfig, fmt.Sprintf("Path to the kubeconfig file of the host cluster (default: %s)", commandArgs.hostKubeconfig))
-	cmd.Flags().StringVar(&commandArgs.memberKubeconfig, "member-kubeconfig", commandArgs.memberKubeconfig, fmt.Sprintf("Path to the kubeconfig file of the member cluster (default: %s)", commandArgs.memberKubeconfig))
+	cmd.Flags().StringVar(&commandArgs.hostKubeConfig, "host-kubeconfig", commandArgs.hostKubeConfig, fmt.Sprintf("Path to the kubeconfig file of the host cluster (default: %s)", commandArgs.hostKubeConfig))
+	cmd.Flags().StringVar(&commandArgs.memberKubeConfig, "member-kubeconfig", commandArgs.memberKubeConfig, fmt.Sprintf("Path to the kubeconfig file of the member cluster (default: %s)", commandArgs.memberKubeConfig))
 	cmd.Flags().BoolVar(&commandArgs.useLetsEncrypt, "lets-encrypt", commandArgs.useLetsEncrypt, fmt.Sprintf("Whether to use Let's Encrypt certificates or rely on the cluster certs (default: %t)", commandArgs.useLetsEncrypt))
 	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", commandArgs.nameSuffix, fmt.Sprintf("The suffix to append to the member name used when there are multiple members in a single cluster (default: %s)", commandArgs.nameSuffix))
 	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", commandArgs.hostNamespace, fmt.Sprintf("The namespace of the host operator in the host cluster (default: %s)", commandArgs.hostNamespace))
@@ -252,35 +252,17 @@ type registerMemberValidated struct {
 }
 
 func dataFromArgs(ctx *extendedCommandContext, args registerMemberArgs, waitForReadyTimeout time.Duration) (*registerMemberData, error) {
-	hostConfig, err := clientcmd.LoadFromFile(args.hostKubeconfig)
-	if err != nil {
-		return nil, err
-	}
-	hostClientConfig, err := clientcmd.NewDefaultClientConfig(*hostConfig, nil).ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	hostClusterClient, err := ctx.NewClientFromRestConfig(hostClientConfig)
-	if err != nil {
-		return nil, err
-	}
-	hostApiEndpoint := getServerAPIEndpoint(hostConfig)
 	hostOperatorNamespace := args.hostNamespace
+	hostApiEndpoint, hostClusterClient, err := getApiEndpointAndClient(ctx, args.hostKubeConfig)
+	if err != nil {
+		return nil, err
+	}
 
-	memberConfig, err := clientcmd.LoadFromFile(args.memberKubeconfig)
-	if err != nil {
-		return nil, err
-	}
-	memberClientConfig, err := clientcmd.NewDefaultClientConfig(*memberConfig, nil).ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	memberClusterClient, err := ctx.NewClientFromRestConfig(memberClientConfig)
-	if err != nil {
-		return nil, err
-	}
-	memberApiEndpoint := getServerAPIEndpoint(memberConfig)
 	memberOperatorNamespace := args.memberNamespace
+	memberApiEndpoint, memberClusterClient, err := getApiEndpointAndClient(ctx, args.memberKubeConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	return &registerMemberData{
 		args:                    args,
@@ -292,6 +274,27 @@ func dataFromArgs(ctx *extendedCommandContext, args registerMemberArgs, waitForR
 		memberClusterClient:     memberClusterClient,
 		waitForReadyTimeout:     waitForReadyTimeout,
 	}, nil
+}
+
+func getApiEndpointAndClient(ctx *extendedCommandContext, kubeConfigPath string) (apiEndpoint string, cl runtimeclient.Client, err error) {
+	var kubeConfig *clientcmdapi.Config
+	var clientConfig *rest.Config
+
+	kubeConfig, err = clientcmd.LoadFromFile(kubeConfigPath)
+	if err != nil {
+		return
+	}
+	clientConfig, err = clientcmd.NewDefaultClientConfig(*kubeConfig, nil).ClientConfig()
+	if err != nil {
+		return
+	}
+	cl, err = ctx.NewClientFromRestConfig(clientConfig)
+	if err != nil {
+		return
+	}
+	apiEndpoint = getServerAPIEndpoint(kubeConfig)
+
+	return
 }
 
 func (d *registerMemberData) validate(ctx *extendedCommandContext) (*registerMemberValidated, error) {
@@ -353,7 +356,7 @@ func (v *registerMemberValidated) confirmationPrompt() ioutils.ConfirmationMessa
 	sb := strings.Builder{}
 	args := []any{}
 	sb.WriteString("register the member cluster from kubeconfig %s?")
-	args = append(args, v.args.memberKubeconfig)
+	args = append(args, v.args.memberKubeConfig)
 
 	sb.WriteString("\nNote that the newly registered cluster will not be used for any space placement yet. This command will output an example SpaceProvisionerConfig that you can modify with the required configuration options and apply to make the cluster available for space placement.")
 
@@ -377,7 +380,7 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext, newComman
 		Name:      v.hostToolchainClusterName,
 		Namespace: v.memberOperatorNamespace,
 	}
-	if err := runAddClusterScript(ctx, newCommand, configuration.Host, v.args.hostKubeconfig, v.hostOperatorNamespace, v.args.memberKubeconfig, v.memberOperatorNamespace, "", v.args.useLetsEncrypt); err != nil {
+	if err := runAddClusterScript(ctx, newCommand, configuration.Host, v.args.hostKubeConfig, v.hostOperatorNamespace, v.args.memberKubeConfig, v.memberOperatorNamespace, "", v.args.useLetsEncrypt); err != nil {
 		return err
 	}
 
@@ -391,7 +394,7 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext, newComman
 		Name:      v.memberToolchainClusterName,
 		Namespace: v.hostOperatorNamespace,
 	}
-	if err := runAddClusterScript(ctx, newCommand, configuration.Member, v.args.hostKubeconfig, v.hostOperatorNamespace, v.args.memberKubeconfig, v.memberOperatorNamespace, v.args.nameSuffix, v.args.useLetsEncrypt); err != nil {
+	if err := runAddClusterScript(ctx, newCommand, configuration.Member, v.args.hostKubeConfig, v.hostOperatorNamespace, v.args.memberKubeConfig, v.memberOperatorNamespace, v.args.nameSuffix, v.args.useLetsEncrypt); err != nil {
 		return err
 	}
 

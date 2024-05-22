@@ -37,7 +37,7 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint, suffix string) (str
 	// in the original script.
 	fixedLength := len(clusterType) + len(suffix) + 1
 
-	maxAllowedClusterHostNameLen := 62 - fixedLength // I think 62 is here, because we might default the ordinal to 1 later on
+	maxAllowedClusterHostNameLen := 62 - fixedLength // I think 62 is here, because we might default the suffix to 1 later on
 
 	clusterHostName, err := sanitizeEnpointForUsageAsName(serverAPIEndpoint)
 	if err != nil {
