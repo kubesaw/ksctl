@@ -39,7 +39,7 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint, suffix string) (str
 
 	maxAllowedClusterHostNameLen := 62 - fixedLength // I think 62 is here, because we might default the suffix to 1 later on
 
-	clusterHostName, err := sanitizeEnpointForUsageAsName(serverAPIEndpoint)
+	clusterHostName, err := sanitizeEndpointForUsageAsName(serverAPIEndpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to sanitize the endpoint for naming purposes: %w", err)
 	}
@@ -58,7 +58,7 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint, suffix string) (str
 	return fmt.Sprintf("%s-%s%s", clusterType, clusterHostName, suffix), nil
 }
 
-func sanitizeEnpointForUsageAsName(apiEndpoint string) (string, error) {
+func sanitizeEndpointForUsageAsName(apiEndpoint string) (string, error) {
 	// This logic is again taken from add-cluster.sh
 	url, err := url.Parse(apiEndpoint)
 	if err != nil {
