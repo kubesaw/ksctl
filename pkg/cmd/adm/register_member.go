@@ -230,14 +230,12 @@ func getToolchainClustersWithHostname(ctx context.Context, cl runtimeclient.Clie
 }
 
 type registerMemberData struct {
-	hostClusterClient       runtimeclient.Client
-	memberClusterClient     runtimeclient.Client
-	hostApiEndpoint         string
-	memberApiEndpoint       string
-	hostOperatorNamespace   string
-	memberOperatorNamespace string
-	args                    registerMemberArgs
-	waitForReadyTimeout     time.Duration
+	hostClusterClient   runtimeclient.Client
+	memberClusterClient runtimeclient.Client
+	hostApiEndpoint     string
+	memberApiEndpoint   string
+	args                registerMemberArgs
+	waitForReadyTimeout time.Duration
 }
 
 type registerMemberValidated struct {
@@ -249,27 +247,23 @@ type registerMemberValidated struct {
 }
 
 func dataFromArgs(ctx *extendedCommandContext, args registerMemberArgs, waitForReadyTimeout time.Duration) (*registerMemberData, error) {
-	hostOperatorNamespace := args.hostNamespace
 	hostApiEndpoint, hostClusterClient, err := getApiEndpointAndClient(ctx, args.hostKubeConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	memberOperatorNamespace := args.memberNamespace
 	memberApiEndpoint, memberClusterClient, err := getApiEndpointAndClient(ctx, args.memberKubeConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	return &registerMemberData{
-		args:                    args,
-		hostApiEndpoint:         hostApiEndpoint,
-		memberApiEndpoint:       memberApiEndpoint,
-		hostOperatorNamespace:   hostOperatorNamespace,
-		memberOperatorNamespace: memberOperatorNamespace,
-		hostClusterClient:       hostClusterClient,
-		memberClusterClient:     memberClusterClient,
-		waitForReadyTimeout:     waitForReadyTimeout,
+		args:                args,
+		hostApiEndpoint:     hostApiEndpoint,
+		memberApiEndpoint:   memberApiEndpoint,
+		hostClusterClient:   hostClusterClient,
+		memberClusterClient: memberClusterClient,
+		waitForReadyTimeout: waitForReadyTimeout,
 	}, nil
 }
 
@@ -302,7 +296,7 @@ func (d *registerMemberData) validate(ctx *extendedCommandContext) (*registerMem
 
 	// figure out the name that will be given to our new ToolchainCluster representing the member in the host cluster.
 	// This is the same name that the add-cluster.sh script will deduce and use.
-	membersInHost, err := getToolchainClustersWithHostname(ctx, d.hostClusterClient, d.memberApiEndpoint, d.hostOperatorNamespace)
+	membersInHost, err := getToolchainClustersWithHostname(ctx, d.hostClusterClient, d.memberApiEndpoint, d.args.hostNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +306,7 @@ func (d *registerMemberData) validate(ctx *extendedCommandContext) (*registerMem
 	}
 
 	hostsInMember := &toolchainv1alpha1.ToolchainClusterList{}
-	if err = d.memberClusterClient.List(ctx, hostsInMember, runtimeclient.InNamespace(d.memberOperatorNamespace)); err != nil {
+	if err = d.memberClusterClient.List(ctx, hostsInMember, runtimeclient.InNamespace(d.args.memberNamespace)); err != nil {
 		return nil, err
 	}
 
@@ -320,7 +314,7 @@ func (d *registerMemberData) validate(ctx *extendedCommandContext) (*registerMem
 	var errors []string
 
 	if len(hostsInMember.Items) > 1 {
-		errors = append(errors, fmt.Sprintf("member misconfigured: the member cluster (%s) is already registered with more than 1 host in namespace %s", d.memberApiEndpoint, d.memberOperatorNamespace))
+		errors = append(errors, fmt.Sprintf("member misconfigured: the member cluster (%s) is already registered with more than 1 host in namespace %s", d.memberApiEndpoint, d.args.memberNamespace))
 	} else if len(hostsInMember.Items) == 1 {
 		if hostsInMember.Items[0].Spec.APIEndpoint != d.hostApiEndpoint {
 			errors = append(errors, fmt.Sprintf("the member is already registered with another host (%s) so registering it with the new one (%s) would result in an invalid configuration", hostsInMember.Items[0].Spec.APIEndpoint, d.hostApiEndpoint))
@@ -329,7 +323,7 @@ func (d *registerMemberData) validate(ctx *extendedCommandContext) (*registerMem
 			errors = append(errors, fmt.Sprintf("the host is already in the member namespace using a ToolchainCluster object with the name '%s' but the new registration would use a ToolchainCluster with the name '%s' which would lead to an invalid configuration", hostsInMember.Items[0].Name, hostToolchainClusterName))
 		}
 	}
-	existingMemberToolchainCluster := findToolchainClusterForMember(membersInHost, d.memberApiEndpoint, d.memberOperatorNamespace)
+	existingMemberToolchainCluster := findToolchainClusterForMember(membersInHost, d.memberApiEndpoint, d.args.memberNamespace)
 	if existingMemberToolchainCluster != nil {
 		warnings = append(warnings, fmt.Sprintf("there already is a registered member for the same member API endpoint and operator namespace (%s), proceeding will overwrite the objects representing it in the host and member clusters", runtimeclient.ObjectKeyFromObject(existingMemberToolchainCluster)))
 		if existingMemberToolchainCluster.Name != memberToolchainClusterName {
@@ -375,9 +369,9 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext, newComman
 	// API endpoint.
 	hostToolchainClusterKey := runtimeclient.ObjectKey{
 		Name:      v.hostToolchainClusterName,
-		Namespace: v.memberOperatorNamespace,
+		Namespace: v.args.memberNamespace,
 	}
-	if err := runAddClusterScript(ctx, newCommand, configuration.Host, v.args.hostKubeConfig, v.hostOperatorNamespace, v.args.memberKubeConfig, v.memberOperatorNamespace, "", v.args.useLetsEncrypt); err != nil {
+	if err := runAddClusterScript(ctx, newCommand, configuration.Host, v.args.hostKubeConfig, v.args.hostNamespace, v.args.memberKubeConfig, v.args.memberNamespace, "", v.args.useLetsEncrypt); err != nil {
 		return err
 	}
 
@@ -389,9 +383,9 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext, newComman
 
 	memberToolchainClusterKey := runtimeclient.ObjectKey{
 		Name:      v.memberToolchainClusterName,
-		Namespace: v.hostOperatorNamespace,
+		Namespace: v.args.hostNamespace,
 	}
-	if err := runAddClusterScript(ctx, newCommand, configuration.Member, v.args.hostKubeConfig, v.hostOperatorNamespace, v.args.memberKubeConfig, v.memberOperatorNamespace, v.args.nameSuffix, v.args.useLetsEncrypt); err != nil {
+	if err := runAddClusterScript(ctx, newCommand, configuration.Member, v.args.hostKubeConfig, v.args.hostNamespace, v.args.memberKubeConfig, v.args.memberNamespace, v.args.nameSuffix, v.args.useLetsEncrypt); err != nil {
 		return err
 	}
 
