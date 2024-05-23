@@ -64,25 +64,8 @@ type registerMemberArgs struct {
 	useLetsEncrypt   bool
 }
 
-func newRegisterMemberArgs() registerMemberArgs {
-	args := registerMemberArgs{}
-
-	defaultKubeConfigPath := ""
-	if home := homedir.HomeDir(); home != "" {
-		defaultKubeConfigPath = filepath.Join(home, ".kube", "config")
-	}
-
-	args.hostKubeConfig = defaultKubeConfigPath
-	args.memberKubeConfig = defaultKubeConfigPath
-	args.hostNamespace = "toolchain-host-operator"
-	args.memberNamespace = "toolchain-member-operator"
-	args.useLetsEncrypt = true
-
-	return args
-}
-
 func NewRegisterMemberCmd() *cobra.Command {
-	commandArgs := newRegisterMemberArgs()
+	commandArgs := registerMemberArgs{}
 	cmd := &cobra.Command{
 		Use:   "register-member",
 		Short: "Executes add-cluster.sh script",
@@ -96,12 +79,26 @@ func NewRegisterMemberCmd() *cobra.Command {
 			return registerMemberCluster(ctx, newCommand, 5*time.Minute, commandArgs)
 		},
 	}
-	cmd.Flags().StringVar(&commandArgs.hostKubeConfig, "host-kubeconfig", commandArgs.hostKubeConfig, fmt.Sprintf("Path to the kubeconfig file of the host cluster (default: %s)", commandArgs.hostKubeConfig))
-	cmd.Flags().StringVar(&commandArgs.memberKubeConfig, "member-kubeconfig", commandArgs.memberKubeConfig, fmt.Sprintf("Path to the kubeconfig file of the member cluster (default: %s)", commandArgs.memberKubeConfig))
-	cmd.Flags().BoolVar(&commandArgs.useLetsEncrypt, "lets-encrypt", commandArgs.useLetsEncrypt, fmt.Sprintf("Whether to use Let's Encrypt certificates or rely on the cluster certs (default: %t)", commandArgs.useLetsEncrypt))
-	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", commandArgs.nameSuffix, fmt.Sprintf("The suffix to append to the member name used when there are multiple members in a single cluster (default: %s)", commandArgs.nameSuffix))
-	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", commandArgs.hostNamespace, fmt.Sprintf("The namespace of the host operator in the host cluster (default: %s)", commandArgs.hostNamespace))
-	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", commandArgs.memberNamespace, fmt.Sprintf("The namespace of the member operator in the member cluster (default: %s)", commandArgs.memberNamespace))
+
+	defaultKubeConfigPath := ""
+	if home := homedir.HomeDir(); home != "" {
+		defaultKubeConfigPath = filepath.Join(home, ".kube", "config")
+	}
+
+	// keep these values in sync with the values in defaultRegisterMemberArgs() function in the tests.
+	defaultHostKubeConfig := defaultKubeConfigPath
+	defaultMemberKubeConfig := defaultKubeConfigPath
+	defaultLetsEncrypt := true
+	defaultNameSuffix := ""
+	defaultHostNs := "toolchain-host-operator"
+	defaultMemberNs := "toolchain-member-operator"
+
+	cmd.Flags().StringVar(&commandArgs.hostKubeConfig, "host-kubeconfig", defaultKubeConfigPath, fmt.Sprintf("Path to the kubeconfig file of the host cluster (default: '%s')", defaultHostKubeConfig))
+	cmd.Flags().StringVar(&commandArgs.memberKubeConfig, "member-kubeconfig", defaultMemberKubeConfig, fmt.Sprintf("Path to the kubeconfig file of the member cluster (default: '%s')", defaultMemberKubeConfig))
+	cmd.Flags().BoolVar(&commandArgs.useLetsEncrypt, "lets-encrypt", defaultLetsEncrypt, fmt.Sprintf("Whether to use Let's Encrypt certificates or rely on the cluster certs (default: %t)", defaultLetsEncrypt))
+	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", defaultNameSuffix, fmt.Sprintf("The suffix to append to the member name used when there are multiple members in a single cluster (default: '%s')", defaultNameSuffix))
+	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, fmt.Sprintf("The namespace of the host operator in the host cluster (default: '%s')", defaultHostNs))
+	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", defaultMemberNs, fmt.Sprintf("The namespace of the member operator in the member cluster (default: '%s')", defaultMemberNs))
 	return cmd
 }
 

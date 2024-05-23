@@ -2,6 +2,7 @@ package adm
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/homedir"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -671,7 +673,7 @@ func extractExampleSPCFromOutput(t *testing.T, output string) toolchainv1alpha1.
 }
 
 func newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig string, useLetsEncrypt bool) registerMemberArgs {
-	args := newRegisterMemberArgs()
+	args := defaultRegisterMemberArgs()
 	args.hostKubeConfig = hostKubeconfig
 	args.memberKubeConfig = memberKubeconfig
 	args.useLetsEncrypt = useLetsEncrypt
@@ -679,10 +681,28 @@ func newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig string, useLetsE
 }
 
 func newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig string, useLetsEncrypt bool, nameSuffix string) registerMemberArgs {
-	args := newRegisterMemberArgs()
+	args := defaultRegisterMemberArgs()
 	args.hostKubeConfig = hostKubeconfig
 	args.memberKubeConfig = memberKubeconfig
 	args.useLetsEncrypt = useLetsEncrypt
 	args.nameSuffix = nameSuffix
+	return args
+}
+
+func defaultRegisterMemberArgs() registerMemberArgs {
+	// keep these values in sync with the values in NewRegisterMemberCmd() function
+	args := registerMemberArgs{}
+
+	defaultKubeConfigPath := ""
+	if home := homedir.HomeDir(); home != "" {
+		defaultKubeConfigPath = filepath.Join(home, ".kube", "config")
+	}
+
+	args.hostKubeConfig = defaultKubeConfigPath
+	args.memberKubeConfig = defaultKubeConfigPath
+	args.hostNamespace = "toolchain-host-operator"
+	args.memberNamespace = "toolchain-member-operator"
+	args.useLetsEncrypt = true
+
 	return args
 }
