@@ -386,7 +386,7 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext, newComman
 		Name:      v.memberToolchainClusterName,
 		Namespace: v.args.hostNamespace,
 	}
-	if err := runAddClusterScript(ctx, newCommand, configuration.Member, v.args.hostKubeConfig, v.args.hostNamespace, v.args.memberKubeConfig, v.args.memberrNamespace, v.args.nameSuffix, v.args.useLetsEncrypt); err != nil {
+	if err := runAddClusterScript(ctx, newCommand, configuration.Member, v.args.hostKubeConfig, v.args.hostNamespace, v.args.memberKubeConfig, v.args.memberNamespace, v.args.nameSuffix, v.args.useLetsEncrypt); err != nil {
 		return err
 	}
 
