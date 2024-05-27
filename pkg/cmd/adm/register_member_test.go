@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/homedir"
+	"k8s.io/utils/pointer"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -40,10 +41,16 @@ func TestRegisterMember(t *testing.T) {
 		Reply(200)
 	defer gock.OffAll()
 
-	var expectedHostArgs []string
-	var expectedMemberArgs []string
-
-	var counter int
+	type CommandCreatorSetup struct {
+		Client             runtimeclient.Client
+		Counter            *int
+		NameSuffix         string
+		ExpectedHostArgs   []string
+		ExpectedMemberArgs []string
+		HostReady          bool
+		MemberReady        bool
+		AllowUpdates       bool
+	}
 
 	hostDeploymentName := test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager")
 	deployment := newDeployment(hostDeploymentName, 1)
@@ -51,32 +58,37 @@ func TestRegisterMember(t *testing.T) {
 
 	// the command creator mocks the execution of the add-cluster.sh. We check that we're passing the correct arguments
 	// and we also create the expected ToolchainCluster objects.
-	commandCreator := func(cl runtimeclient.Client, hostReady, memberReady bool, nameSuffix string, allowUpdates bool) client.CommandCreator {
+	commandCreator := func(setup CommandCreatorSetup) (cc client.CommandCreator, counter *int) {
+		if setup.Counter == nil {
+			counter = pointer.Int(0)
+		} else {
+			counter = setup.Counter
+		}
 		return NewCommandCreator(t, "echo", "bash",
 			func(t *testing.T, args ...string) {
 				t.Helper()
 				persist := func(tc *toolchainv1alpha1.ToolchainCluster) {
 					t.Helper()
-					if allowUpdates {
-						if err := cl.Create(context.TODO(), tc); err != nil {
+					if setup.AllowUpdates {
+						if err := setup.Client.Create(context.TODO(), tc); err != nil {
 							if errors.IsAlreadyExists(err) {
 								current := &toolchainv1alpha1.ToolchainCluster{}
-								require.NoError(t, cl.Get(context.TODO(), runtimeclient.ObjectKeyFromObject(tc), current))
+								require.NoError(t, setup.Client.Get(context.TODO(), runtimeclient.ObjectKeyFromObject(tc), current))
 								current.Spec = tc.Spec
 								current.Status = tc.Status
-								require.NoError(t, cl.Update(context.TODO(), current))
+								require.NoError(t, setup.Client.Update(context.TODO(), current))
 							} else {
 								require.NoError(t, err)
 							}
 						}
 					} else {
-						require.NoError(t, cl.Create(context.TODO(), tc))
+						require.NoError(t, setup.Client.Create(context.TODO(), tc))
 					}
 				}
-				if counter == 0 {
-					AssertFirstArgPrefixRestEqual("(.*)/add-cluster-(.*)", expectedHostArgs...)(t, args...)
+				if *counter == 0 {
+					AssertFirstArgPrefixRestEqual("(.*)/add-cluster-(.*)", setup.ExpectedHostArgs...)(t, args...)
 					status := corev1.ConditionFalse
-					if hostReady {
+					if setup.HostReady {
 						status = corev1.ConditionTrue
 					}
 					// there's always at most 1 toolchain cluster for the host in the member cluster
@@ -101,12 +113,12 @@ func TestRegisterMember(t *testing.T) {
 					}
 					persist(expectedHostToolchainCluster)
 				} else {
-					AssertFirstArgPrefixRestEqual("(.*)/add-cluster-(.*)", expectedMemberArgs...)(t, args...)
+					AssertFirstArgPrefixRestEqual("(.*)/add-cluster-(.*)", setup.ExpectedMemberArgs...)(t, args...)
 					status := corev1.ConditionFalse
-					if memberReady {
+					if setup.MemberReady {
 						status = corev1.ConditionTrue
 					}
-					expectedMemberToolchainClusterName, err := utils.GetToolchainClusterName("member", "https://cool-server.com", nameSuffix)
+					expectedMemberToolchainClusterName, err := utils.GetToolchainClusterName("member", "https://cool-server.com", setup.NameSuffix)
 					require.NoError(t, err)
 					expectedMemberToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
 						ObjectMeta: metav1.ObjectMeta{
@@ -130,8 +142,8 @@ func TestRegisterMember(t *testing.T) {
 					}
 					persist(expectedMemberToolchainCluster)
 				}
-				counter++
-			})
+				*counter = *counter + 1
+			}), counter
 	}
 
 	t.Run("produces valid example SPC", func(t *testing.T) {
@@ -139,10 +151,13 @@ func TestRegisterMember(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
 		ctx := newExtendedCommandContext(term, newClient)
-		counter = 0
-		addClusterCommand := commandCreator(fakeClient, true, true, "", false)
-		expectedHostArgs = []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
-		expectedMemberArgs = []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
+		addClusterCommand, counter := commandCreator(CommandCreatorSetup{
+			Client:             fakeClient,
+			HostReady:          true,
+			MemberReady:        true,
+			ExpectedHostArgs:   []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+			ExpectedMemberArgs: []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+		})
 
 		expectedExampleSPC := &toolchainv1alpha1.SpaceProvisionerConfig{
 			TypeMeta: metav1.TypeMeta{
@@ -167,7 +182,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, 2, counter)
+		assert.Equal(t, 2, *counter)
 		assert.Contains(t, term.Output(), "Modify and apply the following SpaceProvisionerConfig to the host cluster")
 		actualExampleSPC := extractExampleSPCFromOutput(t, term.Output())
 		assert.Equal(t, *expectedExampleSPC, actualExampleSPC)
@@ -178,17 +193,20 @@ func TestRegisterMember(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
 		ctx := newExtendedCommandContext(term, newClient)
-		counter = 0
-		addClusterCommand := commandCreator(fakeClient, true, false, "", false)
-		expectedHostArgs = []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
-		expectedMemberArgs = []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
+		addClusterCommand, counter := commandCreator(CommandCreatorSetup{
+			Client:             fakeClient,
+			HostReady:          true,
+			MemberReady:        false,
+			ExpectedHostArgs:   []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+			ExpectedMemberArgs: []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+		})
 
 		// when
 		err := registerMemberCluster(ctx, addClusterCommand, 1*time.Second, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
 
 		// then
 		require.Error(t, err)
-		assert.Equal(t, 2, counter)
+		assert.Equal(t, 2, *counter)
 		tcs := &toolchainv1alpha1.ToolchainClusterList{}
 		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-host-operator")))
 		assert.Len(t, tcs.Items, 1)
@@ -202,17 +220,20 @@ func TestRegisterMember(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
 		ctx := newExtendedCommandContext(term, newClient)
-		counter = 0
-		addClusterCommand := commandCreator(fakeClient, false, false, "", false)
-		expectedHostArgs = []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
-		expectedMemberArgs = []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
+		addClusterCommand, counter := commandCreator(CommandCreatorSetup{
+			Client:             fakeClient,
+			HostReady:          false,
+			MemberReady:        false,
+			ExpectedHostArgs:   []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+			ExpectedMemberArgs: []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+		})
 
 		// when
 		err := registerMemberCluster(ctx, addClusterCommand, 1*time.Second, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
 
 		// then
 		require.Error(t, err)
-		assert.Equal(t, 1, counter)
+		assert.Equal(t, 1, *counter)
 		tcs := &toolchainv1alpha1.ToolchainClusterList{}
 		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-host-operator")))
 		assert.Empty(t, tcs.Items)
@@ -226,17 +247,20 @@ func TestRegisterMember(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
 		ctx := newExtendedCommandContext(term, newClient)
-		counter = 0
-		addClusterCommand := commandCreator(fakeClient, true, true, "", false)
-		expectedHostArgs = []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
-		expectedMemberArgs = []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
+		addClusterCommand, counter := commandCreator(CommandCreatorSetup{
+			Client:             fakeClient,
+			HostReady:          true,
+			MemberReady:        true,
+			ExpectedHostArgs:   []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+			ExpectedMemberArgs: []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+		})
 
 		// when
 		err := registerMemberCluster(ctx, addClusterCommand, 1*time.Second, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, 2, counter)
+		assert.Equal(t, 2, *counter)
 		assert.Contains(t, term.Output(), "Modify and apply the following SpaceProvisionerConfig to the host cluster")
 		assert.Contains(t, term.Output(), "kind: SpaceProvisionerConfig")
 	})
@@ -246,17 +270,20 @@ func TestRegisterMember(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
 		ctx := newExtendedCommandContext(term, newClient)
-		counter = 0
-		addClusterCommand := commandCreator(fakeClient, true, true, "", false)
-		expectedHostArgs = []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--lets-encrypt"}
-		expectedMemberArgs = []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--lets-encrypt"}
+		addClusterCommand, counter := commandCreator(CommandCreatorSetup{
+			Client:             fakeClient,
+			HostReady:          true,
+			MemberReady:        true,
+			ExpectedHostArgs:   []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--lets-encrypt"},
+			ExpectedMemberArgs: []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--lets-encrypt"},
+		})
 
 		// when
 		err := registerMemberCluster(ctx, addClusterCommand, 1*time.Second, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, true))
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, 2, counter)
+		assert.Equal(t, 2, *counter)
 		assert.Contains(t, term.Output(), "Modify and apply the following SpaceProvisionerConfig to the host cluster")
 		assert.Contains(t, term.Output(), "kind: SpaceProvisionerConfig")
 	})
@@ -266,7 +293,6 @@ func TestRegisterMember(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
 		ctx := newExtendedCommandContext(term, newClient)
-		counter = 0
 		preexistingToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "member-cool-server.com",
@@ -288,16 +314,21 @@ func TestRegisterMember(t *testing.T) {
 		preexistingToolchainCluster.Name = "member-cool-server.com1"
 		require.NoError(t, fakeClient.Create(context.TODO(), preexistingToolchainCluster.DeepCopy()))
 
-		addClusterCommand := commandCreator(fakeClient, true, true, "2", false)
-		expectedHostArgs = []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
-		expectedMemberArgs = []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--multi-member", "2"}
+		addClusterCommand, counter := commandCreator(CommandCreatorSetup{
+			Client:             fakeClient,
+			HostReady:          true,
+			MemberReady:        true,
+			NameSuffix:         "2",
+			ExpectedHostArgs:   []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+			ExpectedMemberArgs: []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--multi-member", "2"},
+		})
 
 		// when
 		err := registerMemberCluster(ctx, addClusterCommand, 1*time.Second, newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig, false, "2"))
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, 2, counter)
+		assert.Equal(t, 2, *counter)
 		assert.Contains(t, term.Output(), "Modify and apply the following SpaceProvisionerConfig to the host cluster")
 		assert.Contains(t, term.Output(), "kind: SpaceProvisionerConfig")
 		assert.Contains(t, term.Output(), "toolchainCluster: member-cool-server.com2")
@@ -310,19 +341,32 @@ func TestRegisterMember(t *testing.T) {
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
 		ctx1 := newExtendedCommandContext(term1, newClient)
 		ctx2 := newExtendedCommandContext(term2, newClient)
-		counter = 0
-		addClusterCommand := commandCreator(fakeClient, true, true, "", true)
-		expectedHostArgs = []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
-		expectedMemberArgs = []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
+		addClusterCommand, counter := commandCreator(CommandCreatorSetup{
+			Client:             fakeClient,
+			HostReady:          true,
+			MemberReady:        true,
+			AllowUpdates:       true,
+			ExpectedHostArgs:   []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+			ExpectedMemberArgs: []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+		})
 
 		// when
 		err1 := registerMemberCluster(ctx1, addClusterCommand, 1*time.Second, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
-		addClusterCommand = commandCreator(fakeClient, true, true, "1", true)
+		addClusterCommand, _ = commandCreator(CommandCreatorSetup{
+			Client:             fakeClient,
+			HostReady:          true,
+			MemberReady:        true,
+			NameSuffix:         "1",
+			AllowUpdates:       true,
+			ExpectedHostArgs:   []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+			ExpectedMemberArgs: []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+			Counter:            counter,
+		})
 		err2 := registerMemberCluster(ctx2, addClusterCommand, 1*time.Second, newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig, false, "1"))
 
 		// then
 		require.NoError(t, err1)
-		assert.Equal(t, 2, counter)
+		assert.Equal(t, 2, *counter)
 		assert.Contains(t, term1.Output(), "Modify and apply the following SpaceProvisionerConfig to the host cluster")
 		assert.Contains(t, term1.Output(), "kind: SpaceProvisionerConfig")
 
@@ -338,19 +382,21 @@ func TestRegisterMember(t *testing.T) {
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
 		ctx1 := newExtendedCommandContext(term1, newClient)
 		ctx2 := newExtendedCommandContext(term2, newClient)
-		counter1 := 0
-		counter2 := 0
-		counter = 0
-		addClusterCommand := commandCreator(fakeClient, true, true, "", true)
-		expectedHostArgs = []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
-		expectedMemberArgs = []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
+		addClusterCommand, counter := commandCreator(CommandCreatorSetup{
+			Client:             fakeClient,
+			HostReady:          true,
+			MemberReady:        true,
+			AllowUpdates:       true,
+			ExpectedHostArgs:   []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+			ExpectedMemberArgs: []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+		})
 
 		// when
 		err1 := registerMemberCluster(ctx1, addClusterCommand, 1*time.Second, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
-		counter1 = counter
-		counter = 0
+		counter1 := *counter
+		*counter = 0
 		err2 := registerMemberCluster(ctx2, addClusterCommand, 1*time.Second, newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig, false, ""))
-		counter2 = counter
+		counter2 := *counter
 
 		// then
 		require.NoError(t, err1)
@@ -371,7 +417,6 @@ func TestRegisterMember(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
 		ctx := newExtendedCommandContext(term, newClient)
-		counter = 0
 		preexistingToolchainCluster1 := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "host-not-so-cool-server.com",
@@ -409,9 +454,14 @@ func TestRegisterMember(t *testing.T) {
 		require.NoError(t, fakeClient.Create(context.TODO(), preexistingToolchainCluster1.DeepCopy()))
 		require.NoError(t, fakeClient.Create(context.TODO(), preexistingToolchainCluster2.DeepCopy()))
 
-		addClusterCommand := commandCreator(fakeClient, true, true, "1", false)
-		expectedHostArgs = []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
-		expectedMemberArgs = []string{"--type", "member", "--host-kubpconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--multi-member", "2"}
+		addClusterCommand, counter := commandCreator(CommandCreatorSetup{
+			Client:             fakeClient,
+			HostReady:          true,
+			MemberReady:        true,
+			NameSuffix:         "1",
+			ExpectedHostArgs:   []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+			ExpectedMemberArgs: []string{"--type", "member", "--host-kubpconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--multi-member", "2"},
+		})
 
 		// when
 		err := registerMemberCluster(ctx, addClusterCommand, 1*time.Second, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
@@ -420,7 +470,7 @@ func TestRegisterMember(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `Cannot proceed because of the following problems:
 - member misconfigured: the member cluster (https://cool-server.com) is already registered with more than 1 host in namespace toolchain-member-operator`)
-		assert.Equal(t, 0, counter)
+		assert.Equal(t, 0, *counter)
 		assert.NotContains(t, term.Output(), "kind: SpaceProvisionerConfig")
 	})
 
@@ -429,7 +479,6 @@ func TestRegisterMember(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
 		ctx := newExtendedCommandContext(term, newClient)
-		counter = 0
 		preexistingToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "host-not-so-cool-server.com",
@@ -449,9 +498,14 @@ func TestRegisterMember(t *testing.T) {
 		}
 		require.NoError(t, fakeClient.Create(context.TODO(), preexistingToolchainCluster.DeepCopy()))
 
-		addClusterCommand := commandCreator(fakeClient, true, true, "1", false)
-		expectedHostArgs = []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
-		expectedMemberArgs = []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--multi-member", "2"}
+		addClusterCommand, counter := commandCreator(CommandCreatorSetup{
+			Client:             fakeClient,
+			HostReady:          true,
+			MemberReady:        true,
+			NameSuffix:         "1",
+			ExpectedHostArgs:   []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+			ExpectedMemberArgs: []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--multi-member", "2"},
+		})
 
 		// when
 		err := registerMemberCluster(ctx, addClusterCommand, 1*time.Second, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
@@ -460,7 +514,7 @@ func TestRegisterMember(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `Cannot proceed because of the following problems:
 - the member is already registered with another host (https://not-so-cool-server.com) so registering it with the new one (https://cool-server.com) would result in an invalid configuration`)
-		assert.Equal(t, 0, counter)
+		assert.Equal(t, 0, *counter)
 		assert.NotContains(t, term.Output(), "kind: SpaceProvisionerConfig")
 	})
 
@@ -469,7 +523,6 @@ func TestRegisterMember(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
 		ctx := newExtendedCommandContext(term, newClient)
-		counter = 0
 		preexistingToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "host-with-weird-name",
@@ -489,9 +542,14 @@ func TestRegisterMember(t *testing.T) {
 		}
 		require.NoError(t, fakeClient.Create(context.TODO(), preexistingToolchainCluster.DeepCopy()))
 
-		addClusterCommand := commandCreator(fakeClient, true, true, "1", false)
-		expectedHostArgs = []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
-		expectedMemberArgs = []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--multi-member", "2"}
+		addClusterCommand, counter := commandCreator(CommandCreatorSetup{
+			Client:             fakeClient,
+			HostReady:          true,
+			MemberReady:        true,
+			NameSuffix:         "1",
+			ExpectedHostArgs:   []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+			ExpectedMemberArgs: []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--multi-member", "2"},
+		})
 
 		// when
 		err := registerMemberCluster(ctx, addClusterCommand, 1*time.Second, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
@@ -500,7 +558,7 @@ func TestRegisterMember(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `Cannot proceed because of the following problems:
 - the host is already in the member namespace using a ToolchainCluster object with the name 'host-with-weird-name' but the new registration would use a ToolchainCluster with the name 'host-cool-server.com' which would lead to an invalid configuration`)
-		assert.Equal(t, 0, counter)
+		assert.Equal(t, 0, *counter)
 		assert.NotContains(t, term.Output(), "kind: SpaceProvisionerConfig")
 	})
 
@@ -509,7 +567,6 @@ func TestRegisterMember(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
 		ctx := newExtendedCommandContext(term, newClient)
-		counter = 0
 		preexistingToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "member-with-weird-name",
@@ -532,9 +589,13 @@ func TestRegisterMember(t *testing.T) {
 		}
 		require.NoError(t, fakeClient.Create(context.TODO(), preexistingToolchainCluster.DeepCopy()))
 
-		addClusterCommand := commandCreator(fakeClient, true, true, "", false)
-		expectedHostArgs = []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"}
-		expectedMemberArgs = []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--multi-member", "2"}
+		addClusterCommand, counter := commandCreator(CommandCreatorSetup{
+			Client:             fakeClient,
+			HostReady:          true,
+			MemberReady:        true,
+			ExpectedHostArgs:   []string{"--type", "host", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator"},
+			ExpectedMemberArgs: []string{"--type", "member", "--host-kubeconfig", hostKubeconfig, "--host-ns", "toolchain-host-operator", "--member-kubeconfig", memberKubeconfig, "--member-ns", "toolchain-member-operator", "--multi-member", "2"},
+		})
 
 		// when
 		err := registerMemberCluster(ctx, addClusterCommand, 1*time.Second, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
@@ -543,7 +604,7 @@ func TestRegisterMember(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `Cannot proceed because of the following problems:
 - the newly registered member cluster would have a different name (member-cool-server.com) than the already existing one (member-with-weird-name) which would lead to invalid configuration. Consider using the --name-suffix parameter to match the existing member registration if you intend to just update it instead of creating a new registration`)
-		assert.Equal(t, 0, counter)
+		assert.Equal(t, 0, *counter)
 		assert.NotContains(t, term.Output(), "kind: SpaceProvisionerConfig")
 	})
 }
