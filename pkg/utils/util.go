@@ -52,9 +52,6 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint, suffix string) (str
 		}
 	}
 
-	if len(suffix) == 0 {
-		return fmt.Sprintf("%s-%s", clusterType, clusterHostName), nil
-	}
 	return fmt.Sprintf("%s-%s%s", clusterType, clusterHostName, suffix), nil
 }
 
