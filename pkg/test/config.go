@@ -7,6 +7,8 @@ import (
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
+	clientcmd "k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 type ClusterDefinitionWithName struct {
@@ -68,6 +70,23 @@ func Host(options ...ConfigOption) ClusterDefinitionWithName {
 	return WithValues(clusterDef, options...)
 }
 
+func HostKubeConfig() *clientcmdapi.Config {
+	cfg := clientcmdapi.NewConfig()
+
+	cluster := clientcmdapi.NewCluster()
+	cfg.Clusters["host"] = cluster
+	cluster.Server = "https://cool-server.com"
+
+	context := clientcmdapi.NewContext()
+	cfg.Contexts["host"] = context
+	context.Cluster = "host"
+	context.Namespace = "toolchain-host-operator"
+
+	cfg.CurrentContext = "host"
+
+	return cfg
+}
+
 // Member defines the configuration for a member cluster
 func Member(options ...ConfigOption) ClusterDefinitionWithName {
 	clusterDef := ClusterDefinitionWithName{
@@ -82,6 +101,23 @@ func Member(options ...ConfigOption) ClusterDefinitionWithName {
 		},
 	}
 	return WithValues(clusterDef, options...)
+}
+
+func MemberKubeConfig() *clientcmdapi.Config {
+	cfg := clientcmdapi.NewConfig()
+
+	cluster := clientcmdapi.NewCluster()
+	cfg.Clusters["member"] = cluster
+	cluster.Server = "https://cool-server.com"
+
+	context := clientcmdapi.NewContext()
+	cfg.Contexts["member"] = context
+	context.Cluster = "member"
+	context.Namespace = "toolchain-member-operator"
+
+	cfg.CurrentContext = "member"
+
+	return cfg
 }
 
 // WithValues applies the options on the given parameters
@@ -124,4 +160,14 @@ func SetFileConfig(t *testing.T, clusterDefs ...ClusterDefinitionWithName) {
 	require.NoError(t, tmpFile.Close())
 	configuration.ConfigFileFlag = fileName
 	t.Logf("config file: %s: \n%s", fileName, string(out))
+}
+
+func PersistKubeConfigFile(t *testing.T, config *clientcmdapi.Config) string {
+	tmpFile, err := os.CreateTemp(os.TempDir(), "kubeconfig-*.yaml")
+	require.NoError(t, err)
+	// it is important to use clientcmd.WriteToFile instead of just YAML marshalling,
+	// because clientcmd uses custom encoders and decoders for the config object.
+	require.NoError(t, clientcmd.WriteToFile(*config, tmpFile.Name()))
+
+	return tmpFile.Name()
 }
