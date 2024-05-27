@@ -29,8 +29,9 @@ type ServiceAccount struct {
 type User struct {
 	Name                      string   `yaml:"name"`
 	ID                        []string `yaml:"id"`
+	AllClusters               bool     `yaml:"allClusters,omitempty"` // force user and identity manifest generation on all clusters, even if no permissions are specified
 	Groups                    []string `yaml:"groups"`
-	PermissionsPerClusterType `yaml:",inline"`
+	PermissionsPerClusterType `yaml:",inline,omitempty"`
 }
 
 type PermissionsPerClusterType map[string]PermissionBindings

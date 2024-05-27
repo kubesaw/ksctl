@@ -35,10 +35,10 @@ func TestAdminManifests(t *testing.T) {
 				HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("edit")),
 				MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("edit")))),
 		Users(
-			User("john-user", []string{"12345"}, "crtadmins-view",
+			User("john-user", []string{"12345"}, false, "crtadmins-view",
 				HostRoleBindings("toolchain-host-operator", Role("register-cluster"), ClusterRole("edit")),
 				MemberRoleBindings("toolchain-member-operator", Role("register-cluster"), ClusterRole("edit"))),
-			User("bob-crtadmin", []string{"67890"}, "crtadmins-exec",
+			User("bob-crtadmin", []string{"67890"}, false, "crtadmins-exec",
 				HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("admin")),
 				MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("admin")))))
 

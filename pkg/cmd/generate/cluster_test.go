@@ -98,13 +98,16 @@ func TestUsers(t *testing.T) {
 		kubeSawAdmins := newKubeSawAdminsWithDefaultClusters(
 			ServiceAccounts(),
 			Users(
-				User("john-user", []string{"12345"}, "crtadmins",
+				User("john-user", []string{"12345"}, false, "crtadmins",
 					permissionsForAllNamespaces...),
-				User("bob-crtadmin", []string{"67890"}, "crtadmins",
+				User("bob-crtadmin", []string{"67890"}, false, "crtadmins",
 					HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("view")),
 					HostClusterRoleBindings("cluster-monitoring-view"),
 					MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("view")),
-					MemberClusterRoleBindings("cluster-monitoring-view"))))
+					MemberClusterRoleBindings("cluster-monitoring-view")),
+				User("alice-clusteradmin", []string{"12340"}, true, ""),
+			),
+		)
 
 		ctx := newAdminManifestsContextWithDefaultFiles(t, kubeSawAdmins)
 		cache := objectsCache{}
@@ -148,6 +151,10 @@ func TestUsers(t *testing.T) {
 					hasRole(ns, clusterType.AsSuffix("restart-deployment"), clusterType.AsSuffix("restart-deployment-bob-crtadmin")).
 					hasNsClusterRole(ns, "view", clusterType.AsSuffix("clusterrole-view-bob-crtadmin")).
 					hasClusterRoleBinding("cluster-monitoring-view", clusterType.AsSuffix("clusterrole-cluster-monitoring-view-bob-crtadmin"))
+
+				inObjectCache(t, ctx.outDir, clusterType.String(), cache).
+					assertUser("alice-clusteradmin").
+					hasIdentity("12340")
 			})
 		}
 	})

@@ -25,7 +25,7 @@ type newSubjectFunc func(ctx *clusterContext, objsCache objectsCache, subjectBas
 // ensurePermissions creates/updates Subject, Role, and RoleBinding for all permissions defined for the cluster type
 func (m *permissionsManager) ensurePermissions(ctx *clusterContext, roleBindingsPerClusterType assets.PermissionsPerClusterType) error {
 	// check if there are any permissions set for this cluster type
-	if _, ok := roleBindingsPerClusterType[ctx.clusterType.String()]; !ok {
+	if _, found := roleBindingsPerClusterType[ctx.clusterType.String()]; !found {
 		return nil
 	}
 

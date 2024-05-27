@@ -132,7 +132,7 @@ func Users(userCreators ...UserCreator) []assets.User {
 	return users
 }
 
-func User(name string, IDs []string, group string, permissions ...PermissionsPerClusterTypeModifier) UserCreator {
+func User(name string, IDs []string, allCluster bool, group string, permissions ...PermissionsPerClusterTypeModifier) UserCreator {
 	return func() assets.User {
 		var groups []string
 		if group != "" {
@@ -142,6 +142,7 @@ func User(name string, IDs []string, group string, permissions ...PermissionsPer
 			Name:                      name,
 			ID:                        IDs,
 			Groups:                    groups,
+			AllClusters:               allCluster,
 			PermissionsPerClusterType: map[string]assets.PermissionBindings{},
 		}
 		for _, addPermissions := range permissions {
