@@ -190,6 +190,7 @@ func waitUntilToolchainClusterReady(ctx *clicontext.CommandContext, cl runtimecl
 			return false, err
 		}
 
+		// TODO: replace with condition.IsTrue() once the ToolchainClusterCondition is replaced by the generic one.
 		for _, cond := range tc.Status.Conditions {
 			if cond.Type == toolchainv1alpha1.ToolchainClusterReady && cond.Status == corev1.ConditionTrue {
 				return true, nil
@@ -385,7 +386,7 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext, newComman
 		Name:      v.memberToolchainClusterName,
 		Namespace: v.args.hostNamespace,
 	}
-	if err := runAddClusterScript(ctx, newCommand, configuration.Member, v.args.hostKubeConfig, v.args.hostNamespace, v.args.memberKubeConfig, v.args.memberNamespace, v.args.nameSuffix, v.args.useLetsEncrypt); err != nil {
+	if err := runAddClusterScript(ctx, newCommand, configuration.Member, v.args.hostKubeConfig, v.args.hostNamespace, v.args.memberKubeConfig, v.args.memberrNamespace, v.args.nameSuffix, v.args.useLetsEncrypt); err != nil {
 		return err
 	}
 
