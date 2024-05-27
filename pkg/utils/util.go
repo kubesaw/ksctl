@@ -17,7 +17,7 @@ func Contains(slice []string, value string) bool {
 }
 
 // GetToolchainClusterName produces a name for ToolchainCluster object that is both deterministic and "reasonably unique".
-// The `ordinal` must be greater than 0 if there are multiple ToolchainCluster objects pointing to the same cluster. This
+// The `suffix` must be non-empty if there are multiple ToolchainCluster objects pointing to the same cluster. This
 // needs to be determined by the caller prior to calling this method.
 func GetToolchainClusterName(clusterType, serverAPIEndpoint, suffix string) (string, error) {
 	// NOTE: this function is ported from the original add-cluster.sh script to produce the same names during the transition
@@ -28,16 +28,16 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint, suffix string) (str
 	// we need to make sure that:
 	// 1) the name is at most 63 characters long
 	// 2) the variable part is (a part of) the cluster hostname
-	// 3) it ends with a digit (supplied by the ordinal param) if it was shortened
+	// 3) it ends with a digit (supplied by the suffix param) if it was shortened
 
 	suffix = strings.TrimSpace(suffix)
 
-	// the name always contains the cluster type, a hypen between the cluster type and the numerical suffix (if needed)
-	// Interestingly, this is computed BEFORE we determine if we need the numerical suffix at all, but that's the logic
+	// the name always contains the cluster type, a hypen between the cluster type and the name and finally the suffix (if needed)
+	// Interestingly, this is computed BEFORE we determine if we need the suffix at all, but that's the logic
 	// in the original script.
 	fixedLength := len(clusterType) + len(suffix) + 1
 
-	maxAllowedClusterHostNameLen := 62 - fixedLength // I think 62 is here, because we might default the suffix to 1 later on
+	maxAllowedClusterHostNameLen := 62 - fixedLength // I think 62 is here, because we might default the suffix to "1" later on
 
 	clusterHostName, err := sanitizeEndpointForUsageAsName(serverAPIEndpoint)
 	if err != nil {
