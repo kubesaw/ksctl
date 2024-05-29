@@ -52,20 +52,21 @@ func AddToScheme() error {
 	return addToSchemes.AddToScheme(scheme.Scheme)
 }
 
-var DefaultNewClient = NewClient
+var (
+	DefaultNewClient               = NewClient
+	DefaultNewClientFromRestConfig = NewClientFromRestConfig
+)
 
 func NewClient(token, apiEndpoint string) (runtimeclient.Client, error) {
-	return NewClientWithTransport(token, apiEndpoint, &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true, // nolint: gosec
-		},
-	})
+	return NewClientWithTransport(token, apiEndpoint, newTlsVerifySkippingTransport())
+}
+
+func NewClientFromRestConfig(config *rest.Config) (runtimeclient.Client, error) {
+	config.Insecure = true
+	return newClientFromRestConfig(config)
 }
 
 func NewClientWithTransport(token, apiEndpoint string, transport http.RoundTripper) (runtimeclient.Client, error) {
-	if err := AddToScheme(); err != nil {
-		return nil, err
-	}
 	cfg, err := clientcmd.BuildConfigFromFlags(apiEndpoint, "")
 	if err != nil {
 		return nil, err
@@ -77,12 +78,28 @@ func NewClientWithTransport(token, apiEndpoint string, transport http.RoundTripp
 	cfg.Burst = 50
 	cfg.Timeout = 60 * time.Second
 
+	return newClientFromRestConfig(cfg)
+}
+
+func newClientFromRestConfig(cfg *rest.Config) (runtimeclient.Client, error) {
+	if err := AddToScheme(); err != nil {
+		return nil, err
+	}
+
 	cl, err := runtimeclient.New(cfg, runtimeclient.Options{})
 	if err != nil {
-		return nil, errs.Wrap(err, "cannot create client")
+		return nil, fmt.Errorf("cannot create client: %w", err)
 	}
 
 	return cl, nil
+}
+
+func newTlsVerifySkippingTransport() http.RoundTripper {
+	return &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true, // nolint: gosec
+		},
+	}
 }
 
 var DefaultNewRESTClient = NewRESTClient
@@ -94,12 +111,8 @@ func NewRESTClient(token, apiEndpoint string) (*rest.RESTClient, error) {
 	config := &rest.Config{
 		BearerToken: token,
 		Host:        apiEndpoint,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, // nolint: gosec
-			},
-		},
-		Timeout: 60 * time.Second,
+		Transport:   newTlsVerifySkippingTransport(),
+		Timeout:     60 * time.Second,
 		// These fields need to be set when using the REST client ¯\_(ツ)_/¯
 		ContentConfig: rest.ContentConfig{
 			GroupVersion:         &authv1.SchemeGroupVersion,
@@ -377,5 +390,7 @@ func GetRouteURL(term ioutils.Terminal, cl runtimeclient.Client, namespacedName 
 	return fmt.Sprintf("%s://%s/%s", scheme, route.Spec.Host, route.Spec.Path), nil
 }
 
-var timeout = 5 * time.Second
-var retryInterval = 200 * time.Millisecond
+var (
+	timeout       = 5 * time.Second
+	retryInterval = 200 * time.Millisecond
+)

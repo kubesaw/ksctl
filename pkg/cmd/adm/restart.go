@@ -49,7 +49,7 @@ func restart(ctx *clicontext.CommandContext, clusterName string, deployments ...
 	}
 
 	if len(deployments) == 0 {
-		err := printExistingDeployments(ctx.Terminal, cl, cfg)
+		err := printExistingDeployments(ctx.Terminal, cl, cfg.OperatorNamespace)
 		if err != nil {
 			ctx.Terminal.Printlnf("\nERROR: Failed to list existing deployments\n :%s", err.Error())
 		}
@@ -61,12 +61,12 @@ func restart(ctx *clicontext.CommandContext, clusterName string, deployments ...
 		ioutils.WithMessagef("restart the deployment '%s' in namespace '%s'", deploymentName, cfg.OperatorNamespace)) {
 		return nil
 	}
-	return restartDeployment(ctx, cl, cfg, deploymentName)
+	return restartDeployment(ctx, cl, cfg.OperatorNamespace, deploymentName)
 }
 
-func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, cfg configuration.ClusterConfig, deploymentName string) error {
+func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string, deploymentName string) error {
 	namespacedName := types.NamespacedName{
-		Namespace: cfg.OperatorNamespace,
+		Namespace: ns,
 		Name:      deploymentName,
 	}
 
@@ -74,7 +74,7 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			ctx.Printlnf("\nERROR: The given deployment '%s' wasn't found.", deploymentName)
-			return printExistingDeployments(ctx, cl, cfg)
+			return printExistingDeployments(ctx, cl, ns)
 		}
 		return err
 	}
@@ -89,36 +89,35 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 	return nil
 }
 
-func restartHostOperator(ctx *clicontext.CommandContext, hostClient runtimeclient.Client, hostConfig configuration.ClusterConfig) error {
+func restartHostOperator(ctx *clicontext.CommandContext, hostClient runtimeclient.Client, hostNamespace string) error {
 	deployments := &appsv1.DeploymentList{}
 	if err := hostClient.List(context.TODO(), deployments,
-		runtimeclient.InNamespace(hostConfig.OperatorNamespace),
+		runtimeclient.InNamespace(hostNamespace),
 		runtimeclient.MatchingLabels{"olm.owner.namespace": "toolchain-host-operator"}); err != nil {
 		return err
 	}
 	if len(deployments.Items) != 1 {
 		return fmt.Errorf("there should be a single deployment matching the label olm.owner.namespace=toolchain-host-operator in %s ns, but %d was found. "+
-			"It's not possible to restart the Host Operator deployment", hostConfig.OperatorNamespace, len(deployments.Items))
+			"It's not possible to restart the Host Operator deployment", hostNamespace, len(deployments.Items))
 	}
 
-	return restartDeployment(ctx, hostClient, hostConfig, deployments.Items[0].Name)
+	return restartDeployment(ctx, hostClient, hostNamespace, deployments.Items[0].Name)
 }
 
-func printExistingDeployments(term ioutils.Terminal, cl runtimeclient.Client, cfg configuration.ClusterConfig) error {
+func printExistingDeployments(term ioutils.Terminal, cl runtimeclient.Client, ns string) error {
 	deployments := &appsv1.DeploymentList{}
-	if err := cl.List(context.TODO(), deployments, runtimeclient.InNamespace(cfg.OperatorNamespace)); err != nil {
+	if err := cl.List(context.TODO(), deployments, runtimeclient.InNamespace(ns)); err != nil {
 		return err
 	}
 	deploymentList := "\n"
 	for _, deployment := range deployments.Items {
 		deploymentList += fmt.Sprintf("%s\n", deployment.Name)
 	}
-	term.PrintContextSeparatorWithBodyf(deploymentList, "Existing deployments in %s namespace", cfg.OperatorNamespace)
+	term.PrintContextSeparatorWithBodyf(deploymentList, "Existing deployments in %s namespace", ns)
 	return nil
 }
 
 func scaleToZero(cl runtimeclient.Client, namespacedName types.NamespacedName) (int32, error) {
-
 	// get the deployment
 	deployment := &appsv1.Deployment{}
 	if err := cl.Get(context.TODO(), namespacedName, deployment); err != nil {
