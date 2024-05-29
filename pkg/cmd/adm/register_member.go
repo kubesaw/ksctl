@@ -192,7 +192,7 @@ func waitUntilToolchainClusterReady(ctx *clicontext.CommandContext, cl runtimecl
 
 		// TODO: replace with condition.IsTrue() once the ToolchainClusterCondition is replaced by the generic one.
 		for _, cond := range tc.Status.Conditions {
-			if cond.Type == toolchainv1alpha1.ToolchainClusterReady && cond.Status == corev1.ConditionTrue {
+			if cond.Type == toolchainv1alpha1.ConditionReady && cond.Status == corev1.ConditionTrue {
 				return true, nil
 			}
 		}
