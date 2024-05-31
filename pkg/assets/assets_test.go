@@ -120,7 +120,9 @@ func TestGetKubeSawAdmins(t *testing.T) {
 	for _, user := range kubeSawAdmins.Users {
 		assert.NotEmpty(t, user.Name)
 		assert.NotEmpty(t, user.ID)
-		if !user.AllClusters {
+		if len(user.PermissionsPerClusterType) == 0 {
+			assert.True(t, user.AllClusters)
+		} else {
 			verifyNamespacePermissions(t, user.Name, user.PermissionsPerClusterType)
 		}
 	}
