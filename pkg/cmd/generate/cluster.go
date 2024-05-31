@@ -42,14 +42,18 @@ func ensureUsers(ctx *clusterContext, objsCache objectsCache) error {
 	ctx.Printlnf("-> Ensuring Users and its RoleBindings...")
 
 	for _, user := range ctx.kubeSawAdmins.Users {
-
-		permissions := &permissionsManager{
+		m := &permissionsManager{
 			objectsCache:    objsCache,
 			createSubject:   ensureUserIdentityAndGroups(user.ID, user.Groups),
 			subjectBaseName: user.Name,
 		}
-
-		if err := permissions.ensurePermissions(ctx, user.PermissionsPerClusterType); err != nil {
+		// create the subject if explicitly requested (even if there is no specific permissions)
+		if user.AllClusters {
+			if _, err := m.createSubject(ctx, m.objectsCache, m.subjectBaseName, sandboxSRENamespace(ctx.clusterType), sreLabelsWithUsername(m.subjectBaseName)); err != nil {
+				return err
+			}
+		}
+		if err := m.ensurePermissions(ctx, user.PermissionsPerClusterType); err != nil {
 			return err
 		}
 	}

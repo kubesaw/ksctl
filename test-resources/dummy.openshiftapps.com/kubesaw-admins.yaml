@@ -214,3 +214,8 @@ users:
     - namespace: second-component
       clusterRoles:
       - view
+
+- name: my-clusteradmin
+  id:
+  - 1234567890
+  allClusters: true
