@@ -103,9 +103,9 @@ func TestRegisterMember(t *testing.T) {
 							APIEndpoint: "https://cool-server.com",
 						},
 						Status: toolchainv1alpha1.ToolchainClusterStatus{
-							Conditions: []toolchainv1alpha1.ToolchainClusterCondition{
+							Conditions: []toolchainv1alpha1.Condition{
 								{
-									Type:   toolchainv1alpha1.ToolchainClusterReady,
+									Type:   toolchainv1alpha1.ConditionReady,
 									Status: status,
 								},
 							},
@@ -132,9 +132,9 @@ func TestRegisterMember(t *testing.T) {
 							APIEndpoint: "https://cool-server.com",
 						},
 						Status: toolchainv1alpha1.ToolchainClusterStatus{
-							Conditions: []toolchainv1alpha1.ToolchainClusterCondition{
+							Conditions: []toolchainv1alpha1.Condition{
 								{
-									Type:   toolchainv1alpha1.ToolchainClusterReady,
+									Type:   toolchainv1alpha1.ConditionReady,
 									Status: status,
 								},
 							},
@@ -302,9 +302,9 @@ func TestRegisterMember(t *testing.T) {
 				APIEndpoint: "https://cool-server.com",
 			},
 			Status: toolchainv1alpha1.ToolchainClusterStatus{
-				Conditions: []toolchainv1alpha1.ToolchainClusterCondition{
+				Conditions: []toolchainv1alpha1.Condition{
 					{
-						Type:   toolchainv1alpha1.ToolchainClusterReady,
+						Type:   toolchainv1alpha1.ConditionReady,
 						Status: corev1.ConditionTrue,
 					},
 				},
@@ -426,9 +426,9 @@ func TestRegisterMember(t *testing.T) {
 				APIEndpoint: "https://not-so-cool-server.com",
 			},
 			Status: toolchainv1alpha1.ToolchainClusterStatus{
-				Conditions: []toolchainv1alpha1.ToolchainClusterCondition{
+				Conditions: []toolchainv1alpha1.Condition{
 					{
-						Type:   toolchainv1alpha1.ToolchainClusterReady,
+						Type:   toolchainv1alpha1.ConditionReady,
 						Status: corev1.ConditionTrue,
 					},
 				},
@@ -443,9 +443,9 @@ func TestRegisterMember(t *testing.T) {
 				APIEndpoint: "https://uncool-server.com",
 			},
 			Status: toolchainv1alpha1.ToolchainClusterStatus{
-				Conditions: []toolchainv1alpha1.ToolchainClusterCondition{
+				Conditions: []toolchainv1alpha1.Condition{
 					{
-						Type:   toolchainv1alpha1.ToolchainClusterReady,
+						Type:   toolchainv1alpha1.ConditionReady,
 						Status: corev1.ConditionTrue,
 					},
 				},
@@ -488,9 +488,9 @@ func TestRegisterMember(t *testing.T) {
 				APIEndpoint: "https://not-so-cool-server.com",
 			},
 			Status: toolchainv1alpha1.ToolchainClusterStatus{
-				Conditions: []toolchainv1alpha1.ToolchainClusterCondition{
+				Conditions: []toolchainv1alpha1.Condition{
 					{
-						Type:   toolchainv1alpha1.ToolchainClusterReady,
+						Type:   toolchainv1alpha1.ConditionReady,
 						Status: corev1.ConditionTrue,
 					},
 				},
@@ -532,9 +532,9 @@ func TestRegisterMember(t *testing.T) {
 				APIEndpoint: "https://cool-server.com",
 			},
 			Status: toolchainv1alpha1.ToolchainClusterStatus{
-				Conditions: []toolchainv1alpha1.ToolchainClusterCondition{
+				Conditions: []toolchainv1alpha1.Condition{
 					{
-						Type:   toolchainv1alpha1.ToolchainClusterReady,
+						Type:   toolchainv1alpha1.ConditionReady,
 						Status: corev1.ConditionTrue,
 					},
 				},
@@ -579,9 +579,9 @@ func TestRegisterMember(t *testing.T) {
 				APIEndpoint: "https://cool-server.com",
 			},
 			Status: toolchainv1alpha1.ToolchainClusterStatus{
-				Conditions: []toolchainv1alpha1.ToolchainClusterCondition{
+				Conditions: []toolchainv1alpha1.Condition{
 					{
-						Type:   toolchainv1alpha1.ToolchainClusterReady,
+						Type:   toolchainv1alpha1.ConditionReady,
 						Status: corev1.ConditionTrue,
 					},
 				},
