@@ -14,12 +14,12 @@ import (
 
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/codeready-toolchain/toolchain-common/pkg/cluster"
+	"github.com/codeready-toolchain/toolchain-common/pkg/condition"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 	"github.com/kubesaw/ksctl/pkg/utils"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -190,13 +190,7 @@ func waitUntilToolchainClusterReady(ctx *clicontext.CommandContext, cl runtimecl
 			return false, err
 		}
 
-		// TODO: replace with condition.IsTrue() once the ToolchainClusterCondition is replaced by the generic one.
-		for _, cond := range tc.Status.Conditions {
-			if cond.Type == toolchainv1alpha1.ToolchainClusterReady && cond.Status == corev1.ConditionTrue {
-				return true, nil
-			}
-		}
-		return false, nil
+		return condition.IsTrue(tc.Status.Conditions, toolchainv1alpha1.ConditionReady), nil
 	})
 }
 
