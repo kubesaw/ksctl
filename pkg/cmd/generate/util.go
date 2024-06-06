@@ -146,6 +146,7 @@ func filePath(rootDir string, obj runtimeclient.Object, resource string) string 
 	path := filepath.Join(dirPath, fmt.Sprintf("%s.yaml", obj.GetName()))
 	// make sure that `path` does not contain `:` characters
 	path = strings.ReplaceAll(path, ":", "-")
+	path = strings.ReplaceAll(path, "+", "-")
 	return path
 }
 
