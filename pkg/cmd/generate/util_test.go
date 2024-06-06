@@ -7,10 +7,12 @@ import (
 	"testing"
 
 	"github.com/kubesaw/ksctl/pkg/configuration"
+	userv1 "github.com/openshift/api/user/v1"
 	v1 "github.com/openshift/api/user/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -300,4 +302,66 @@ func TestWriteManifest(t *testing.T) {
 			assertKustomizationFiles(t, ctx.outDir, splitPath[1], path)
 		})
 	}
+}
+
+func TestFilePath(t *testing.T) {
+
+	rootDir := "/path/to"
+
+	t.Run("cluster-scoped", func(t *testing.T) {
+		t.Run("regular name", func(t *testing.T) {
+			// given
+			user := &userv1.User{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-user",
+				},
+			}
+			// when
+			f := filePath(rootDir, user, "users")
+			// then
+			assert.Equal(t, "/path/to/cluster-scoped/users/my-user.yaml", f)
+		})
+		t.Run("name with colon", func(t *testing.T) {
+			// given
+			identity := &userv1.Identity{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sso:my-identity",
+				},
+			}
+			// when
+			f := filePath(rootDir, identity, "identities")
+			// then
+			assert.Equal(t, "/path/to/cluster-scoped/identities/sso-my-identity.yaml", f)
+		})
+	})
+
+	t.Run("namespace-scoped", func(t *testing.T) {
+		t.Run("regular name", func(t *testing.T) {
+			// given
+			sa := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-ns",
+					Name:      "my-sa",
+				},
+			}
+			// when
+			f := filePath(rootDir, sa, "serviceaccounts")
+			// then
+			assert.Equal(t, "/path/to/namespace-scoped/my-ns/serviceaccounts/my-sa.yaml", f)
+		})
+		t.Run("name with plus sign", func(t *testing.T) {
+			// given
+			sa := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-ns",
+					Name:      "my+sa",
+				},
+			}
+			// when
+			f := filePath(rootDir, sa, "serviceaccounts")
+			// then
+			assert.Equal(t, "/path/to/namespace-scoped/my-ns/serviceaccounts/my-sa.yaml", f)
+		})
+	})
+
 }
