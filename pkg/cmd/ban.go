@@ -30,6 +30,8 @@ only one parameter which is the name of the UserSignup to be used for banning`,
 	}
 }
 
+const BannedByLabel = toolchainv1alpha1.LabelKeyPrefix + "banned-by"
+
 func Ban(ctx *clicontext.CommandContext, args ...string) error {
 	return CreateBannedUser(ctx, args[0], func(userSignup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 		if _, exists := bannedUser.Labels[toolchainv1alpha1.BannedUserPhoneNumberHashLabelKey]; !exists {
@@ -63,13 +65,21 @@ func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName string, con
 		return err
 	}
 
-	bannedUser, err := newBannedUser(userSignup)
+	ksctlConfig, err := configuration.Load(ctx)
 	if err != nil {
 		return err
 	}
 
+	bannedUser, err := newBannedUser(userSignup, ksctlConfig.Name)
+	if err != nil {
+		return err
+	}
+
+	emailHashLabelMatch := runtimeclient.MatchingLabels(map[string]string{
+		toolchainv1alpha1.BannedUserEmailHashLabelKey: bannedUser.Labels[toolchainv1alpha1.BannedUserEmailHashLabelKey],
+	})
 	bannedUsers := &toolchainv1alpha1.BannedUserList{}
-	if err := cl.List(context.TODO(), bannedUsers, runtimeclient.MatchingLabels(bannedUser.Labels), runtimeclient.InNamespace(cfg.OperatorNamespace)); err != nil {
+	if err := cl.List(context.TODO(), bannedUsers, emailHashLabelMatch, runtimeclient.InNamespace(cfg.OperatorNamespace)); err != nil {
 		return err
 	}
 
@@ -93,7 +103,7 @@ func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName string, con
 	return nil
 }
 
-func newBannedUser(userSignup *toolchainv1alpha1.UserSignup) (*toolchainv1alpha1.BannedUser, error) {
+func newBannedUser(userSignup *toolchainv1alpha1.UserSignup, bannedBy string) (*toolchainv1alpha1.BannedUser, error) {
 	var emailHashLbl, phoneHashLbl string
 	var exists bool
 
@@ -111,6 +121,7 @@ func newBannedUser(userSignup *toolchainv1alpha1.UserSignup) (*toolchainv1alpha1
 			GenerateName: "banneduser-",
 			Labels: map[string]string{
 				toolchainv1alpha1.BannedUserEmailHashLabelKey: emailHashLbl,
+				BannedByLabel: bannedBy,
 			},
 		},
 		Spec: toolchainv1alpha1.BannedUserSpec{
