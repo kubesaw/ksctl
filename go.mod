@@ -2,8 +2,10 @@ module github.com/kubesaw/ksctl
 
 go 1.20
 
+replace github.com/codeready-toolchain/toolchain-common => github.com/fbm3307/toolchain-common v0.0.0-20240624053626-8b37e8f7386c
+
 require (
-	github.com/codeready-toolchain/api v0.0.0-20240530120602-c11598ccffb7
+	github.com/codeready-toolchain/api v0.0.0-20240620205422-a29b6c658d03
 	github.com/codeready-toolchain/toolchain-common v0.0.0-20240530121312-98aad712838f
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
