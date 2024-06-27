@@ -19,3 +19,16 @@ run-go:
 		go ${GO_COMMAND} ${V_FLAG} \
 		-ldflags "-X ${GO_PACKAGE_PATH}/pkg/version.Commit=${GIT_COMMIT_ID} -X ${GO_PACKAGE_PATH}/pkg/version.BuildTime=${BUILD_TIME}" \
         ${GO_EXTRA_FLAGS} ${GO_PACKAGE_PATH}/cmd/...
+
+.PHONY: verify-dependencies
+## Runs commands to verify after the updated dependecies of toolchain-common/API(go mod replace), if the repo needs any changes to be made
+verify-dependencies: tidy vet build test lint
+
+.PHONY: tidy
+tidy: 
+	go mod tidy
+
+.PHONY: vet
+vet:
+	go vet ./...
+	
