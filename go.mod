@@ -3,7 +3,7 @@ module github.com/kubesaw/ksctl
 go 1.20
 
 require (
-	github.com/codeready-toolchain/api v0.0.0-20240530120602-c11598ccffb7
+	github.com/codeready-toolchain/api v0.0.0-20240627084210-f4a765461e75
 	github.com/codeready-toolchain/toolchain-common v0.0.0-20240530121312-98aad712838f
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
