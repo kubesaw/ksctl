@@ -187,9 +187,9 @@ func TestEnableFeatureCmdWhenFeatureIsNotSupported(t *testing.T) {
 			require.Error(t, err)
 			output := term.Output()
 			if data.supportedFeatures == nil {
-				assert.EqualError(t, err, "the feature toggle is not supported - the list of supported toggles is empty")
+				require.EqualError(t, err, "the feature toggle is not supported - the list of supported toggles is empty")
 			} else {
-				assert.EqualError(t, err, "the feature toggle is not supported")
+				require.EqualError(t, err, "the feature toggle is not supported")
 				assert.Contains(t, output, "The feature toggle 'feature-x' is not listed as a supported feature toggle in ToolchainConfig CR.")
 				assert.Contains(t, output, "The supported feature toggles are:")
 				assert.Contains(t, output, data.nameList)
