@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/kubesaw/ksctl/pkg/client"
+	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/strings/slices"
 
 	"github.com/spf13/cobra"
@@ -29,6 +32,43 @@ parameters - the first one is the Space name and the second is the name of the f
 
 func EnableFeature(ctx *clicontext.CommandContext, spaceName, featureToggleName string) error {
 	return client.PatchSpace(ctx, spaceName, func(space *toolchainv1alpha1.Space) (bool, error) {
+		cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+		if err != nil {
+			return false, err
+		}
+		cl, err := ctx.NewClient(cfg.Token, cfg.ServerAPI)
+		if err != nil {
+			return false, err
+		}
+
+		// get ToolchainConfig to check if the feature toggle is supported or not
+		config := &toolchainv1alpha1.ToolchainConfig{}
+		namespacedName := types.NamespacedName{Namespace: cfg.OperatorNamespace, Name: "config"}
+		if err := cl.Get(ctx, namespacedName, config); err != nil {
+			return false, fmt.Errorf("unable to get ToolchainConfig: %w", err)
+		}
+		// if no feature toggle is supported then return an error
+		if len(config.Spec.Host.Tiers.FeatureToggles) == 0 {
+			return false, fmt.Errorf("the feature toggle is not supported - the list of supported toggles is empty")
+		}
+
+		supportedFeatureToggles := make([]string, len(config.Spec.Host.Tiers.FeatureToggles))
+		for i, fToggle := range config.Spec.Host.Tiers.FeatureToggles {
+			supportedFeatureToggles[i] = fToggle.Name
+		}
+
+		// if the requested feature is not in the list of supported toggles, then print the list of supported ones and return an error
+		if !slices.Contains(supportedFeatureToggles, featureToggleName) {
+			ctx.Printlnf("The feature toggle '%s' is not listed as a supported feature toggle in ToolchainConfig CR.", featureToggleName)
+			fToggleNamesList := "\n"
+			for _, fToggleName := range supportedFeatureToggles {
+				fToggleNamesList += fmt.Sprintf("%s\n", fToggleName)
+			}
+			ctx.PrintContextSeparatorWithBodyf(fToggleNamesList, "The supported feature toggles are:")
+			return false, fmt.Errorf("the feature toggle is not supported")
+		}
+
+		// get already enabled features for the space
 		currentFeatures := strings.TrimSpace(space.Annotations[toolchainv1alpha1.FeatureToggleNameAnnotationKey])
 		var enabledFeatures []string
 		if currentFeatures != "" {
@@ -38,6 +78,7 @@ func EnableFeature(ctx *clicontext.CommandContext, spaceName, featureToggleName 
 			return false, err
 		}
 
+		// check if it's already enabled or not
 		if slices.Contains(enabledFeatures, featureToggleName) {
 			ctx.Println("")
 			ctx.Println("The space has the feature toggle already enabled. There is nothing to do.")

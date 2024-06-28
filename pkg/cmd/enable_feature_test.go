@@ -10,6 +10,7 @@ import (
 	"github.com/kubesaw/ksctl/pkg/cmd"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,6 +19,11 @@ import (
 func TestEnableFeatureCmd(t *testing.T) {
 	// given
 	SetFileConfig(t, Host())
+	config := configWithFeatures([]toolchainv1alpha1.FeatureToggle{
+		{
+			Name: "feature-x",
+		},
+	})
 
 	var combinations = []struct {
 		alreadyEnabled string
@@ -57,7 +63,7 @@ func TestEnableFeatureCmd(t *testing.T) {
 
 				t.Run("when answer is "+answer, func(t *testing.T) {
 					// given
-					newClient, fakeClient := NewFakeClients(t, space)
+					newClient, fakeClient := NewFakeClients(t, space, config)
 					term := NewFakeTerminalWithResponse(answer)
 					ctx := clicontext.NewCommandContext(term, newClient)
 
@@ -91,6 +97,11 @@ func TestEnableFeatureCmd(t *testing.T) {
 func TestEnableFeatureCmdWhenFeatureIsAlreadyEnabled(t *testing.T) {
 	// given
 	SetFileConfig(t, Host())
+	config := configWithFeatures([]toolchainv1alpha1.FeatureToggle{
+		{
+			Name: "feature-x",
+		},
+	})
 
 	for _, alreadyEnabled := range []string{"feature-x", "feature-x,feature0", "feature1,feature2,feature-x,feature3"} {
 		t.Run("with the already enabled features: "+alreadyEnabled, func(t *testing.T) {
@@ -102,7 +113,7 @@ func TestEnableFeatureCmdWhenFeatureIsAlreadyEnabled(t *testing.T) {
 				}
 			}
 			// given
-			newClient, fakeClient := NewFakeClients(t, space)
+			newClient, fakeClient := NewFakeClients(t, space, config)
 			term := NewFakeTerminalWithResponse("Y")
 			ctx := clicontext.NewCommandContext(term, newClient)
 
@@ -123,10 +134,83 @@ func TestEnableFeatureCmdWhenFeatureIsAlreadyEnabled(t *testing.T) {
 	}
 }
 
+func TestEnableFeatureCmdWhenFeatureIsNotSupported(t *testing.T) {
+	// given
+	SetFileConfig(t, Host())
+
+	var combinations = []struct {
+		nameList          string
+		supportedFeatures []toolchainv1alpha1.FeatureToggle
+	}{
+		{
+			nameList:          "",
+			supportedFeatures: nil,
+		},
+		{
+			nameList: "feature-0",
+			supportedFeatures: []toolchainv1alpha1.FeatureToggle{
+				{
+					Name: "feature-0",
+				},
+			},
+		},
+		{
+			nameList: "feature1\nfeature2\nfeature3",
+			supportedFeatures: []toolchainv1alpha1.FeatureToggle{
+				{
+					Name: "feature1",
+				},
+				{
+					Name: "feature2",
+				},
+				{
+					Name: "feature3",
+				},
+			},
+		},
+	}
+
+	for _, data := range combinations {
+		t.Run("with the supported features: "+data.nameList, func(t *testing.T) {
+			// given
+			space := newSpace()
+			config := configWithFeatures(data.supportedFeatures)
+			// given
+			newClient, fakeClient := NewFakeClients(t, space, config)
+			term := NewFakeTerminalWithResponse("Y")
+			ctx := clicontext.NewCommandContext(term, newClient)
+
+			// when
+			err := cmd.EnableFeature(ctx, space.Name, "feature-x")
+
+			// then
+			require.Error(t, err)
+			output := term.Output()
+			if data.supportedFeatures == nil {
+				assert.EqualError(t, err, "the feature toggle is not supported - the list of supported toggles is empty")
+			} else {
+				assert.EqualError(t, err, "the feature toggle is not supported")
+				assert.Contains(t, output, "The feature toggle 'feature-x' is not listed as a supported feature toggle in ToolchainConfig CR.")
+				assert.Contains(t, output, "The supported feature toggles are:")
+				assert.Contains(t, output, data.nameList)
+			}
+
+			assert.NotContains(t, output, "Successfully enabled feature toggle for the Space")
+			assert.NotContains(t, output, "cool-token")
+			assertSpaceAnnotations(t, fakeClient, space) // no change
+		})
+	}
+}
+
 func TestEnableFeatureCmdWhenSpaceNotFound(t *testing.T) {
 	// given
+	config := configWithFeatures([]toolchainv1alpha1.FeatureToggle{
+		{
+			Name: "feature-x",
+		},
+	})
 	space := newSpace()
-	newClient, fakeClient := NewFakeClients(t, space)
+	newClient, fakeClient := NewFakeClients(t, space, config)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("Y")
 	ctx := clicontext.NewCommandContext(term, newClient)
@@ -143,9 +227,36 @@ func TestEnableFeatureCmdWhenSpaceNotFound(t *testing.T) {
 	assert.NotContains(t, output, "cool-token")
 }
 
+func TestEnableFeatureCmdWhenConfigNotFound(t *testing.T) {
+	// given
+	space := newSpace()
+	newClient, fakeClient := NewFakeClients(t, space)
+	SetFileConfig(t, Host())
+	term := NewFakeTerminalWithResponse("Y")
+	ctx := clicontext.NewCommandContext(term, newClient)
+
+	// when
+	err := cmd.EnableFeature(ctx, space.Name, "feature-x")
+
+	// then
+	require.EqualError(t, err, "unable to get ToolchainConfig: toolchainconfigs.toolchain.dev.openshift.com \"config\" not found")
+	assertSpaceAnnotations(t, fakeClient, space) // no change
+}
+
 func assertSpaceAnnotations(t *testing.T, fakeClient *test.FakeClient, expectedSpace *toolchainv1alpha1.Space) {
 	updatedSpace := &toolchainv1alpha1.Space{}
 	err := fakeClient.Get(context.TODO(), test.NamespacedName(expectedSpace.Namespace, expectedSpace.Name), updatedSpace)
 	require.NoError(t, err)
 	assert.Equal(t, expectedSpace.Annotations, updatedSpace.Annotations)
+}
+
+func configWithFeatures(toggles []toolchainv1alpha1.FeatureToggle) *toolchainv1alpha1.ToolchainConfig {
+	toolchainConfig := &toolchainv1alpha1.ToolchainConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: test.HostOperatorNs,
+			Name:      "config",
+		},
+	}
+	toolchainConfig.Spec.Host.Tiers.FeatureToggles = toggles
+	return toolchainConfig
 }
