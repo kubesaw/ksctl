@@ -54,6 +54,8 @@ func init() {
 	rootCmd.AddCommand(NewLogsCmd())
 	rootCmd.AddCommand(NewDescribeCmd())
 	rootCmd.AddCommand(NewDisableUserCmd())
+	rootCmd.AddCommand(NewDisableFeatureCmd())
+	rootCmd.AddCommand(NewEnableFeatureCmd())
 
 	// administrative commands
 	rootCmd.AddCommand(adm.NewAdmCmd())
