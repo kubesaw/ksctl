@@ -12,8 +12,12 @@
 
 package main
 
-import "github.com/kubesaw/ksctl/pkg/cmd"
+import (
+	"fmt"
+	"os"
+)
 
 func main() {
-	cmd.Execute()
+	fmt.Println("ERROR: The sandbox-cli command has been migrated to ksctl. Please use ksctl instead.")
+	os.Exit(1)
 }
