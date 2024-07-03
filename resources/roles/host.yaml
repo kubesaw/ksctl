@@ -313,3 +313,27 @@ objects:
     - "get"
     - "list"
     - "delete"
+
+- kind: Role
+  apiVersion: rbac.authorization.k8s.io/v1
+  metadata:
+    name: enable-feature
+    labels:
+      provider: sandbox-sre
+  rules:
+  - apiGroups:
+    - toolchain.dev.openshift.com
+    resources:
+    - "toolchainconfigs"
+    verbs:
+    - "get"
+    - "list"
+  - apiGroups:
+    - toolchain.dev.openshift.com
+    resources:
+    - "spaces"
+    verbs:
+    - "get"
+    - "list"
+    - "patch"
+    - "update"
