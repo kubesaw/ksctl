@@ -29,8 +29,6 @@ type installArgs struct {
 	memberKubeConfigs []string
 	hostNamespace     string
 	memberNamespace   string
-	nameSuffix        string
-	useLetsEncrypt    bool
 }
 
 func NewInstallOperatorsCmd() *cobra.Command {
@@ -57,14 +55,12 @@ func NewInstallOperatorsCmd() *cobra.Command {
 	// keep these values in sync with the values in defaultRegisterMemberArgs() function in the tests.
 	defaultHostKubeConfig := defaultKubeConfigPath
 	defaultMemberKubeConfig := defaultKubeConfigPath
-	defaultNameSuffix := ""
 	defaultHostNs := "toolchain-host-operator"
 	defaultMemberNs := "toolchain-member-operator"
 
 	cmd.Flags().StringVar(&commandArgs.hostKubeConfig, "host-kubeconfig", defaultKubeConfigPath, fmt.Sprintf("Path to the kubeconfig file of the host cluster (default: '%s')", defaultHostKubeConfig))
 	cmd.Flags().StringSliceVarP(&commandArgs.memberKubeConfigs, "member-kubeconfigs", "mk", []string{defaultMemberKubeConfig}, "Kubeconfig(s) for managing multiple member clusters and the access to them - paths should be comma separated when using multiple of them. "+
 		"In dev mode, the first one has to represent the host cluster.")
-	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", defaultNameSuffix, fmt.Sprintf("The suffix to append to the member name used when there are multiple members in a single cluster (default: '%s')", defaultNameSuffix))
 	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, fmt.Sprintf("The namespace of the host operator in the host cluster (default: '%s')", defaultHostNs))
 	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", defaultMemberNs, fmt.Sprintf("The namespace of the member operator in the member cluster (default: '%s')", defaultMemberNs))
 	return cmd
