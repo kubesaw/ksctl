@@ -163,6 +163,7 @@ const header = `# --------------------------------------------------------------
 func writeFile(filePath string, content []byte) error {
 	// https://github.com/kubernetes/kubernetes/issues/67610
 	contentString := strings.ReplaceAll(string(content), "\n  creationTimestamp: null", "")
+	contentString = strings.ReplaceAll(contentString, "\n      creationTimestamp: null", " {}")
 	contentString = strings.ReplaceAll(contentString, "\nuser: {}", "")
 	contentString = fmt.Sprintf("%s%s", header, contentString)
 	return os.WriteFile(filePath, []byte(contentString), 0600)
