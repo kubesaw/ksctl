@@ -2,11 +2,9 @@ module github.com/kubesaw/ksctl
 
 go 1.20
 
-replace github.com/codeready-toolchain/toolchain-common => github.com/fbm3307/toolchain-common v0.0.0-20240708105947-4161cd43570e
-
 require (
-	github.com/codeready-toolchain/api v0.0.0-20240627084210-f4a765461e75
-	github.com/codeready-toolchain/toolchain-common v0.0.0-20240530121312-98aad712838f
+	github.com/codeready-toolchain/api v0.0.0-20240708122235-0af5a9a178bb
+	github.com/codeready-toolchain/toolchain-common v0.0.0-20240716065433-8604fe46b96a
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	// using latest commit from 'github.com/openshift/api branch release-4.12'
