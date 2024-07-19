@@ -73,12 +73,12 @@ func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName string, con
 		return err
 	}
 
-	if err := ctx.PrintObject(userSignup, "UserSignup to be banned"); err != nil {
+	alreadyBannedUser, err := banneduser.GetBannedUser(ctx, bannedUser.Labels[toolchainv1alpha1.BannedUserEmailHashLabelKey], cl, cfg.OperatorNamespace)
+	if err != nil {
 		return err
 	}
 
-	alreadyBannedUser, err := banneduser.GetBannedUser(ctx, bannedUser.Labels[toolchainv1alpha1.BannedUserEmailHashLabelKey], cl, cfg.OperatorNamespace)
-	if err != nil {
+	if err := ctx.PrintObject(userSignup, "UserSignup to be banned"); err != nil {
 		return err
 	}
 
