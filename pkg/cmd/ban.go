@@ -2,17 +2,15 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
+	"github.com/codeready-toolchain/toolchain-common/pkg/banneduser"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func NewBanCmd() *cobra.Command {
@@ -70,25 +68,23 @@ func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName string, con
 		return err
 	}
 
-	bannedUser, err := newBannedUser(userSignup, ksctlConfig.Name)
+	bannedUser, err := banneduser.NewBannedUser(userSignup, ksctlConfig.Name)
 	if err != nil {
-		return err
-	}
-
-	emailHashLabelMatch := runtimeclient.MatchingLabels(map[string]string{
-		toolchainv1alpha1.BannedUserEmailHashLabelKey: bannedUser.Labels[toolchainv1alpha1.BannedUserEmailHashLabelKey],
-	})
-	bannedUsers := &toolchainv1alpha1.BannedUserList{}
-	if err := cl.List(context.TODO(), bannedUsers, emailHashLabelMatch, runtimeclient.InNamespace(cfg.OperatorNamespace)); err != nil {
 		return err
 	}
 
 	if err := ctx.PrintObject(userSignup, "UserSignup to be banned"); err != nil {
 		return err
 	}
-	if len(bannedUsers.Items) > 0 {
+
+	alreadyBannedUser, err := banneduser.GetBannedUser(ctx, bannedUser.Labels[toolchainv1alpha1.BannedUserEmailHashLabelKey], cl, cfg.OperatorNamespace)
+	if err != nil {
+		return err
+	}
+
+	if alreadyBannedUser != nil {
 		ctx.Println("The user was already banned - there is a BannedUser resource with the same labels already present")
-		return ctx.PrintObject(&bannedUsers.Items[0], "BannedUser resource")
+		return ctx.PrintObject(alreadyBannedUser, "BannedUser resource")
 	}
 
 	if shouldCreate, err := confirm(userSignup, bannedUser); !shouldCreate || err != nil {
@@ -101,36 +97,4 @@ func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName string, con
 
 	ctx.Printlnf("\nUserSignup has been banned by creating BannedUser resource with name " + bannedUser.Name)
 	return nil
-}
-
-func newBannedUser(userSignup *toolchainv1alpha1.UserSignup, bannedBy string) (*toolchainv1alpha1.BannedUser, error) {
-	var emailHashLbl, phoneHashLbl string
-	var exists bool
-
-	if userSignup.Spec.IdentityClaims.Email == "" {
-		return nil, fmt.Errorf("the UserSignup doesn't have email set")
-	}
-
-	if emailHashLbl, exists = userSignup.Labels[toolchainv1alpha1.UserSignupUserEmailHashLabelKey]; !exists {
-		return nil, fmt.Errorf("the UserSignup doesn't have the label '%s' set", toolchainv1alpha1.UserSignupUserEmailHashLabelKey)
-	}
-
-	bannedUser := &toolchainv1alpha1.BannedUser{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:    userSignup.Namespace,
-			GenerateName: "banneduser-",
-			Labels: map[string]string{
-				toolchainv1alpha1.BannedUserEmailHashLabelKey: emailHashLbl,
-				BannedByLabel: bannedBy,
-			},
-		},
-		Spec: toolchainv1alpha1.BannedUserSpec{
-			Email: userSignup.Spec.IdentityClaims.Email,
-		},
-	}
-
-	if phoneHashLbl, exists = userSignup.Labels[toolchainv1alpha1.UserSignupUserPhoneHashLabelKey]; exists {
-		bannedUser.Labels[toolchainv1alpha1.BannedUserPhoneNumberHashLabelKey] = phoneHashLbl
-	}
-	return bannedUser, nil
 }
