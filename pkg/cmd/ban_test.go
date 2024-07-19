@@ -227,7 +227,23 @@ func TestCreateBannedUser(t *testing.T) {
 		// then
 		require.Error(t, err, "something went wrong listing the banned users")
 	})
+	t.Run("NewBannedUser call fails", func(t *testing.T) {
+		//given
+		userSignup := NewUserSignup()
+		userSignup.Labels = nil
+		newClient, fakeClient := NewFakeClients(t, userSignup)
+		term := NewFakeTerminal()
+		ctx := clicontext.NewCommandContext(term, newClient)
 
+		// when
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+			return true, nil
+		})
+
+		// then
+		require.Error(t, err, "userSignup doesn't have UserSignupUserEmailHashLabelKey")
+		AssertNoBannedUser(t, fakeClient, userSignup)
+	})
 }
 
 func TestCreateBannedUserLacksPermissions(t *testing.T) {
