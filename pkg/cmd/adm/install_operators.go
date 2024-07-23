@@ -2,7 +2,6 @@ package adm
 
 import (
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -40,10 +39,7 @@ func NewInstallOperatorsCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := newExtendedCommandContext(term, client.DefaultNewClientFromRestConfig)
-			newCommand := func(name string, args ...string) *exec.Cmd {
-				return exec.Command(name, args...)
-			}
-			return installOperators(ctx, newCommand, commandArgs)
+			return installOperators(ctx, commandArgs, time.Second*60)
 		},
 	}
 
@@ -59,22 +55,22 @@ func NewInstallOperatorsCmd() *cobra.Command {
 	defaultMemberNs := "toolchain-member-operator"
 
 	cmd.Flags().StringVar(&commandArgs.hostKubeConfig, "host-kubeconfig", defaultKubeConfigPath, fmt.Sprintf("Path to the kubeconfig file of the host cluster (default: '%s')", defaultHostKubeConfig))
-	cmd.Flags().StringSliceVarP(&commandArgs.memberKubeConfigs, "member-kubeconfigs", "mk", []string{defaultMemberKubeConfig}, "Kubeconfig(s) for managing multiple member clusters and the access to them - paths should be comma separated when using multiple of them. "+
+	cmd.Flags().StringSliceVarP(&commandArgs.memberKubeConfigs, "member-kubeconfigs", "m", []string{defaultMemberKubeConfig}, "Kubeconfig(s) for managing multiple member clusters and the access to them - paths should be comma separated when using multiple of them. "+
 		"In dev mode, the first one has to represent the host cluster.")
 	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, fmt.Sprintf("The namespace of the host operator in the host cluster (default: '%s')", defaultHostNs))
 	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", defaultMemberNs, fmt.Sprintf("The namespace of the member operator in the member cluster (default: '%s')", defaultMemberNs))
 	return cmd
 }
 
-func installOperators(ctx *extendedCommandContext, newCommand client.CommandCreator, args installArgs) error {
+func installOperators(ctx *extendedCommandContext, args installArgs, timeout time.Duration) error {
 
-	if err := installOperator(ctx, args.hostKubeConfig, args.hostNamespace, configuration.Host); err != nil {
+	if err := installOperator(ctx, args.hostKubeConfig, args.hostNamespace, configuration.Host, timeout); err != nil {
 		return err
 	}
 
 	// install member operators
 	for _, memberKubeConfig := range args.memberKubeConfigs {
-		if err := installOperator(ctx, memberKubeConfig, args.memberNamespace, configuration.Member); err != nil {
+		if err := installOperator(ctx, memberKubeConfig, args.memberNamespace, configuration.Member, timeout); err != nil {
 			return err
 		}
 	}
@@ -82,7 +78,7 @@ func installOperators(ctx *extendedCommandContext, newCommand client.CommandCrea
 	return nil
 }
 
-func installOperator(ctx *extendedCommandContext, kubeConfig, namespace string, clusterType configuration.ClusterType) error {
+func installOperator(ctx *extendedCommandContext, kubeConfig, namespace string, clusterType configuration.ClusterType, timeout time.Duration) error {
 	if !ctx.AskForConfirmation(
 		ioutils.WithMessagef("install %s in namespace '%s'", string(clusterType), namespace)) {
 		return nil
@@ -90,7 +86,7 @@ func installOperator(ctx *extendedCommandContext, kubeConfig, namespace string, 
 
 	// install the catalog source
 	catalogSourceKey := types.NamespacedName{Name: fmt.Sprintf("source-%s-operator", string(clusterType)), Namespace: namespace}
-	catalogSource := newCatalogSource(catalogSourceKey)
+	catalogSource := newCatalogSource(catalogSourceKey, clusterType)
 	kubeClient, err := newKubeClient(ctx, kubeConfig)
 	if err != nil {
 		return err
@@ -98,7 +94,7 @@ func installOperator(ctx *extendedCommandContext, kubeConfig, namespace string, 
 	if err := kubeClient.Create(ctx, catalogSource); err != nil {
 		return err
 	}
-	if err := waitUntilCatalogSourceIsReady(ctx.CommandContext, kubeClient, catalogSourceKey, 30*time.Second); err != nil {
+	if err := waitUntilCatalogSourceIsReady(ctx.CommandContext, kubeClient, catalogSourceKey, timeout); err != nil {
 		return err
 	}
 	ctx.Printlnf("CatalogSource %s is ready", catalogSourceKey)
@@ -114,30 +110,28 @@ func installOperator(ctx *extendedCommandContext, kubeConfig, namespace string, 
 	if err := kubeClient.Create(ctx, subscription); err != nil {
 		return err
 	}
-	if err := waitUntilInstallPlanIsComplete(ctx.CommandContext, kubeClient, namespace, 60*time.Second); err != nil {
+	if err := waitUntilInstallPlanIsComplete(ctx.CommandContext, kubeClient, namespace, timeout); err != nil {
 		return err
 	}
 	ctx.Println(fmt.Sprintf("InstallPlans for %s-operator are ready", string(clusterType)))
 	return nil
 }
 
-func newCatalogSource(name types.NamespacedName) *olmv1alpha1.CatalogSource {
+func newCatalogSource(name types.NamespacedName, clusterType configuration.ClusterType) *olmv1alpha1.CatalogSource {
 	return &olmv1alpha1.CatalogSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: name.Namespace,
 			Name:      name.Name,
-			Labels: map[string]string{
-				"opsrc-provider": "codeready-toolchain",
-			},
 		},
 		Spec: olmv1alpha1.CatalogSourceSpec{
 			SourceType:  olmv1alpha1.SourceTypeGrpc,
-			Image:       "quay.io/codeready-toolchain/hosted-toolchain-index:latest",
+			Image:       fmt.Sprintf("quay.io/codeready-toolchain/%s-operator-index:latest", string(clusterType)),
 			DisplayName: "Dev Sandbox Operators",
+			Publisher:   "Red Hat",
 			UpdateStrategy: &olmv1alpha1.UpdateStrategy{
 				RegistryPoll: &olmv1alpha1.RegistryPoll{
 					Interval: &metav1.Duration{
-						Duration: 5 * time.Minute,
+						Duration: 1 * time.Minute,
 					},
 				},
 			},
@@ -211,7 +205,7 @@ func waitUntilInstallPlanIsComplete(ctx *clicontext.CommandContext, cl runtimecl
 	return wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
 		ctx.Printlnf("waiting for InstallPlans in namespace %s to complete", namespace)
 		plans := &olmv1alpha1.InstallPlanList{}
-		if err := cl.List(ctx, plans); err != nil {
+		if err := cl.List(ctx, plans, runtimeclient.InNamespace(namespace)); err != nil {
 			return false, err
 		}
 
@@ -221,6 +215,6 @@ func waitUntilInstallPlanIsComplete(ctx *clicontext.CommandContext, cl runtimecl
 			}
 		}
 
-		return true, nil
+		return len(plans.Items) > 0, nil
 	})
 }
