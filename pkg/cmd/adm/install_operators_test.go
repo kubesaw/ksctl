@@ -162,18 +162,17 @@ func TestInstallOperators(t *testing.T) {
 
 func fakeClientWithCatalogSource(t *testing.T, fakeClient *test.FakeClient, catalogSourceState string) func(cfg *rest.Config) (runtimeclient.Client, error) {
 	fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
-		switch obj.(type) {
+		switch objT := obj.(type) {
 		case *olmv1alpha1.CatalogSource:
 			// let's set the status of the CS to be able to test the "happy path"
-			cs := obj.(*olmv1alpha1.CatalogSource)
-			cs.Status = olmv1alpha1.CatalogSourceStatus{
+			objT.Status = olmv1alpha1.CatalogSourceStatus{
 				GRPCConnectionState: &olmv1alpha1.GRPCConnectionState{
 					LastObservedState: catalogSourceState,
 				},
 			}
-			return fakeClient.Client.Create(ctx, cs)
+			return fakeClient.Client.Create(ctx, objT)
 		default:
-			return fakeClient.Client.Create(ctx, obj)
+			return fakeClient.Client.Create(ctx, objT)
 		}
 	}
 	fakeClientFromRestConfig := func(cfg *rest.Config) (runtimeclient.Client, error) {
