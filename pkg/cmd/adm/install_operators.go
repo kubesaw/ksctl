@@ -106,7 +106,7 @@ func installOperator(ctx *extendedCommandContext, kubeConfig, namespace string, 
 	}
 
 	// install subscription
-	subscription := newSubscription(types.NamespacedName{Name: fmt.Sprintf("subscription-%s-operator", string(clusterType)), Namespace: namespace}, fmt.Sprintf("%s-operator", string(clusterType)), catalogSourceKey.Name)
+	subscription := newSubscription(types.NamespacedName{Name: fmt.Sprintf("subscription-%s-operator", string(clusterType)), Namespace: namespace}, fmt.Sprintf("toolchain-%s-operator", string(clusterType)), catalogSourceKey.Name)
 	if err := kubeClient.Create(ctx, subscription); err != nil {
 		return err
 	}
