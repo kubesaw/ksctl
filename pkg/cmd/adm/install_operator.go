@@ -49,7 +49,7 @@ func NewInstallOperatorCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&commandArgs.kubeConfig, "kubeconfig", defaultKubeConfigPath, fmt.Sprintf("Path to the kubeconfig file to use (default: '%s')", defaultKubeConfigPath))
 	flags.MustMarkRequired(cmd, "kubeconfig")
-	cmd.Flags().StringVar(&commandArgs.namespace, "namespace", "", fmt.Sprintf("The namespace where the operator will be installed "))
+	cmd.Flags().StringVar(&commandArgs.namespace, "namespace", "", "The namespace where the operator will be installed")
 	flags.MustMarkRequired(cmd, "namespace")
 	return cmd
 }
