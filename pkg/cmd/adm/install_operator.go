@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kubesaw/ksctl/pkg/client"
+	"github.com/kubesaw/ksctl/pkg/cmd/flags"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
@@ -24,22 +25,20 @@ import (
 )
 
 type installArgs struct {
-	hostKubeConfig    string
-	memberKubeConfigs []string
-	hostNamespace     string
-	memberNamespace   string
+	kubeConfig string
+	namespace  string
 }
 
-func NewInstallOperatorsCmd() *cobra.Command {
+func NewInstallOperatorCmd() *cobra.Command {
 	commandArgs := installArgs{}
 	cmd := &cobra.Command{
-		Use:   "install-operators",
-		Short: "install kubesaw operators",
-		Long:  `This command installs the latest stable versions of the kubesaw operators using OLM`,
+		Use:   "install-operator <host|member> --kubeconfig <path/to/kubeconfig> --namespace <namespace>",
+		Short: "install kubesaw operator (host|member)",
+		Long:  `This command installs the latest stable versions of the kubesaw operator using OLM`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := newExtendedCommandContext(term, client.DefaultNewClientFromRestConfig)
-			return installOperators(ctx, commandArgs, time.Second*60)
+			return installOperator(ctx, commandArgs, args[0], time.Second*60)
 		},
 	}
 
@@ -48,46 +47,27 @@ func NewInstallOperatorsCmd() *cobra.Command {
 		defaultKubeConfigPath = filepath.Join(home, ".kube", "config")
 	}
 
-	// keep these values in sync with the values in defaultRegisterMemberArgs() function in the tests.
-	defaultHostKubeConfig := defaultKubeConfigPath
-	defaultMemberKubeConfig := defaultKubeConfigPath
-	defaultHostNs := "toolchain-host-operator"
-	defaultMemberNs := "toolchain-member-operator"
-
-	cmd.Flags().StringVar(&commandArgs.hostKubeConfig, "host-kubeconfig", defaultKubeConfigPath, fmt.Sprintf("Path to the kubeconfig file of the host cluster (default: '%s')", defaultHostKubeConfig))
-	cmd.Flags().StringSliceVarP(&commandArgs.memberKubeConfigs, "member-kubeconfigs", "m", []string{defaultMemberKubeConfig}, "Kubeconfig(s) for managing multiple member clusters and the access to them - paths should be comma separated when using multiple of them. "+
-		"In dev mode, the first one has to represent the host cluster.")
-	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, fmt.Sprintf("The namespace of the host operator in the host cluster (default: '%s')", defaultHostNs))
-	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", defaultMemberNs, fmt.Sprintf("The namespace of the member operator in the member cluster (default: '%s')", defaultMemberNs))
+	cmd.Flags().StringVar(&commandArgs.kubeConfig, "kubeconfig", defaultKubeConfigPath, fmt.Sprintf("Path to the kubeconfig file to use (default: '%s')", defaultKubeConfigPath))
+	flags.MustMarkRequired(cmd, "kubeconfig")
+	cmd.Flags().StringVar(&commandArgs.namespace, "namespace", "", fmt.Sprintf("The namespace where the operator will be installed "))
+	flags.MustMarkRequired(cmd, "namespace")
 	return cmd
 }
 
-func installOperators(ctx *extendedCommandContext, args installArgs, timeout time.Duration) error {
-
-	if err := installOperator(ctx, args.hostKubeConfig, args.hostNamespace, configuration.Host, timeout); err != nil {
-		return err
+func installOperator(ctx *extendedCommandContext, args installArgs, operator string, timeout time.Duration) error {
+	// validate cluster type
+	if operator != string(configuration.Host) && operator != string(configuration.Member) {
+		return fmt.Errorf("invalid operator type provided: %s. Valid ones are %s|%s", operator, string(configuration.Host), string(configuration.Member))
 	}
-
-	// install member operators
-	for _, memberKubeConfig := range args.memberKubeConfigs {
-		if err := installOperator(ctx, memberKubeConfig, args.memberNamespace, configuration.Member, timeout); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func installOperator(ctx *extendedCommandContext, kubeConfig, namespace string, clusterType configuration.ClusterType, timeout time.Duration) error {
 	if !ctx.AskForConfirmation(
-		ioutils.WithMessagef("install %s in namespace '%s'", string(clusterType), namespace)) {
+		ioutils.WithMessagef("install %s in namespace '%s'", operator, args.namespace)) {
 		return nil
 	}
 
 	// install the catalog source
-	catalogSourceKey := types.NamespacedName{Name: fmt.Sprintf("source-%s-operator", string(clusterType)), Namespace: namespace}
-	catalogSource := newCatalogSource(catalogSourceKey, clusterType)
-	kubeClient, err := newKubeClient(ctx, kubeConfig)
+	catalogSourceKey := types.NamespacedName{Name: fmt.Sprintf("source-%s-operator", operator), Namespace: args.namespace}
+	catalogSource := newCatalogSource(catalogSourceKey, operator)
+	kubeClient, err := newKubeClient(ctx, args.kubeConfig)
 	if err != nil {
 		return err
 	}
@@ -100,24 +80,24 @@ func installOperator(ctx *extendedCommandContext, kubeConfig, namespace string, 
 	ctx.Printlnf("CatalogSource %s is ready", catalogSourceKey)
 
 	// install operator group
-	operatorGroup := newOperatorGroup(types.NamespacedName{Name: fmt.Sprintf("og-%s-operator", string(clusterType)), Namespace: namespace})
+	operatorGroup := newOperatorGroup(types.NamespacedName{Name: fmt.Sprintf("og-%s-operator", operator), Namespace: args.namespace})
 	if err := kubeClient.Create(ctx, operatorGroup); err != nil {
 		return err
 	}
 
 	// install subscription
-	subscription := newSubscription(types.NamespacedName{Name: fmt.Sprintf("subscription-%s-operator", string(clusterType)), Namespace: namespace}, fmt.Sprintf("toolchain-%s-operator", string(clusterType)), catalogSourceKey.Name)
+	subscription := newSubscription(types.NamespacedName{Name: fmt.Sprintf("subscription-%s-operator", operator), Namespace: args.namespace}, fmt.Sprintf("toolchain-%s-operator", operator), catalogSourceKey.Name)
 	if err := kubeClient.Create(ctx, subscription); err != nil {
 		return err
 	}
-	if err := waitUntilInstallPlanIsComplete(ctx.CommandContext, kubeClient, namespace, timeout); err != nil {
+	if err := waitUntilInstallPlanIsComplete(ctx.CommandContext, kubeClient, args.namespace, timeout); err != nil {
 		return err
 	}
-	ctx.Println(fmt.Sprintf("InstallPlans for %s-operator are ready", string(clusterType)))
+	ctx.Println(fmt.Sprintf("InstallPlans for %s-operator are ready", operator))
 	return nil
 }
 
-func newCatalogSource(name types.NamespacedName, clusterType configuration.ClusterType) *olmv1alpha1.CatalogSource {
+func newCatalogSource(name types.NamespacedName, operator string) *olmv1alpha1.CatalogSource {
 	return &olmv1alpha1.CatalogSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: name.Namespace,
@@ -125,7 +105,7 @@ func newCatalogSource(name types.NamespacedName, clusterType configuration.Clust
 		},
 		Spec: olmv1alpha1.CatalogSourceSpec{
 			SourceType:  olmv1alpha1.SourceTypeGrpc,
-			Image:       fmt.Sprintf("quay.io/codeready-toolchain/%s-operator-index:latest", string(clusterType)),
+			Image:       fmt.Sprintf("quay.io/codeready-toolchain/%s-operator-index:latest", operator),
 			DisplayName: "Dev Sandbox Operators",
 			Publisher:   "Red Hat",
 			UpdateStrategy: &olmv1alpha1.UpdateStrategy{

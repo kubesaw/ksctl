@@ -24,7 +24,7 @@ func registerCommands(admCommand *cobra.Command) {
 	admCommand.AddCommand(NewRestartCmd())
 	admCommand.AddCommand(NewUnregisterMemberCmd())
 	admCommand.AddCommand(NewMustGatherNamespaceCmd())
-	admCommand.AddCommand(NewInstallOperatorsCmd())
+	admCommand.AddCommand(NewInstallOperatorCmd())
 
 	// commands running external script
 	admCommand.AddCommand(NewRegisterMemberCmd())
