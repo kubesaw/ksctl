@@ -145,7 +145,7 @@ func TestUserIdentityMapper(t *testing.T) {
 			err := useridentitymapper.CreateUserIdentityMappings(context.TODO(), logger, cl)
 
 			// then
-			assert.EqualError(t, err, "unable to list users: mock error")
+			require.EqualError(t, err, "unable to list users: mock error")
 		})
 
 		t.Run("cannot list identities", func(t *testing.T) {
@@ -164,7 +164,7 @@ func TestUserIdentityMapper(t *testing.T) {
 			err := useridentitymapper.CreateUserIdentityMappings(context.TODO(), logger, cl)
 
 			// then
-			assert.EqualError(t, err, "unable to list identities: mock error")
+			require.EqualError(t, err, "unable to list identities: mock error")
 		})
 
 		t.Run("cannot create user-identity mapping", func(t *testing.T) {
@@ -183,7 +183,7 @@ func TestUserIdentityMapper(t *testing.T) {
 			err := useridentitymapper.CreateUserIdentityMappings(context.TODO(), logger, cl)
 
 			// then
-			assert.EqualError(t, err, `unable to create identity mapping for username "user1" and identity "identity1": mock error`)
+			require.EqualError(t, err, `unable to create identity mapping for username "user1" and identity "identity1": mock error`)
 		})
 	})
 }
