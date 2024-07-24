@@ -8,7 +8,6 @@ import (
 
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	userv1 "github.com/openshift/api/user/v1"
-	v1 "github.com/openshift/api/user/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -23,7 +22,7 @@ func TestEnsureObject(t *testing.T) {
 		t.Run("for cluster type "+clusterType.String(), func(t *testing.T) {
 
 			t.Run("for User object", func(t *testing.T) {
-				verifyEnsureManifest(t, clusterType, &v1.User{})
+				verifyEnsureManifest(t, clusterType, &userv1.User{})
 			})
 
 			t.Run("for ServiceAccount object", func(t *testing.T) {
@@ -250,7 +249,7 @@ func TestWriteManifests(t *testing.T) {
 	for _, clusterType := range configuration.ClusterTypes {
 		for _, namespace := range []string{"johnspace", "second-namespace", ""} {
 			clusterCtx := newFakeClusterContext(ctx, clusterType.TheOtherType())
-			user, _ := prepareObjects(t, "john", namespace, &v1.User{})
+			user, _ := prepareObjects(t, "john", namespace, &userv1.User{})
 			require.NoError(t, cache.storeObject(clusterCtx, user))
 			sa, _ := prepareObjects(t, "john", namespace, &corev1.ServiceAccount{})
 			require.NoError(t, cache.storeObject(clusterCtx, sa))
