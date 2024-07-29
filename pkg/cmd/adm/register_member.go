@@ -20,6 +20,7 @@ import (
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 	"github.com/kubesaw/ksctl/pkg/utils"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -180,6 +181,19 @@ func downloadScript(term ioutils.Terminal) (*os.File, error) {
 	// Write the body to file
 	_, err = io.Copy(file, resp.Body)
 	return file, err
+}
+
+// waitForToolchainClusterSA waits for the toolchaincluster service account to be present
+func waitForToolchainClusterSA(ctx *clicontext.CommandContext, cl runtimeclient.Client, toolchainClusterKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
+	return wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
+		ctx.Printlnf("waiting for ToolchainCluster SA %s to become ready", toolchainClusterKey)
+		tc := &v1.ServiceAccount{}
+		if err := cl.Get(ctx, toolchainClusterKey, tc); err != nil {
+			return false, err
+		}
+
+		return true, nil
+	})
 }
 
 func waitUntilToolchainClusterReady(ctx *clicontext.CommandContext, cl runtimeclient.Client, toolchainClusterKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
@@ -359,6 +373,16 @@ func (v *registerMemberValidated) confirmationPrompt() ioutils.ConfirmationMessa
 }
 
 func (v *registerMemberValidated) perform(ctx *extendedCommandContext, newCommand client.CommandCreator) error {
+	// wait for the toolchaincluster-member SA to be ready
+	toolchainClusterSAKey := runtimeclient.ObjectKey{
+		Name:      "toolchaincluster-" + string(configuration.Host),
+		Namespace: v.args.memberNamespace,
+	}
+	if err := waitForToolchainClusterSA(ctx.CommandContext, v.memberClusterClient, toolchainClusterSAKey, v.waitForReadyTimeout); err != nil {
+		ctx.Println("The ToolchainCluster ServiceAccount representing the host in the member cluster is not present.")
+		ctx.Printlnf("Please check the %s ToolchainCluster ServiceAccount in the %s member cluster.", toolchainClusterSAKey, v.memberApiEndpoint)
+		return err
+	}
 	// add the host entry to the member cluster first. We assume that there is just 1 toolchain cluster entry in the member
 	// cluster (i.e. it just points back to the host), so there's no need to determine the number of entries with the same
 	// API endpoint.
@@ -376,6 +400,16 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext, newComman
 		return err
 	}
 
+	// wait for the toolchaincluster-host SA to be ready
+	toolchainClusterSAKey = runtimeclient.ObjectKey{
+		Name:      "toolchaincluster-" + string(configuration.Host),
+		Namespace: v.args.memberNamespace,
+	}
+	if err := waitForToolchainClusterSA(ctx.CommandContext, v.hostClusterClient, toolchainClusterSAKey, v.waitForReadyTimeout); err != nil {
+		ctx.Println("The ToolchainCluster ServiceAccount representing the member in the host cluster is not present.")
+		ctx.Printlnf("Please check the %s ToolchainCluster ServiceAccount in the %s host cluster.", toolchainClusterSAKey, v.hostApiEndpoint)
+		return err
+	}
 	memberToolchainClusterKey := runtimeclient.ObjectKey{
 		Name:      v.memberToolchainClusterName,
 		Namespace: v.args.hostNamespace,
