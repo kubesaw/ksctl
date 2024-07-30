@@ -629,7 +629,7 @@ func TestRunAddClusterScriptSuccess(t *testing.T) {
 			AssertFirstArgPrefixRestEqual("(.*)/add-cluster-(.*)", expArgs...))
 
 		// when
-		err := runAddClusterScript(term, ocCommandCreator, clusterType, hostKubeconfig, "host-ns", memberKubeconfig, "member-ns", nameSuffix, letEncrypt)
+		err := addCluster(term, ocCommandCreator, clusterType, hostKubeconfig, "host-ns", memberKubeconfig, "member-ns", nameSuffix, letEncrypt)
 
 		// then
 		require.NoError(t, err)
@@ -678,7 +678,7 @@ func TestRunAddClusterScriptFailed(t *testing.T) {
 			term := NewFakeTerminalWithResponse("Y")
 
 			// when
-			err := runAddClusterScript(term, ocCommandCreator, clusterType, hostKubeconfig, "host-ns", memberKubeconfig, "member-ns", "", true)
+			err := addCluster(term, ocCommandCreator, clusterType, hostKubeconfig, "host-ns", memberKubeconfig, "member-ns", "", true)
 
 			// then
 			require.Error(t, err)

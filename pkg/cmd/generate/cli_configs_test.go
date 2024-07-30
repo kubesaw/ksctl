@@ -237,7 +237,7 @@ func TestGetServiceAccountToken(t *testing.T) {
 	// gock.Observe(gock.DumpRequest)
 	require.NoError(t, err)
 	// when
-	actualToken, err := getServiceAccountToken(cl, types.NamespacedName{
+	actualToken, err := GetServiceAccountToken(cl, types.NamespacedName{
 		Namespace: "openshift-customer-monitoring",
 		Name:      "loki",
 	}, 365)
