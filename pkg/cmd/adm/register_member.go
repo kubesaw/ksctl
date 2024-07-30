@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -19,6 +22,7 @@ import (
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 	"github.com/kubesaw/ksctl/pkg/utils"
+	errs "github.com/pkg/errors"
 	authv1 "k8s.io/api/authentication/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -180,8 +184,8 @@ func addCluster(term ioutils.Terminal, SANamespacedName runtimeclient.ObjectKey,
 	}
 
 	// Create or Update the secret
-	term.Printlnf("creating %s secret", joiningClusterType)
 	secretName := secretName(SANamespacedName, joiningOperatorNamespace, joiningClusterName)
+	term.Printlnf("creating %s secret with name %s/%s", joiningClusterType, clusterJoinToOperatorNamespace, secretName)
 	kubeConfigSecret := &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: clusterJoinToOperatorNamespace}}
 	op, err := controllerutil.CreateOrUpdate(context.TODO(), clusterJoinToClient, kubeConfigSecret, func() error {
 
@@ -203,7 +207,8 @@ func addCluster(term ioutils.Terminal, SANamespacedName runtimeclient.ObjectKey,
 	if err != nil {
 		return err
 	} else {
-		term.Printlnf("Secret successfully reconciled", "operation", op)
+		term.Println("Secret successfully reconciled")
+		term.Printlnf("operation", op)
 	}
 
 	return err
@@ -239,7 +244,10 @@ func getClusterDetails(kubeConfigPath string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	clusterName := clusterURL.Host
+	// The logic below extracts the domain name from the API server URL, taking everything after "//" until a ":" or "/" (or end of line) is reached.
+	// The "api." prefix is removed from the domain if present. E.g. "https://api.server.domain.net:6443" -> "server.domain.net".
+	clusterName := clusterURL.Hostname()
+	clusterName = strings.Replace(clusterName, "api.", "", 1)
 	return clusterAPIEndpoint, clusterName, nil
 }
 
@@ -479,6 +487,10 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext, newComman
 	if err := addCluster(ctx, toolchainClusterSAKey, configuration.Host, v.args.hostKubeConfig, v.args.hostNamespace, v.args.memberKubeConfig, v.args.memberNamespace, v.hostToolchainClusterName, v.memberClusterClient, v.args.useLetsEncrypt); err != nil {
 		return err
 	}
+	// todo - this will be removed once https://issues.redhat.com/browse/KUBESAW-27 is implemented
+	if err := runAddClusterScript(ctx, newCommand, configuration.Host, v.args.hostKubeConfig, v.args.hostNamespace, v.args.memberKubeConfig, v.args.memberNamespace, "", v.args.useLetsEncrypt); err != nil {
+		return err
+	}
 	hostToolchainClusterKey := runtimeclient.ObjectKey{
 		Name:      v.hostToolchainClusterName,
 		Namespace: v.args.memberNamespace,
@@ -497,6 +509,10 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext, newComman
 	if err := waitForToolchainClusterSA(ctx.CommandContext, v.hostClusterClient, toolchainClusterSAKey, v.waitForReadyTimeout); err != nil {
 		ctx.Println("The toolchaincluster-host ServiceAccount in the host cluster is not present.")
 		ctx.Printlnf("Please check the %s ToolchainCluster ServiceAccount in the %s host cluster.", toolchainClusterSAKey, v.hostApiEndpoint)
+		return err
+	}
+	// todo - this will be removed once https://issues.redhat.com/browse/KUBESAW-27 is implemented
+	if err := runAddClusterScript(ctx, newCommand, configuration.Member, v.args.hostKubeConfig, v.args.hostNamespace, v.args.memberKubeConfig, v.args.memberNamespace, v.args.nameSuffix, v.args.useLetsEncrypt); err != nil {
 		return err
 	}
 	memberToolchainClusterKey := runtimeclient.ObjectKey{
@@ -546,4 +562,56 @@ func findToolchainClusterForMember(allToolchainClusters []toolchainv1alpha1.Tool
 		}
 	}
 	return nil
+}
+
+func runAddClusterScript(term ioutils.Terminal, newCommand client.CommandCreator, joiningClusterType configuration.ClusterType, hostKubeconfig, hostNs, memberKubeconfig, memberNs, nameSuffix string, useLetsEncrypt bool) error {
+	if !term.AskForConfirmation(ioutils.WithMessagef("register the %s cluster by creating a ToolchainCluster CR, a Secret and a new ServiceAccount resource?", joiningClusterType)) {
+		return nil
+	}
+
+	script, err := downloadScript(term)
+	if err != nil {
+		return err
+	}
+	args := []string{script.Name(), "--type", joiningClusterType.String(), "--host-kubeconfig", hostKubeconfig, "--host-ns", hostNs, "--member-kubeconfig", memberKubeconfig, "--member-ns", memberNs}
+	if len(nameSuffix) > 0 {
+		args = append(args, "--multi-member", nameSuffix)
+	}
+	if useLetsEncrypt {
+		args = append(args, "--lets-encrypt")
+	}
+	term.Printlnf("Command to be called: bash %s\n", strings.Join(args, " "))
+	bash := newCommand("bash", args...)
+	bash.Stdout = os.Stdout
+	bash.Stderr = os.Stderr
+	return bash.Run()
+}
+
+func downloadScript(term ioutils.Terminal) (*os.File, error) {
+	resp, err := http.Get(AddClusterScriptURL)
+	if err != nil {
+		return nil, errs.Wrapf(err, "unable to get add-script.sh")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return nil, fmt.Errorf("unable to get add-script.sh - response status %s", resp.Status)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			term.Printlnf(err.Error())
+		}
+	}()
+	// Create the file
+	file, err := os.CreateTemp("", "add-cluster-*.sh")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			term.Printlnf(err.Error())
+		}
+	}()
+
+	// Write the body to file
+	_, err = io.Copy(file, resp.Body)
+	return file, err
 }
