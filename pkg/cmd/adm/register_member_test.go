@@ -11,9 +11,7 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/cluster"
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/ghodss/yaml"
-	"github.com/h2non/gock"
 	"github.com/kubesaw/ksctl/pkg/client"
-	"github.com/kubesaw/ksctl/pkg/configuration"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/utils"
 	"github.com/stretchr/testify/assert"
@@ -35,11 +33,6 @@ func TestRegisterMember(t *testing.T) {
 	SetFileConfig(t, Host(), Member())
 	hostKubeconfig := PersistKubeConfigFile(t, HostKubeConfig())
 	memberKubeconfig := PersistKubeConfigFile(t, MemberKubeConfig())
-	gock.New(AddClusterScriptDomain).
-		Get(AddClusterScriptPath).
-		Persist().
-		Reply(200)
-	defer gock.OffAll()
 
 	type CommandCreatorSetup struct {
 		Client             runtimeclient.Client
@@ -55,6 +48,23 @@ func TestRegisterMember(t *testing.T) {
 	hostDeploymentName := test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager")
 	deployment := newDeployment(hostDeploymentName, 1)
 	deployment.Labels = map[string]string{"olm.owner.namespace": "toolchain-host-operator"}
+	toolchainClusterMemberSa := corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "toolchaincluster-member",
+			Namespace: "toolchain-member-operator",
+		},
+	}
+	toolchainClusterHostSa := corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "toolchaincluster-host",
+			Namespace: "toolchain-host-operator",
+		},
+	}
+
+	test.SetupGockForServiceAccounts(t, "https://cool-server.com",
+		types.NamespacedName{Name: toolchainClusterMemberSa.Name, Namespace: toolchainClusterMemberSa.Namespace},
+		types.NamespacedName{Namespace: toolchainClusterHostSa.Namespace, Name: toolchainClusterHostSa.Name},
+	)
 
 	// the command creator mocks the execution of the add-cluster.sh. We check that we're passing the correct arguments
 	// and we also create the expected ToolchainCluster objects.
@@ -149,7 +159,7 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("produces valid example SPC", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
 		ctx := newExtendedCommandContext(term, newClient)
 		addClusterCommand, counter := commandCreator(CommandCreatorSetup{
 			Client:             fakeClient,
@@ -607,84 +617,6 @@ func TestRegisterMember(t *testing.T) {
 		assert.Equal(t, 0, *counter)
 		assert.NotContains(t, term.Output(), "kind: SpaceProvisionerConfig")
 	})
-}
-
-func TestRunAddClusterScriptSuccess(t *testing.T) {
-	// given
-	SetFileConfig(t, Host(), Member())
-	hostKubeconfig := PersistKubeConfigFile(t, HostKubeConfig())
-	memberKubeconfig := PersistKubeConfigFile(t, MemberKubeConfig())
-	gock.New(AddClusterScriptDomain).
-		Get(AddClusterScriptPath).
-		Persist().
-		Reply(200)
-	defer gock.OffAll()
-	term := NewFakeTerminalWithResponse("Y")
-
-	test := func(t *testing.T, clusterType configuration.ClusterType, nameSuffix string, letEncrypt bool, additionalExpectedArgs ...string) {
-		// given
-		expArgs := []string{"--type", clusterType.String(), "--host-kubeconfig", hostKubeconfig, "--host-ns", "host-ns", "--member-kubeconfig", memberKubeconfig, "--member-ns", "member-ns"}
-		expArgs = append(expArgs, additionalExpectedArgs...)
-		ocCommandCreator := NewCommandCreator(t, "echo", "bash",
-			AssertFirstArgPrefixRestEqual("(.*)/add-cluster-(.*)", expArgs...))
-
-		// when
-		err := addCluster(term, ocCommandCreator, clusterType, hostKubeconfig, "host-ns", memberKubeconfig, "member-ns", nameSuffix, letEncrypt)
-
-		// then
-		require.NoError(t, err)
-		// on Linux, the output contains `Command to be called: bash /tmp/add-cluster-`
-		// on macOS, the output contains something like `Command to be called: bash /var/folders/b8/wy8kq7_179l7yswz6gz6qx800000gp/T/add-cluster-369107288.sh`
-		assert.Contains(t, term.Output(), "Command to be called: bash ")
-		assert.Contains(t, term.Output(), "add-cluster-")
-		assert.Contains(t, term.Output(), strings.Join(expArgs, " "))
-	}
-
-	for _, clusterType := range configuration.ClusterTypes {
-		t.Run("for cluster name: "+clusterType.String(), func(t *testing.T) {
-			t.Run("single toolchain in cluster", func(t *testing.T) {
-				test(t, clusterType, "", false)
-			})
-			t.Run("single toolchain in cluster with letsencrypt", func(t *testing.T) {
-				test(t, clusterType, "", true, "--lets-encrypt")
-			})
-			t.Run("multiple toolchains in cluster", func(t *testing.T) {
-				test(t, clusterType, "asdf", false, "--multi-member", "asdf")
-			})
-			t.Run("multiple toolchains in cluster with letsencrypt", func(t *testing.T) {
-				test(t, clusterType, "42", true, "--multi-member", "42", "--lets-encrypt")
-			})
-		})
-	}
-}
-
-func TestRunAddClusterScriptFailed(t *testing.T) {
-	// given
-	SetFileConfig(t, Host(), Member())
-	hostKubeconfig := PersistKubeConfigFile(t, HostKubeConfig())
-	memberKubeconfig := PersistKubeConfigFile(t, MemberKubeConfig())
-	gock.New(AddClusterScriptDomain).
-		Get(AddClusterScriptPath).
-		Persist().
-		Reply(404)
-	defer gock.OffAll()
-
-	for _, clusterType := range configuration.ClusterTypes {
-		t.Run("for cluster name: "+clusterType.String(), func(t *testing.T) {
-			// given
-			expArgs := []string{"--type", clusterType.String(), "--host-kubeconfig", hostKubeconfig, "--host-ns", "host-ns", "--member-kubeconfig", memberKubeconfig, "--member-ns", "member-ns", "--lets-encrypt"}
-			ocCommandCreator := NewCommandCreator(t, "echo", "bash",
-				AssertFirstArgPrefixRestEqual("(.*)/add-cluster-(.*)", expArgs...))
-			term := NewFakeTerminalWithResponse("Y")
-
-			// when
-			err := addCluster(term, ocCommandCreator, clusterType, hostKubeconfig, "host-ns", memberKubeconfig, "member-ns", "", true)
-
-			// then
-			require.Error(t, err)
-			assert.NotContains(t, term.Output(), "Command to be called")
-		})
-	}
 }
 
 func whenDeploymentThenUpdated(t *testing.T, fakeClient *test.FakeClient, namespacedName types.NamespacedName, currentReplicas int32, numberOfUpdateCalls *int) func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.UpdateOption) error {
