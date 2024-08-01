@@ -83,7 +83,12 @@ func NewRegisterMemberCmd() *cobra.Command {
 	}
 
 	defaultKubeConfigPath := ""
-	if home := homedir.HomeDir(); home != "" {
+
+	// first check if KUBECONFIG env variable is set
+	if kubeconfigPath := os.Getenv("KUBECONFIG"); kubeconfigPath != "" {
+		defaultKubeConfigPath = kubeconfigPath
+	} else if home := homedir.HomeDir(); home != "" {
+		// use home kubeconfig if no KUBECONFIG env var was set
 		defaultKubeConfigPath = filepath.Join(home, ".kube", "config")
 	}
 
