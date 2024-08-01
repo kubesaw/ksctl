@@ -96,9 +96,9 @@ func TestRegisterMember(t *testing.T) {
 		require.NoError(t, err)
 		// check the expected secrets are there with the kubeconfigs
 		// the member kubeconfig secret in the host namespace
-		verifyToolchainClusterSecret(t, fakeClient, "toolchain-host-operator", memberToolchainClusterName)
+		verifyToolchainClusterSecret(t, fakeClient, "toolchain-host-operator", "toolchain-member-operator", memberToolchainClusterName)
 		// the host secret in the member namespace
-		verifyToolchainClusterSecret(t, fakeClient, "toolchain-member-operator", hostToolchainClusterName)
+		verifyToolchainClusterSecret(t, fakeClient, "toolchain-member-operator", "toolchain-host-operator", hostToolchainClusterName)
 		tcs := &toolchainv1alpha1.ToolchainClusterList{}
 		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-host-operator")))
 		assert.Len(t, tcs.Items, 1)
@@ -492,9 +492,9 @@ func mockCreateToolchainClusterWithCondition(fakeClient *test.FakeClient, condit
 	}
 }
 
-func verifyToolchainClusterSecret(t *testing.T, fakeClient *test.FakeClient, namespace, tcName string) {
+func verifyToolchainClusterSecret(t *testing.T, fakeClient *test.FakeClient, secretNamespace, accessNamespace, tcName string) {
 	secrets := &corev1.SecretList{}
-	require.NoError(t, fakeClient.List(context.TODO(), secrets, runtimeclient.InNamespace(namespace)))
+	require.NoError(t, fakeClient.List(context.TODO(), secrets, runtimeclient.InNamespace(secretNamespace)))
 	assert.Len(t, secrets.Items, 1)
 	assert.NotEmpty(t, secrets.Items[0].Labels)
 	assert.Equal(t, tcName, secrets.Items[0].Labels[toolchainv1alpha1.ToolchainClusterLabel])
@@ -505,7 +505,7 @@ func verifyToolchainClusterSecret(t *testing.T, fakeClient *test.FakeClient, nam
 	assert.Equal(t, "https://cool-server.com", apiConfig.Clusters["cluster"].Server)
 	assert.Equal(t, true, apiConfig.Clusters["cluster"].InsecureSkipTLSVerify) // by default the insecure flag is being set
 	assert.Equal(t, "cluster", apiConfig.Contexts["ctx"].Cluster)
-	assert.Equal(t, namespace, apiConfig.Contexts["ctx"].Namespace)
+	assert.Equal(t, accessNamespace, apiConfig.Contexts["ctx"].Namespace)
 	assert.NotEmpty(t, apiConfig.AuthInfos["auth"].Token)
 }
 

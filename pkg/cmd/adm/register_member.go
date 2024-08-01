@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -132,6 +133,10 @@ func registerMemberCluster(ctx *extendedCommandContext, waitForReadyTimeout time
 	return validated.perform(ctx)
 }
 
+// addCluster creates a secret and a ToolchainCluster resource on the `clusterJoinTo`.
+// This ToolchainCluster CR stores a reference to the secret which contains the kubeconfig of the `joiningCluster`. Thus enables the `clusterJoinTo` to interact with the `joiningCluster`.
+// - `clusterJoinTo` is the cluster where we create the ToolchainCluster resource and the secret
+// - `joiningCluster` is the cluster referenced in the kubeconfig/ToolchainCluster of the `clusterJoinTo`
 func addCluster(term ioutils.Terminal, SANamespacedName runtimeclient.ObjectKey, joiningClusterType configuration.ClusterType, joiningKubeConfigPath, joiningOperatorNamespace, clusterJoinToKubeConfigPath, clusterJoinToOperatorNamespace, toolchainClusterName string, clusterJoinToClient runtimeclient.Client, useLetsEncrypt bool) error {
 	if !term.AskForConfirmation(ioutils.WithMessagef("register the %s cluster by creating a ToolchainCluster CR, a Secret and a new ServiceAccount resource?", joiningClusterType)) {
 		return nil
@@ -153,6 +158,7 @@ func addCluster(term ioutils.Terminal, SANamespacedName runtimeclient.ObjectKey,
 	term.Printlnf("API endpoint of the cluster it is joining to: %s", clusterJoinToAPIEndpoint)
 	term.Printlnf("the cluster name it is joining to: %s", clusterJoinToName)
 
+	// generate a token that will be used for the kubeconfig
 	joiningRestClient, err := newRestClient(joiningKubeConfigPath)
 	if err != nil {
 		return err
@@ -161,7 +167,6 @@ func addCluster(term ioutils.Terminal, SANamespacedName runtimeclient.ObjectKey,
 	if err != nil {
 		return err
 	}
-
 	var insecureSkipTLSVerify bool
 	if useLetsEncrypt {
 		term.Printlnf("using let's encrypt certificate")
@@ -170,13 +175,14 @@ func addCluster(term ioutils.Terminal, SANamespacedName runtimeclient.ObjectKey,
 		term.Printlnf("setting insecure skip tls verification flags")
 		insecureSkipTLSVerify = true
 	}
-	generatedKubeConfig := generateKubeConfig(token, joiningClusterAPIEndpoint, clusterJoinToOperatorNamespace, insecureSkipTLSVerify)
+	// generate the kubeconfig that can be used by clusterJoinTo to interact with the joiningCluster
+	generatedKubeConfig := generateKubeConfig(token, joiningClusterAPIEndpoint, joiningOperatorNamespace, insecureSkipTLSVerify)
 	generatedKubeConfigFormatted, err := clientcmd.Write(*generatedKubeConfig)
 	if err != nil {
 		return err
 	}
 
-	// Create or Update the secret
+	// Create or Update the secret on the clusterJoinTo
 	secretName := secretName(SANamespacedName, joiningOperatorNamespace, joiningClusterName)
 	term.Printlnf("creating %s secret with name %s/%s", joiningClusterType, clusterJoinToOperatorNamespace, secretName)
 	kubeConfigSecret := &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: clusterJoinToOperatorNamespace}}
@@ -200,12 +206,11 @@ func addCluster(term ioutils.Terminal, SANamespacedName runtimeclient.ObjectKey,
 
 	if err != nil {
 		return err
-	} else {
-		term.Println("Secret successfully reconciled")
-		term.Printlnf("operation", op)
 	}
+	term.Println("Secret successfully reconciled")
+	term.Printlnf("operation", op)
 
-	// create/update toolchaincluster
+	// create/update toolchaincluster on the clusterJoinTo
 	term.Printlnf("creating ToolchainCluster representation of %s in %s:", joiningClusterType, clusterJoinToName)
 	toolchainClusterCR := &toolchainv1alpha1.ToolchainCluster{ObjectMeta: metav1.ObjectMeta{Name: toolchainClusterName, Namespace: clusterJoinToOperatorNamespace}}
 	op, err = controllerutil.CreateOrUpdate(context.TODO(), clusterJoinToClient, toolchainClusterCR, func() error {
@@ -232,10 +237,9 @@ func addCluster(term ioutils.Terminal, SANamespacedName runtimeclient.ObjectKey,
 
 	if err != nil {
 		return err
-	} else {
-		term.Println("Toolchaincluster successfully reconciled")
-		term.Printlnf("operation", op)
 	}
+	term.Println("Toolchaincluster successfully reconciled")
+	term.Printlnf("operation", op)
 
 	return err
 }
@@ -280,7 +284,7 @@ func getClusterDetails(kubeConfigPath string) (string, string, error) {
 	return clusterAPIEndpoint, clusterName, nil
 }
 
-func generateKubeConfig(token, APIEndpoint, clusterJoinToOperatorNamespace string, insecureSkipTLSVerify bool) *clientcmdapi.Config {
+func generateKubeConfig(token, APIEndpoint, namespace string, insecureSkipTLSVerify bool) *clientcmdapi.Config {
 	// create apiConfig based on the secret content
 	clusters := make(map[string]*clientcmdapi.Cluster, 1)
 	clusters["cluster"] = &clientcmdapi.Cluster{
@@ -291,7 +295,7 @@ func generateKubeConfig(token, APIEndpoint, clusterJoinToOperatorNamespace strin
 	contexts := make(map[string]*clientcmdapi.Context, 1)
 	contexts["ctx"] = &clientcmdapi.Context{
 		Cluster:   "cluster",
-		Namespace: clusterJoinToOperatorNamespace,
+		Namespace: namespace,
 		AuthInfo:  "auth",
 	}
 	authinfos := make(map[string]*clientcmdapi.AuthInfo, 1)
