@@ -503,7 +503,7 @@ func verifyToolchainClusterSecret(t *testing.T, fakeClient *test.FakeClient, sec
 	require.NoError(t, err)
 	require.False(t, api.IsConfigEmpty(apiConfig))
 	assert.Equal(t, "https://cool-server.com", apiConfig.Clusters["cluster"].Server)
-	assert.Equal(t, true, apiConfig.Clusters["cluster"].InsecureSkipTLSVerify) // by default the insecure flag is being set
+	assert.True(t, apiConfig.Clusters["cluster"].InsecureSkipTLSVerify) // by default the insecure flag is being set
 	assert.Equal(t, "cluster", apiConfig.Contexts["ctx"].Cluster)
 	assert.Equal(t, accessNamespace, apiConfig.Contexts["ctx"].Namespace)
 	assert.NotEmpty(t, apiConfig.AuthInfos["auth"].Token)
