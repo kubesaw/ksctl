@@ -35,9 +35,7 @@ import (
 )
 
 const (
-	AddClusterScriptDomain = "https://raw.githubusercontent.com/"
-	AddClusterScriptPath   = "codeready-toolchain/toolchain-cicd/master/scripts/add-cluster.sh"
-	AddClusterScriptURL    = AddClusterScriptDomain + AddClusterScriptPath
+	TokenExpirationDays = 3650
 )
 
 // newClientFromRestConfigFunc is a function to create a new Kubernetes client using the provided
@@ -163,7 +161,7 @@ func addCluster(term ioutils.Terminal, SANamespacedName runtimeclient.ObjectKey,
 	if err != nil {
 		return err
 	}
-	token, err := generate.GetServiceAccountToken(joiningRestClient, SANamespacedName, 3650)
+	token, err := generate.GetServiceAccountToken(joiningRestClient, SANamespacedName, TokenExpirationDays)
 	if err != nil {
 		return err
 	}
