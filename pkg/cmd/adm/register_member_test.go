@@ -64,11 +64,7 @@ func TestRegisterMember(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
 		// force the ready condition on the toolchaincluster created ( this is done by the tc controller in prod env )
-		mockCreateToolchainClusterWithCondition(fakeClient, toolchainv1alpha1.Condition{
-			Type:   toolchainv1alpha1.ConditionReady,
-			Status: corev1.ConditionTrue,
-		},
-		)
+		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 
 		expectedExampleSPC := &toolchainv1alpha1.SpaceProvisionerConfig{
@@ -113,22 +109,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
-			if obj, ok := obj.(*toolchainv1alpha1.ToolchainCluster); ok {
-				// force the ready condition on the host toolchaincluster in member cluster only
-				if obj.GetNamespace() == "toolchain-member-operator" {
-					obj.Status = toolchainv1alpha1.ToolchainClusterStatus{
-						Conditions: []toolchainv1alpha1.Condition{
-							{
-								Type:   toolchainv1alpha1.ConditionReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					}
-				}
-			}
-			return fakeClient.Client.Create(ctx, obj, opts...)
-		}
+		mockCreateToolchainClusterInNamespaceWithReadyCondition(fakeClient, "toolchain-member-operator") // we set to ready only the host toolchaincluster in member operator namespace
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
@@ -148,22 +129,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
-			if obj, ok := obj.(*toolchainv1alpha1.ToolchainCluster); ok {
-				// force the ready condition on the member toolchaincluster in host cluster only
-				if obj.GetNamespace() == "toolchain-host-operator" {
-					obj.Status = toolchainv1alpha1.ToolchainClusterStatus{
-						Conditions: []toolchainv1alpha1.Condition{
-							{
-								Type:   toolchainv1alpha1.ConditionReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					}
-				}
-			}
-			return fakeClient.Client.Create(ctx, obj, opts...)
-		}
+		mockCreateToolchainClusterInNamespaceWithReadyCondition(fakeClient, "toolchain-host-operator") // set to ready only the member toolchaincluster in host operator namespace
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
@@ -183,11 +149,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		mockCreateToolchainClusterWithCondition(fakeClient, toolchainv1alpha1.Condition{
-			Type:   toolchainv1alpha1.ConditionReady,
-			Status: corev1.ConditionTrue,
-		},
-		)
+		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
@@ -203,11 +165,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		mockCreateToolchainClusterWithCondition(fakeClient, toolchainv1alpha1.Condition{
-			Type:   toolchainv1alpha1.ConditionReady,
-			Status: corev1.ConditionTrue,
-		},
-		)
+		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
@@ -223,11 +181,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		mockCreateToolchainClusterWithCondition(fakeClient, toolchainv1alpha1.Condition{
-			Type:   toolchainv1alpha1.ConditionReady,
-			Status: corev1.ConditionTrue,
-		},
-		)
+		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 		preexistingToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -265,11 +219,7 @@ func TestRegisterMember(t *testing.T) {
 		term1 := NewFakeTerminalWithResponse("Y")
 		term2 := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		mockCreateToolchainClusterWithCondition(fakeClient, toolchainv1alpha1.Condition{
-			Type:   toolchainv1alpha1.ConditionReady,
-			Status: corev1.ConditionTrue,
-		},
-		)
+		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx1 := newExtendedCommandContext(term1, newClient)
 		ctx2 := newExtendedCommandContext(term2, newClient)
 
@@ -292,11 +242,7 @@ func TestRegisterMember(t *testing.T) {
 		term1 := NewFakeTerminalWithResponse("Y")
 		term2 := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		mockCreateToolchainClusterWithCondition(fakeClient, toolchainv1alpha1.Condition{
-			Type:   toolchainv1alpha1.ConditionReady,
-			Status: corev1.ConditionTrue,
-		},
-		)
+		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx1 := newExtendedCommandContext(term1, newClient)
 		ctx2 := newExtendedCommandContext(term2, newClient)
 
@@ -320,11 +266,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		mockCreateToolchainClusterWithCondition(fakeClient, toolchainv1alpha1.Condition{
-			Type:   toolchainv1alpha1.ConditionReady,
-			Status: corev1.ConditionTrue,
-		},
-		)
+		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 		preexistingToolchainCluster1 := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -477,14 +419,75 @@ func TestRegisterMember(t *testing.T) {
 	- the newly registered member cluster would have a different name (member-cool-server.com) than the already existing one (member-with-weird-name) which would lead to invalid configuration. Consider using the --name-suffix parameter to match the existing member registration if you intend to just update it instead of creating a new registration`)
 		assert.NotContains(t, term.Output(), "kind: SpaceProvisionerConfig")
 	})
+
+	t.Run("reports error when member toolchaincluster ServiceAccount is not there", func(t *testing.T) {
+		// given
+		term := NewFakeTerminalWithResponse("Y")
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterHostSa) // we pre-provision only the host toolchaincluster ServiceAccount
+		ctx := newExtendedCommandContext(term, newClient)
+
+		// when
+		err := registerMemberCluster(ctx, 1*time.Second, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
+
+		// then
+		require.Error(t, err)
+		assert.Contains(t, term.Output(), "The toolchaincluster-member ServiceAccount in the member cluster is not present.")
+		tcs := &toolchainv1alpha1.ToolchainClusterList{}
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-host-operator")))
+		assert.Empty(t, tcs.Items)
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-member-operator")))
+		assert.Empty(t, tcs.Items)
+	})
+
+	t.Run("reports error when host toolchaincluster ServiceAccount is not there", func(t *testing.T) {
+		// given
+		term := NewFakeTerminalWithResponse("Y")
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa)  // we pre-provision only the member toolchaincluster ServiceAccount
+		mockCreateToolchainClusterInNamespaceWithReadyCondition(fakeClient, "toolchain-member-operator") // set to ready only the host toolchaincluster in member operator namespace
+		ctx := newExtendedCommandContext(term, newClient)
+
+		// when
+		err := registerMemberCluster(ctx, 1*time.Second, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
+
+		// then
+		require.Error(t, err)
+		assert.Contains(t, term.Output(), "The toolchaincluster-host ServiceAccount in the host cluster is not present.")
+		tcs := &toolchainv1alpha1.ToolchainClusterList{}
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-host-operator")))
+		assert.Empty(t, tcs.Items)
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-member-operator")))
+		assert.Len(t, tcs.Items, 1)
+	})
 }
 
-func mockCreateToolchainClusterWithCondition(fakeClient *test.FakeClient, condition toolchainv1alpha1.Condition) {
+func mockCreateToolchainClusterInNamespaceWithReadyCondition(fakeClient *test.FakeClient, namespace string) {
+	fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
+		if obj, ok := obj.(*toolchainv1alpha1.ToolchainCluster); ok {
+			// force the ready condition on the member toolchaincluster in host cluster only
+			if obj.GetNamespace() == namespace {
+				obj.Status = toolchainv1alpha1.ToolchainClusterStatus{
+					Conditions: []toolchainv1alpha1.Condition{
+						{
+							Type:   toolchainv1alpha1.ConditionReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				}
+			}
+		}
+		return fakeClient.Client.Create(ctx, obj, opts...)
+	}
+}
+
+func mockCreateToolchainClusterWithReadyCondition(fakeClient *test.FakeClient) {
 	fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 		if obj, ok := obj.(*toolchainv1alpha1.ToolchainCluster); ok {
 			obj.Status = toolchainv1alpha1.ToolchainClusterStatus{
 				Conditions: []toolchainv1alpha1.Condition{
-					condition,
+					{
+						Type:   toolchainv1alpha1.ConditionReady,
+						Status: corev1.ConditionTrue,
+					},
 				},
 			}
 		}
