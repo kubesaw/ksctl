@@ -208,6 +208,10 @@ func addCluster(term ioutils.Terminal, SANamespacedName runtimeclient.ObjectKey,
 	term.Println("Secret successfully reconciled")
 	term.Printlnf("operation", op)
 
+	// TODO -- temporary logic
+	// The creation of the toolchaincluster is just temporary until we implement https://issues.redhat.com/browse/KUBESAW-44,
+	// the creation logic will be moved to the toolchaincluster_resource controller in toolchain-common and will be based on the secret created above.
+	//
 	// create/update toolchaincluster on the clusterJoinTo
 	term.Printlnf("creating ToolchainCluster representation of %s in %s:", joiningClusterType, clusterJoinToName)
 	toolchainClusterCR := &toolchainv1alpha1.ToolchainCluster{ObjectMeta: metav1.ObjectMeta{Name: toolchainClusterName, Namespace: clusterJoinToOperatorNamespace}}
@@ -238,6 +242,7 @@ func addCluster(term ioutils.Terminal, SANamespacedName runtimeclient.ObjectKey,
 	}
 	term.Println("Toolchaincluster successfully reconciled")
 	term.Printlnf("operation", op)
+	// -- end temporary logic
 
 	return err
 }
