@@ -62,7 +62,17 @@ func NewClient(token, apiEndpoint string) (runtimeclient.Client, error) {
 }
 
 func NewClientFromRestConfig(config *rest.Config) (runtimeclient.Client, error) {
-	config.Insecure = true
+	tc, err := config.TransportConfig()
+	if err != nil {
+		return nil, err
+	}
+	// when specifying the insecure flag with a certificate file the runtime client throws the following error:
+	// 	cannot create client: specifying a root certificates file with the insecure flag is not allowed
+	//
+	// set insecure flag only if certificate file is not present
+	if !tc.HasCA() {
+		config.Insecure = true
+	}
 	return newClientFromRestConfig(config)
 }
 
