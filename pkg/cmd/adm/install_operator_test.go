@@ -150,6 +150,43 @@ func TestInstallOperator(t *testing.T) {
 		// then
 		require.EqualError(t, err, "invalid operator type provided: INVALIDOPERATOR. Valid ones are host|member")
 	})
+
+	t.Run("doesn't install operator if response is no", func(t *testing.T) {
+		// given
+		fakeClient := test.NewFakeClient(t)
+		term := NewFakeTerminalWithResponse("n")
+		ctx := newExtendedCommandContext(term, fakeClientFromRestConfig(t, fakeClient))
+
+		// when
+		operator := "host"
+		err := installOperator(ctx, installArgs{},
+			operator,
+			1*time.Second,
+		)
+
+		// then
+		require.NoError(t, err)
+		assert.Contains(t, term.Output(), fmt.Sprintf("Are you sure that you want to install %s in namespace", operator))
+		assert.NotContains(t, term.Output(), fmt.Sprintf("InstallPlans for %s are ready", operator))
+	})
+
+	t.Run("doesn't install operator if kubeconfig is invalid", func(t *testing.T) {
+		// given
+		fakeClient := test.NewFakeClient(t)
+		term := NewFakeTerminalWithResponse("Y")
+		ctx := newExtendedCommandContext(term, fakeClientFromRestConfig(t, fakeClient))
+
+		// when
+		operator := "host"
+		err := installOperator(ctx, installArgs{kubeConfig: "/some/invalid/path/config"},
+			operator,
+			1*time.Second,
+		)
+
+		// then
+		require.EqualError(t, err, "open /some/invalid/path/config: no such file or directory")
+		assert.NotContains(t, term.Output(), fmt.Sprintf("InstallPlans for %s are ready", operator))
+	})
 }
 
 func fakeClientWithCatalogSource(t *testing.T, fakeClient *test.FakeClient, catalogSourceState string) func(cfg *rest.Config) (runtimeclient.Client, error) {
@@ -167,11 +204,14 @@ func fakeClientWithCatalogSource(t *testing.T, fakeClient *test.FakeClient, cata
 			return fakeClient.Client.Create(ctx, objT)
 		}
 	}
-	fakeClientFromRestConfig := func(cfg *rest.Config) (runtimeclient.Client, error) {
+	return fakeClientFromRestConfig(t, fakeClient)
+}
+
+func fakeClientFromRestConfig(t *testing.T, fakeClient *test.FakeClient) func(cfg *rest.Config) (runtimeclient.Client, error) {
+	return func(cfg *rest.Config) (runtimeclient.Client, error) {
 		assert.Contains(t, cfg.Host, "http")
 		assert.Contains(t, cfg.Host, "://")
 		assert.Contains(t, cfg.Host, ".com")
 		return fakeClient, nil
 	}
-	return fakeClientFromRestConfig
 }
