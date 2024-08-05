@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,11 +12,13 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/cluster"
 	"github.com/codeready-toolchain/toolchain-common/pkg/condition"
 	"github.com/kubesaw/ksctl/pkg/client"
+	"github.com/kubesaw/ksctl/pkg/cmd/flags"
 	"github.com/kubesaw/ksctl/pkg/cmd/generate"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 	"github.com/kubesaw/ksctl/pkg/utils"
+	"github.com/spf13/cobra"
 	authv1 "k8s.io/api/authentication/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,11 +26,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/util/homedir"
 	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/spf13/cobra"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -77,26 +75,17 @@ func NewRegisterMemberCmd() *cobra.Command {
 		},
 	}
 
-	defaultKubeConfigPath := ""
-
-	// first check if KUBECONFIG env variable is set
-	if kubeconfigPath := os.Getenv("KUBECONFIG"); kubeconfigPath != "" {
-		defaultKubeConfigPath = kubeconfigPath
-	} else if home := homedir.HomeDir(); home != "" {
-		// use home kubeconfig if no KUBECONFIG env var was set
-		defaultKubeConfigPath = filepath.Join(home, ".kube", "config")
-	}
-
 	// keep these values in sync with the values in defaultRegisterMemberArgs() function in the tests.
-	defaultHostKubeConfig := defaultKubeConfigPath
-	defaultMemberKubeConfig := defaultKubeConfigPath
+	defaultLetsEncrypt := true
 	defaultNameSuffix := ""
 	defaultHostNs := "toolchain-host-operator"
 	defaultMemberNs := "toolchain-member-operator"
 
-	cmd.Flags().StringVar(&commandArgs.hostKubeConfig, "host-kubeconfig", defaultKubeConfigPath, fmt.Sprintf("Path to the kubeconfig file of the host cluster (default: '%s')", defaultHostKubeConfig))
-	cmd.Flags().StringVar(&commandArgs.memberKubeConfig, "member-kubeconfig", defaultMemberKubeConfig, fmt.Sprintf("Path to the kubeconfig file of the member cluster (default: '%s')", defaultMemberKubeConfig))
-	cmd.Flags().BoolVarP(&commandArgs.useLetsEncrypt, "lets-encrypt", "e", true, "Whether to use Let's Encrypt certificates or rely on the cluster certs (default: true)")
+	cmd.Flags().StringVar(&commandArgs.hostKubeConfig, "host-kubeconfig", "", "Path to the kubeconfig file of the host cluster")
+	flags.MustMarkRequired(cmd, "host-kubeconfig")
+	cmd.Flags().StringVar(&commandArgs.memberKubeConfig, "member-kubeconfig", "", "Path to the kubeconfig file of the member cluster")
+	flags.MustMarkRequired(cmd, "member-kubeconfig")
+	cmd.Flags().BoolVar(&commandArgs.useLetsEncrypt, "lets-encrypt", defaultLetsEncrypt, fmt.Sprintf("Whether to use Let's Encrypt certificates or rely on the cluster certs (default: %t)", defaultLetsEncrypt))
 	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", defaultNameSuffix, fmt.Sprintf("The suffix to append to the member name used when there are multiple members in a single cluster (default: '%s')", defaultNameSuffix))
 	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, fmt.Sprintf("The namespace of the host operator in the host cluster (default: '%s')", defaultHostNs))
 	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", defaultMemberNs, fmt.Sprintf("The namespace of the member operator in the member cluster (default: '%s')", defaultMemberNs))
