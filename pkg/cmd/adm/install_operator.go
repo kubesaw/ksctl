@@ -84,7 +84,9 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	if err := waitUntilInstallPlanIsComplete(ctx, ctx.KubeClient, args.namespace, timeout); err != nil {
 		return err
 	}
-	ctx.Println(fmt.Sprintf("InstallPlans for %s-operator are ready", operator))
+	ctx.Println(fmt.Sprintf("InstallPlan for the %s operator has been completed", operator))
+	ctx.Println("")
+	ctx.Println(fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, args.namespace))
 	return nil
 }
 
