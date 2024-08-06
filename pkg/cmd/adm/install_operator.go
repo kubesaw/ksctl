@@ -97,7 +97,7 @@ func newCatalogSource(name types.NamespacedName, operator string) *olmv1alpha1.C
 		Spec: olmv1alpha1.CatalogSourceSpec{
 			SourceType:  olmv1alpha1.SourceTypeGrpc,
 			Image:       fmt.Sprintf("quay.io/codeready-toolchain/%s-operator-index:latest", operator),
-			DisplayName: "Dev Sandbox Operators",
+			DisplayName: "KubeSaw Host Operator",
 			Publisher:   "Red Hat",
 			UpdateStrategy: &olmv1alpha1.UpdateStrategy{
 				RegistryPoll: &olmv1alpha1.RegistryPoll{
