@@ -16,7 +16,7 @@ import (
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// interface that matches all the methods provided by embed.FS
+// FS is an interface that matches all the methods provided by embed.FS
 type FS interface {
 	fs.FS
 	fs.ReadDirFS

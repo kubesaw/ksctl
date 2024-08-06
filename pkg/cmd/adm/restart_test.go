@@ -246,7 +246,7 @@ func checkDeploymentBeingUpdated(t *testing.T, fakeClient *test.FakeClient, name
 		// check the current deployment's replicas field
 		AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 0)
 		// check the requested deployment's replicas field
-		assert.Equal(t, int32(currentReplicas), *deployment.Spec.Replicas)
+		assert.Equal(t, currentReplicas, *deployment.Spec.Replicas)
 	}
 	*numberOfUpdateCalls++
 }

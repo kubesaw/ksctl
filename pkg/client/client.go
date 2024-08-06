@@ -24,7 +24,6 @@ import (
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	errs "github.com/pkg/errors"
-	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -69,7 +68,7 @@ func NewClientWithTransport(token, apiEndpoint string, transport http.RoundTripp
 	}
 
 	cfg.Transport = transport
-	cfg.BearerToken = string(token)
+	cfg.BearerToken = token
 	cfg.QPS = 40.0
 	cfg.Burst = 50
 	cfg.Timeout = 60 * time.Second
@@ -117,26 +116,6 @@ func newTlsVerifySkippingTransport() http.RoundTripper {
 			InsecureSkipVerify: true, // nolint: gosec
 		},
 	}
-}
-
-var DefaultNewRESTClient = NewRESTClient
-
-func NewRESTClient(token, apiEndpoint string) (*rest.RESTClient, error) {
-	if err := AddToScheme(); err != nil {
-		return nil, err
-	}
-	config := &rest.Config{
-		BearerToken: token,
-		Host:        apiEndpoint,
-		Transport:   newTlsVerifySkippingTransport(),
-		Timeout:     60 * time.Second,
-		// These fields need to be set when using the REST client ¯\_(ツ)_/¯
-		ContentConfig: rest.ContentConfig{
-			GroupVersion:         &authv1.SchemeGroupVersion,
-			NegotiatedSerializer: scheme.Codecs,
-		},
-	}
-	return rest.RESTClientFor(config)
 }
 
 func PatchUserSignup(ctx *clicontext.CommandContext, name string, changeUserSignup func(*toolchainv1alpha1.UserSignup) (bool, error), afterMessage string) error {

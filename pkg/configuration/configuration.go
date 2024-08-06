@@ -207,34 +207,3 @@ func (c ClusterConfig) GetServerParam() string {
 func (c ClusterConfig) GetNamespaceParam() string {
 	return "--namespace=" + c.OperatorNamespace
 }
-
-// ConfigurePath returns the path to the 'configure' directory, using the clusterConfigName arg if it's not empty,
-// or the Host cluster's server name (even if the current config applies to a Member cluster)
-func (c ClusterConfig) ConfigurePath(term ioutils.Terminal, clusterConfigName, component string) (string, error) {
-	return c.Path(term, clusterConfigName, "configure", component)
-}
-
-// InstallPath returns the path to the 'install' directory, using the clusterConfigName arg if it's not empty,
-// or the Host cluster's server name (even if the current config applies to a Member cluster)
-func (c ClusterConfig) InstallPath(term ioutils.Terminal, clusterConfigName, component string) (string, error) {
-	return c.Path(term, clusterConfigName, "install", component)
-}
-
-// Path returns the path to the directory for the given action, using the clusterConfigName arg if it's not empty,
-// or the Host cluster's server name (even if the current config applies to a Member cluster)
-func (c ClusterConfig) Path(term ioutils.Terminal, clusterConfigName, section, component string) (string, error) {
-	baseDir := c.ServerName
-	if c.ClusterType == Member {
-		// for member clusters, we use the associated host's serverName to retrieve the configuration
-		var err error
-		clusterDef, err := LoadClusterAccessDefinition(term, HostName)
-		if err != nil {
-			return "", err
-		}
-		baseDir = clusterDef.ServerName
-	}
-	if clusterConfigName != "" {
-		baseDir = clusterConfigName
-	}
-	return fmt.Sprintf("%s/%s/%s/%s", baseDir, section, c.ClusterType, component), nil
-}

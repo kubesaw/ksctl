@@ -11,7 +11,6 @@ import (
 	uuid "github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -58,43 +57,11 @@ func AssertUserSignupDoesNotExist(t *testing.T, fakeClient *test.FakeClient, use
 	require.True(t, apierrors.IsNotFound(err), "the UserSignup should be deleted")
 }
 
-func UserSignupCompleteCondition(status corev1.ConditionStatus, reason string) toolchainv1alpha1.Condition {
-	return toolchainv1alpha1.Condition{
-		Type:   toolchainv1alpha1.UserSignupComplete,
-		Status: status,
-		Reason: reason,
-	}
-}
-
 type UserSignupModifier func(userSignup *toolchainv1alpha1.UserSignup)
-
-func UserSignupCompliantUsername(username string) UserSignupModifier {
-	return func(userSignup *toolchainv1alpha1.UserSignup) {
-		userSignup.Status.CompliantUsername = username
-	}
-}
-
-func UserSignupTargetCluster(cluster string) UserSignupModifier {
-	return func(userSignup *toolchainv1alpha1.UserSignup) {
-		userSignup.Spec.TargetCluster = cluster
-	}
-}
 
 func UserSignupDeactivated(deactivated bool) UserSignupModifier {
 	return func(userSignup *toolchainv1alpha1.UserSignup) {
 		states.SetDeactivated(userSignup, deactivated)
-	}
-}
-
-func UserSignupStatusComplete(status corev1.ConditionStatus, reason string) UserSignupModifier {
-	return func(userSignup *toolchainv1alpha1.UserSignup) {
-		userSignup.Status.Conditions = []toolchainv1alpha1.Condition{UserSignupCompleteCondition(status, reason)}
-	}
-}
-
-func UserSignupSetLabel(key, value string) UserSignupModifier {
-	return func(userSignup *toolchainv1alpha1.UserSignup) {
-		userSignup.Labels[key] = value
 	}
 }
 
@@ -106,14 +73,14 @@ func UserSignupRemoveLabel(key string) UserSignupModifier {
 
 func UserSignupAutomaticallyApproved(_ bool) UserSignupModifier {
 	return func(userSignup *toolchainv1alpha1.UserSignup) {
-		userSignup.Labels[toolchainv1alpha1.StateLabelKey] = string(toolchainv1alpha1.UserSignupStateLabelValueApproved)
+		userSignup.Labels[toolchainv1alpha1.StateLabelKey] = toolchainv1alpha1.UserSignupStateLabelValueApproved
 		userSignup.Spec.States = nil
 	}
 }
 
 func UserSignupApprovedByAdmin(_ bool) UserSignupModifier {
 	return func(userSignup *toolchainv1alpha1.UserSignup) {
-		userSignup.Labels[toolchainv1alpha1.StateLabelKey] = string(toolchainv1alpha1.UserSignupStateLabelValueApproved)
+		userSignup.Labels[toolchainv1alpha1.StateLabelKey] = toolchainv1alpha1.UserSignupStateLabelValueApproved
 		states.SetApprovedManually(userSignup, true)
 	}
 }
