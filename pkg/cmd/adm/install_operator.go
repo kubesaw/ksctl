@@ -102,7 +102,7 @@ func newCatalogSource(name types.NamespacedName, operator string) *olmv1alpha1.C
 			UpdateStrategy: &olmv1alpha1.UpdateStrategy{
 				RegistryPoll: &olmv1alpha1.RegistryPoll{
 					Interval: &metav1.Duration{
-						Duration: 1 * time.Minute,
+						Duration: 5 * time.Minute,
 					},
 				},
 			},
