@@ -84,7 +84,9 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	if err := waitUntilInstallPlanIsComplete(ctx, ctx.KubeClient, args.namespace, timeout); err != nil {
 		return err
 	}
-	ctx.Println(fmt.Sprintf("InstallPlans for %s-operator are ready", operator))
+	ctx.Println(fmt.Sprintf("InstallPlan for the %s operator has been completed", operator))
+	ctx.Println("")
+	ctx.Println(fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, args.namespace))
 	return nil
 }
 
@@ -97,12 +99,12 @@ func newCatalogSource(name types.NamespacedName, operator string) *olmv1alpha1.C
 		Spec: olmv1alpha1.CatalogSourceSpec{
 			SourceType:  olmv1alpha1.SourceTypeGrpc,
 			Image:       fmt.Sprintf("quay.io/codeready-toolchain/%s-operator-index:latest", operator),
-			DisplayName: "Dev Sandbox Operators",
+			DisplayName: "KubeSaw Host Operator",
 			Publisher:   "Red Hat",
 			UpdateStrategy: &olmv1alpha1.UpdateStrategy{
 				RegistryPoll: &olmv1alpha1.RegistryPoll{
 					Interval: &metav1.Duration{
-						Duration: 1 * time.Minute,
+						Duration: 5 * time.Minute,
 					},
 				},
 			},
