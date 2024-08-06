@@ -60,7 +60,7 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	}
 
 	// install the catalog source
-	catalogSourceKey := types.NamespacedName{Name: fmt.Sprintf("source-%s-operator", operator), Namespace: args.namespace}
+	catalogSourceKey := types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: args.namespace}
 	catalogSource := newCatalogSource(catalogSourceKey, operator)
 	if err := ctx.KubeClient.Create(ctx, catalogSource); err != nil {
 		return err
@@ -71,13 +71,13 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	ctx.Printlnf("CatalogSource %s is ready", catalogSourceKey)
 
 	// install operator group
-	operatorGroup := newOperatorGroup(types.NamespacedName{Name: fmt.Sprintf("og-%s-operator", operator), Namespace: args.namespace})
+	operatorGroup := newOperatorGroup(types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: args.namespace})
 	if err := ctx.KubeClient.Create(ctx, operatorGroup); err != nil {
 		return err
 	}
 
 	// install subscription
-	subscription := newSubscription(types.NamespacedName{Name: fmt.Sprintf("subscription-%s-operator", operator), Namespace: args.namespace}, fmt.Sprintf("toolchain-%s-operator", operator), catalogSourceKey.Name)
+	subscription := newSubscription(types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: args.namespace}, fmt.Sprintf("toolchain-%s-operator", operator), catalogSourceKey.Name)
 	if err := ctx.KubeClient.Create(ctx, subscription); err != nil {
 		return err
 	}

@@ -62,8 +62,8 @@ func TestInstallOperator(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			AssertCatalogSourceExists(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("source-%s-operator", operator), Namespace: namespace})
-			AssertCatalogSourceHasSpec(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("source-%s-operator", operator), Namespace: namespace},
+			AssertCatalogSourceExists(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
+			AssertCatalogSourceHasSpec(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace},
 				olmv1alpha1.CatalogSourceSpec{
 					SourceType:  olmv1alpha1.SourceTypeGrpc,
 					Image:       fmt.Sprintf("quay.io/codeready-toolchain/%s-operator-index:latest", operator),
@@ -78,8 +78,8 @@ func TestInstallOperator(t *testing.T) {
 					},
 				},
 			)
-			AssertOperatorGroupExists(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("og-%s-operator", operator), Namespace: namespace})
-			AssertSubscriptionExists(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("subscription-%s-operator", operator), Namespace: namespace})
+			AssertOperatorGroupExists(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
+			AssertSubscriptionExists(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
 			assert.Contains(t, term.Output(), fmt.Sprintf("InstallPlans for %s-operator are ready", operator))
 		})
 
@@ -100,8 +100,8 @@ func TestInstallOperator(t *testing.T) {
 
 			// then
 			require.EqualError(t, err, "timed out waiting for the condition")
-			AssertOperatorGroupDoesNotExist(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("og-%s-operator", operator), Namespace: namespace})
-			AssertSubscriptionDoesNotExist(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("subscription-%s-operator", operator), Namespace: namespace})
+			AssertOperatorGroupDoesNotExist(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
+			AssertSubscriptionDoesNotExist(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
 			assert.NotContains(t, term.Output(), fmt.Sprintf("InstallPlans for %s-operator are ready", operator))
 		})
 
