@@ -61,21 +61,6 @@ func NewClient(token, apiEndpoint string) (runtimeclient.Client, error) {
 	return NewClientWithTransport(token, apiEndpoint, newTlsVerifySkippingTransport())
 }
 
-func NewClientFromRestConfig(config *rest.Config) (runtimeclient.Client, error) {
-	tc, err := config.TransportConfig()
-	if err != nil {
-		return nil, err
-	}
-	// when specifying the insecure flag with a certificate file the runtime client throws the following error:
-	// 	cannot create client: specifying a root certificates file with the insecure flag is not allowed
-	//
-	// set insecure flag only if certificate file is not present
-	if !tc.HasCA() {
-		config.Insecure = true
-	}
-	return newClientFromRestConfig(config)
-}
-
 func NewClientWithTransport(token, apiEndpoint string, transport http.RoundTripper) (runtimeclient.Client, error) {
 	cfg, err := clientcmd.BuildConfigFromFlags(apiEndpoint, "")
 	if err != nil {
@@ -88,10 +73,10 @@ func NewClientWithTransport(token, apiEndpoint string, transport http.RoundTripp
 	cfg.Burst = 50
 	cfg.Timeout = 60 * time.Second
 
-	return newClientFromRestConfig(cfg)
+	return NewClientFromRestConfig(cfg)
 }
 
-func newClientFromRestConfig(cfg *rest.Config) (runtimeclient.Client, error) {
+func NewClientFromRestConfig(cfg *rest.Config) (runtimeclient.Client, error) {
 	if err := AddToScheme(); err != nil {
 		return nil, err
 	}
