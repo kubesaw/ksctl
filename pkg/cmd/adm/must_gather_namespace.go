@@ -23,7 +23,6 @@ import (
 	"k8s.io/client-go/discovery"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"k8s.io/kubectl/pkg/scheme"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -52,13 +51,9 @@ func NewMustGatherNamespaceCmd() *cobra.Command {
 			return MustGatherNamespace(term, kubeconfig, args[0], destDir)
 		},
 	}
-	defaultKubeconfigPath := ""
-	if home := homedir.HomeDir(); home != "" {
-		defaultKubeconfigPath = filepath.Join(home, ".kube", "config")
-	}
 	cmd.Flags().StringVar(&destDir, "dest-dir", "", "Gather information with a specific local folder to copy to")
 	flags.MustMarkRequired(cmd, "dest-dir")
-	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", defaultKubeconfigPath, "Path to the kubeconfig file (default: "+defaultKubeconfigPath+")")
+	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Path to the kubeconfig file")
 	flags.MustMarkRequired(cmd, "kubeconfig")
 	return cmd
 }
