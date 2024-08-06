@@ -2,7 +2,6 @@ package adm
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/kubesaw/ksctl/pkg/client"
@@ -18,7 +17,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/util/homedir"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/spf13/cobra"
@@ -42,12 +40,7 @@ func NewInstallOperatorCmd() *cobra.Command {
 		},
 	}
 
-	defaultKubeConfigPath := ""
-	if home := homedir.HomeDir(); home != "" {
-		defaultKubeConfigPath = filepath.Join(home, ".kube", "config")
-	}
-
-	cmd.Flags().StringVar(&commandArgs.kubeConfig, "kubeconfig", defaultKubeConfigPath, fmt.Sprintf("Path to the kubeconfig file to use (default: '%s')", defaultKubeConfigPath))
+	cmd.Flags().StringVar(&commandArgs.kubeConfig, "kubeconfig", "", "Path to the kubeconfig file to use.")
 	flags.MustMarkRequired(cmd, "kubeconfig")
 	cmd.Flags().StringVar(&commandArgs.namespace, "namespace", "", "The namespace where the operator will be installed")
 	flags.MustMarkRequired(cmd, "namespace")
