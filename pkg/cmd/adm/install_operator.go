@@ -14,9 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/spf13/cobra"
@@ -35,7 +32,11 @@ func NewInstallOperatorCmd() *cobra.Command {
 		Long:  `This command installs the latest stable versions of the kubesaw operator using OLM`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := newExtendedCommandContext(term, client.DefaultNewClientFromRestConfig)
+			kubeClient, err := client.NewKubeClientFromKubeConfig(commandArgs.kubeConfig)
+			if err != nil {
+				return err
+			}
+			ctx := clicontext.NewTerminalContext(term, kubeClient)
 			return installOperator(ctx, commandArgs, args[0], time.Second*60)
 		},
 	}
@@ -47,11 +48,12 @@ func NewInstallOperatorCmd() *cobra.Command {
 	return cmd
 }
 
-func installOperator(ctx *extendedCommandContext, args installArgs, operator string, timeout time.Duration) error {
+func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator string, timeout time.Duration) error {
 	// validate cluster type
 	if operator != string(configuration.Host) && operator != string(configuration.Member) {
 		return fmt.Errorf("invalid operator type provided: %s. Valid ones are %s|%s", operator, string(configuration.Host), string(configuration.Member))
 	}
+
 	if !ctx.AskForConfirmation(
 		ioutils.WithMessagef("install %s in namespace '%s'", operator, args.namespace)) {
 		return nil
@@ -60,30 +62,26 @@ func installOperator(ctx *extendedCommandContext, args installArgs, operator str
 	// install the catalog source
 	catalogSourceKey := types.NamespacedName{Name: fmt.Sprintf("source-%s-operator", operator), Namespace: args.namespace}
 	catalogSource := newCatalogSource(catalogSourceKey, operator)
-	kubeClient, err := newKubeClient(ctx, args.kubeConfig)
-	if err != nil {
+	if err := ctx.KubeClient.Create(ctx, catalogSource); err != nil {
 		return err
 	}
-	if err := kubeClient.Create(ctx, catalogSource); err != nil {
-		return err
-	}
-	if err := waitUntilCatalogSourceIsReady(ctx.CommandContext, kubeClient, catalogSourceKey, timeout); err != nil {
+	if err := waitUntilCatalogSourceIsReady(ctx, catalogSourceKey, timeout); err != nil {
 		return err
 	}
 	ctx.Printlnf("CatalogSource %s is ready", catalogSourceKey)
 
 	// install operator group
 	operatorGroup := newOperatorGroup(types.NamespacedName{Name: fmt.Sprintf("og-%s-operator", operator), Namespace: args.namespace})
-	if err := kubeClient.Create(ctx, operatorGroup); err != nil {
+	if err := ctx.KubeClient.Create(ctx, operatorGroup); err != nil {
 		return err
 	}
 
 	// install subscription
 	subscription := newSubscription(types.NamespacedName{Name: fmt.Sprintf("subscription-%s-operator", operator), Namespace: args.namespace}, fmt.Sprintf("toolchain-%s-operator", operator), catalogSourceKey.Name)
-	if err := kubeClient.Create(ctx, subscription); err != nil {
+	if err := ctx.KubeClient.Create(ctx, subscription); err != nil {
 		return err
 	}
-	if err := waitUntilInstallPlanIsComplete(ctx.CommandContext, kubeClient, args.namespace, timeout); err != nil {
+	if err := waitUntilInstallPlanIsComplete(ctx, ctx.KubeClient, args.namespace, timeout); err != nil {
 		return err
 	}
 	ctx.Println(fmt.Sprintf("InstallPlans for %s-operator are ready", operator))
@@ -142,31 +140,11 @@ func newSubscription(name types.NamespacedName, operatorName, catalogSourceName 
 	}
 }
 
-func newKubeClient(ctx *extendedCommandContext, kubeConfigPath string) (cl runtimeclient.Client, err error) {
-	var kubeConfig *clientcmdapi.Config
-	var clientConfig *rest.Config
-
-	kubeConfig, err = clientcmd.LoadFromFile(kubeConfigPath)
-	if err != nil {
-		return
-	}
-	clientConfig, err = clientcmd.NewDefaultClientConfig(*kubeConfig, nil).ClientConfig()
-	if err != nil {
-		return
-	}
-	cl, err = ctx.NewClientFromRestConfig(clientConfig)
-	if err != nil {
-		return
-	}
-
-	return
-}
-
-func waitUntilCatalogSourceIsReady(ctx *clicontext.CommandContext, cl runtimeclient.Client, catalogSourceKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
+func waitUntilCatalogSourceIsReady(ctx *clicontext.TerminalContext, catalogSourceKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
 	return wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
 		ctx.Printlnf("waiting for CatalogSource %s to become ready", catalogSourceKey)
 		cs := &olmv1alpha1.CatalogSource{}
-		if err := cl.Get(ctx, catalogSourceKey, cs); err != nil {
+		if err := ctx.KubeClient.Get(ctx, catalogSourceKey, cs); err != nil {
 			return false, err
 		}
 
@@ -174,7 +152,7 @@ func waitUntilCatalogSourceIsReady(ctx *clicontext.CommandContext, cl runtimecli
 	})
 }
 
-func waitUntilInstallPlanIsComplete(ctx *clicontext.CommandContext, cl runtimeclient.Client, namespace string, waitForReadyTimeout time.Duration) error {
+func waitUntilInstallPlanIsComplete(ctx *clicontext.TerminalContext, cl runtimeclient.Client, namespace string, waitForReadyTimeout time.Duration) error {
 	return wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
 		ctx.Printlnf("waiting for InstallPlans in namespace %s to complete", namespace)
 		plans := &olmv1alpha1.InstallPlanList{}

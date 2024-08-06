@@ -8,11 +8,11 @@ import (
 
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/client"
+	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stretchr/testify/require"
@@ -47,9 +47,9 @@ func TestInstallOperator(t *testing.T) {
 		t.Run("install "+operator+" operator is successful", func(t *testing.T) {
 			// given
 			fakeClient := test.NewFakeClient(t, &installPlan)
-			fakeClientFromRestConfig := fakeClientWithCatalogSource(t, fakeClient, "READY")
+			fakeClientWithCatalogSource(fakeClient, "READY")
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := newExtendedCommandContext(term, fakeClientFromRestConfig)
+			ctx := clicontext.NewTerminalContext(term, fakeClient)
 
 			// when
 			err := installOperator(ctx, installArgs{
@@ -86,14 +86,8 @@ func TestInstallOperator(t *testing.T) {
 		t.Run("install "+operator+" operator fails if CatalogSource is not ready", func(t *testing.T) {
 			// given
 			fakeClient := test.NewFakeClient(t)
-			fakeClientFromRestConfig := func(cfg *rest.Config) (runtimeclient.Client, error) {
-				assert.Contains(t, cfg.Host, "http")
-				assert.Contains(t, cfg.Host, "://")
-				assert.Contains(t, cfg.Host, ".com")
-				return fakeClient, nil
-			}
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := newExtendedCommandContext(term, fakeClientFromRestConfig)
+			ctx := clicontext.NewTerminalContext(term, fakeClient)
 
 			// when
 			err := installOperator(ctx, installArgs{
@@ -115,9 +109,9 @@ func TestInstallOperator(t *testing.T) {
 			// given
 			// no InstallPlan is pre provisioned
 			fakeClient := test.NewFakeClient(t)
-			fakeClientFromRestConfig := fakeClientWithCatalogSource(t, fakeClient, "READY")
+			fakeClientWithCatalogSource(fakeClient, "READY")
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := newExtendedCommandContext(term, fakeClientFromRestConfig)
+			ctx := clicontext.NewTerminalContext(term, fakeClient)
 
 			// when
 			err := installOperator(ctx, installArgs{
@@ -137,9 +131,9 @@ func TestInstallOperator(t *testing.T) {
 	t.Run("fails if operator name is invalid", func(t *testing.T) {
 		// given
 		fakeClient := test.NewFakeClient(t)
-		fakeClientFromRestConfig := fakeClientWithCatalogSource(t, fakeClient, "READY")
+		fakeClientWithCatalogSource(fakeClient, "READY")
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := newExtendedCommandContext(term, fakeClientFromRestConfig)
+		ctx := clicontext.NewTerminalContext(term, fakeClient)
 
 		// when
 		err := installOperator(ctx, installArgs{},
@@ -155,7 +149,7 @@ func TestInstallOperator(t *testing.T) {
 		// given
 		fakeClient := test.NewFakeClient(t)
 		term := NewFakeTerminalWithResponse("n")
-		ctx := newExtendedCommandContext(term, fakeClientFromRestConfig(t, fakeClient))
+		ctx := clicontext.NewTerminalContext(term, fakeClient)
 
 		// when
 		operator := "host"
@@ -169,27 +163,9 @@ func TestInstallOperator(t *testing.T) {
 		assert.Contains(t, term.Output(), fmt.Sprintf("Are you sure that you want to install %s in namespace", operator))
 		assert.NotContains(t, term.Output(), fmt.Sprintf("InstallPlans for %s are ready", operator))
 	})
-
-	t.Run("doesn't install operator if kubeconfig is invalid", func(t *testing.T) {
-		// given
-		fakeClient := test.NewFakeClient(t)
-		term := NewFakeTerminalWithResponse("Y")
-		ctx := newExtendedCommandContext(term, fakeClientFromRestConfig(t, fakeClient))
-
-		// when
-		operator := "host"
-		err := installOperator(ctx, installArgs{kubeConfig: "/some/invalid/path/config"},
-			operator,
-			1*time.Second,
-		)
-
-		// then
-		require.EqualError(t, err, "open /some/invalid/path/config: no such file or directory")
-		assert.NotContains(t, term.Output(), fmt.Sprintf("InstallPlans for %s are ready", operator))
-	})
 }
 
-func fakeClientWithCatalogSource(t *testing.T, fakeClient *test.FakeClient, catalogSourceState string) func(cfg *rest.Config) (runtimeclient.Client, error) {
+func fakeClientWithCatalogSource(fakeClient *test.FakeClient, catalogSourceState string) {
 	fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 		switch objT := obj.(type) {
 		case *olmv1alpha1.CatalogSource:
@@ -203,15 +179,5 @@ func fakeClientWithCatalogSource(t *testing.T, fakeClient *test.FakeClient, cata
 		default:
 			return fakeClient.Client.Create(ctx, objT)
 		}
-	}
-	return fakeClientFromRestConfig(t, fakeClient)
-}
-
-func fakeClientFromRestConfig(t *testing.T, fakeClient *test.FakeClient) func(cfg *rest.Config) (runtimeclient.Client, error) {
-	return func(cfg *rest.Config) (runtimeclient.Client, error) {
-		assert.Contains(t, cfg.Host, "http")
-		assert.Contains(t, cfg.Host, "://")
-		assert.Contains(t, cfg.Host, ".com")
-		return fakeClient, nil
 	}
 }
