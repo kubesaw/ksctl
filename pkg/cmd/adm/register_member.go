@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
@@ -267,15 +266,11 @@ func getClusterDetails(kubeConfigPath string) (string, string, error) {
 		return "", "", err
 	}
 	clusterAPIEndpoint := getServerAPIEndpoint(kubeConfig)
-	clusterURL, err := url.Parse(clusterAPIEndpoint)
+	clusterHostName, err := utils.GetClusterHostName(clusterAPIEndpoint, utils.K8sLabelWithoutSuffixMaxLength, "")
 	if err != nil {
 		return "", "", err
 	}
-	// The logic below extracts the domain name from the API server URL, taking everything after "//" until a ":" or "/" (or end of line) is reached.
-	// The "api." prefix is removed from the domain if present. E.g. "https://api.server.domain.net:6443" -> "server.domain.net".
-	clusterName := clusterURL.Hostname()
-	clusterName = strings.Replace(clusterName, "api.", "", 1)
-	return clusterAPIEndpoint, clusterName, nil
+	return clusterAPIEndpoint, clusterHostName, nil
 }
 
 func generateKubeConfig(token, APIEndpoint, namespace string, insecureSkipTLSVerify bool) *clientcmdapi.Config {
