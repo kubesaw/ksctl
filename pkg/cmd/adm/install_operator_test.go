@@ -51,7 +51,7 @@ func TestInstallOperator(t *testing.T) {
 		t.Run("install "+operator+" operator is successful", func(t *testing.T) {
 			// given
 			fakeClient := test.NewFakeClient(t, &installPlan)
-			fakeClientWithCatalogSource(fakeClient, "READY")
+			fakeClientWithReadyCatalogSource(fakeClient)
 			term := NewFakeTerminalWithResponse("Y")
 			ctx := clicontext.NewTerminalContext(term, fakeClient)
 
@@ -115,7 +115,7 @@ func TestInstallOperator(t *testing.T) {
 			notReadyIP := installPlan.DeepCopy()
 			notReadyIP.Status = olmv1alpha1.InstallPlanStatus{Phase: olmv1alpha1.InstallPlanFailed}
 			fakeClient := test.NewFakeClient(t, notReadyIP)
-			fakeClientWithCatalogSource(fakeClient, "READY")
+			fakeClientWithReadyCatalogSource(fakeClient)
 			term := NewFakeTerminalWithResponse("Y")
 			ctx := clicontext.NewTerminalContext(term, fakeClient)
 
@@ -159,7 +159,7 @@ func TestInstallOperator(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: operatorResourceName(operator), Namespace: namespace},
 			}
 			fakeClient := test.NewFakeClient(t, &existingOperatorGroup, &installPlan)
-			fakeClientWithCatalogSource(fakeClient, "READY")
+			fakeClientWithReadyCatalogSource(fakeClient)
 			term := NewFakeTerminalWithResponse("y")
 			ctx := clicontext.NewTerminalContext(term, fakeClient)
 
@@ -179,7 +179,7 @@ func TestInstallOperator(t *testing.T) {
 		t.Run("namespace is computed if not provided", func(t *testing.T) {
 			// given
 			fakeClient := test.NewFakeClient(t, &installPlan)
-			fakeClientWithCatalogSource(fakeClient, "READY")
+			fakeClientWithReadyCatalogSource(fakeClient)
 			term := NewFakeTerminalWithResponse("y")
 			ctx := clicontext.NewTerminalContext(term, fakeClient)
 
@@ -198,7 +198,7 @@ func TestInstallOperator(t *testing.T) {
 	t.Run("fails if operator name is invalid", func(t *testing.T) {
 		// given
 		fakeClient := test.NewFakeClient(t)
-		fakeClientWithCatalogSource(fakeClient, "READY")
+		fakeClientWithReadyCatalogSource(fakeClient)
 		term := NewFakeTerminalWithResponse("Y")
 		ctx := clicontext.NewTerminalContext(term, fakeClient)
 
@@ -232,14 +232,14 @@ func TestInstallOperator(t *testing.T) {
 	})
 }
 
-func fakeClientWithCatalogSource(fakeClient *test.FakeClient, catalogSourceState string) {
+func fakeClientWithReadyCatalogSource(fakeClient *test.FakeClient) {
 	fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 		switch objT := obj.(type) {
 		case *olmv1alpha1.CatalogSource:
 			// let's set the status of the CS to be able to test the "happy path"
 			objT.Status = olmv1alpha1.CatalogSourceStatus{
 				GRPCConnectionState: &olmv1alpha1.GRPCConnectionState{
-					LastObservedState: catalogSourceState,
+					LastObservedState: "READY",
 				},
 			}
 			return fakeClient.Client.Create(ctx, objT)
