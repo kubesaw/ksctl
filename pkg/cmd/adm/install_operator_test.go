@@ -67,12 +67,12 @@ func TestInstallOperator(t *testing.T) {
 				olmv1alpha1.CatalogSourceSpec{
 					SourceType:  olmv1alpha1.SourceTypeGrpc,
 					Image:       fmt.Sprintf("quay.io/codeready-toolchain/%s-operator-index:latest", operator),
-					DisplayName: "Dev Sandbox Operators",
+					DisplayName: fmt.Sprintf("KubeSaw %s Operator", operator),
 					Publisher:   "Red Hat",
 					UpdateStrategy: &olmv1alpha1.UpdateStrategy{
 						RegistryPoll: &olmv1alpha1.RegistryPoll{
 							Interval: &metav1.Duration{
-								Duration: 1 * time.Minute,
+								Duration: 5 * time.Minute,
 							},
 						},
 					},
@@ -80,7 +80,7 @@ func TestInstallOperator(t *testing.T) {
 			)
 			AssertOperatorGroupExists(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
 			AssertSubscriptionExists(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
-			assert.Contains(t, term.Output(), fmt.Sprintf("InstallPlans for %s-operator are ready", operator))
+			assert.Contains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
 		})
 
 		t.Run("install "+operator+" operator fails if CatalogSource is not ready", func(t *testing.T) {
@@ -126,6 +126,26 @@ func TestInstallOperator(t *testing.T) {
 			require.EqualError(t, err, "timed out waiting for the condition")
 			assert.NotContains(t, term.Output(), fmt.Sprintf("InstallPlans for %s-operator are ready", operator))
 		})
+
+		t.Run(operator+" fails to install if the other operator is installed", func(t *testing.T) {
+			// given
+			operatorAlreadyInstalled := getOtherOperator(operator)
+			existingSubscription := olmv1alpha1.Subscription{
+				ObjectMeta: metav1.ObjectMeta{Name: operatorAlreadyInstalled, Namespace: namespace},
+			}
+			fakeClient := test.NewFakeClient(t, &existingSubscription)
+			term := NewFakeTerminalWithResponse("Y")
+			ctx := clicontext.NewTerminalContext(term, fakeClient)
+
+			// when
+			err := installOperator(ctx, installArgs{namespace: namespace},
+				operator,
+				1*time.Second,
+			)
+
+			// then
+			require.EqualError(t, err, fmt.Sprintf("found already installed subscription %s in namespace %s", operatorAlreadyInstalled, namespace))
+		})
 	}
 
 	t.Run("fails if operator name is invalid", func(t *testing.T) {
@@ -163,6 +183,7 @@ func TestInstallOperator(t *testing.T) {
 		assert.Contains(t, term.Output(), fmt.Sprintf("Are you sure that you want to install %s in namespace", operator))
 		assert.NotContains(t, term.Output(), fmt.Sprintf("InstallPlans for %s are ready", operator))
 	})
+
 }
 
 func fakeClientWithCatalogSource(fakeClient *test.FakeClient, catalogSourceState string) {
