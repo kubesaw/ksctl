@@ -76,10 +76,20 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	}
 	ctx.Printlnf("CatalogSource %s is ready", catalogSourceKey)
 
-	// install operator group
-	operatorGroup := newOperatorGroup(types.NamespacedName{Name: operatorResourceName(operator), Namespace: args.namespace})
-	if err := ctx.KubeClient.Create(ctx, operatorGroup); err != nil {
+	// check if operator group is already there
+	ogs := olmv1.OperatorGroupList{}
+	if err := ctx.KubeClient.List(ctx, &ogs, runtimeclient.InNamespace(args.namespace)); err != nil {
 		return err
+	}
+	if len(ogs.Items) > 0 {
+		ctx.Println(fmt.Sprintf("OperatorGroup %s already present in namespace %s. Skipping creation of new operator group.", ogs.Items[0].GetName(), args.namespace))
+	} else {
+		// install operator group
+		operatorGroup := newOperatorGroup(types.NamespacedName{Name: operatorResourceName(operator), Namespace: args.namespace})
+		ctx.Println(fmt.Sprintf("Creating new operator group %s in namespace %s.", operatorGroup.Name, operatorGroup.Namespace))
+		if err := ctx.KubeClient.Create(ctx, operatorGroup); err != nil {
+			return err
+		}
 	}
 
 	// install subscription

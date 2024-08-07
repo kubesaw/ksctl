@@ -10,6 +10,7 @@ import (
 	"github.com/kubesaw/ksctl/pkg/client"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
+	v1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -102,7 +103,7 @@ func TestInstallOperator(t *testing.T) {
 			require.EqualError(t, err, "timed out waiting for the condition")
 			AssertOperatorGroupDoesNotExist(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
 			AssertSubscriptionDoesNotExist(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
-			assert.NotContains(t, term.Output(), fmt.Sprintf("InstallPlans for %s-operator are ready", operator))
+			assert.NotContains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
 		})
 
 		t.Run("install "+operator+" operators fails if InstallPlan is not ready", func(t *testing.T) {
@@ -124,7 +125,7 @@ func TestInstallOperator(t *testing.T) {
 
 			// then
 			require.EqualError(t, err, "timed out waiting for the condition")
-			assert.NotContains(t, term.Output(), fmt.Sprintf("InstallPlans for %s-operator are ready", operator))
+			assert.NotContains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
 		})
 
 		t.Run(operator+" fails to install if the other operator is installed", func(t *testing.T) {
@@ -145,6 +146,29 @@ func TestInstallOperator(t *testing.T) {
 
 			// then
 			require.EqualError(t, err, fmt.Sprintf("found already installed subscription %s in namespace %s", operatorAlreadyInstalled, namespace))
+		})
+
+		t.Run("skip creation of operator group if already present", func(t *testing.T) {
+			// given
+			existingOperatorGroup := v1.OperatorGroup{
+				ObjectMeta: metav1.ObjectMeta{Name: operatorResourceName(operator), Namespace: namespace},
+			}
+			fakeClient := test.NewFakeClient(t, &existingOperatorGroup, &installPlan)
+			fakeClientWithCatalogSource(fakeClient, "READY")
+			term := NewFakeTerminalWithResponse("y")
+			ctx := clicontext.NewTerminalContext(term, fakeClient)
+
+			// when
+			err := installOperator(ctx, installArgs{namespace: namespace, kubeConfig: kubeconfig},
+				operator,
+				1*time.Second,
+			)
+
+			// then
+			require.NoError(t, err)
+			assert.Contains(t, term.Output(), fmt.Sprintf("OperatorGroup %s already present in namespace %s. Skipping creation of new operator group.", operatorResourceName(operator), namespace))
+			assert.NotContains(t, term.Output(), fmt.Sprintf("Creating new operator group %s in namespace %s.", operatorResourceName(operator), namespace))
+			assert.Contains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
 		})
 	}
 
@@ -173,7 +197,7 @@ func TestInstallOperator(t *testing.T) {
 
 		// when
 		operator := "host"
-		err := installOperator(ctx, installArgs{},
+		err := installOperator(ctx, installArgs{namespace: "toolchain-host-operator"},
 			operator,
 			1*time.Second,
 		)
@@ -181,9 +205,8 @@ func TestInstallOperator(t *testing.T) {
 		// then
 		require.NoError(t, err)
 		assert.Contains(t, term.Output(), fmt.Sprintf("Are you sure that you want to install %s in namespace", operator))
-		assert.NotContains(t, term.Output(), fmt.Sprintf("InstallPlans for %s are ready", operator))
+		assert.NotContains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the toolchain-host-operator namespace", operator))
 	})
-
 }
 
 func fakeClientWithCatalogSource(fakeClient *test.FakeClient, catalogSourceState string) {
