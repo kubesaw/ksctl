@@ -54,12 +54,13 @@ func newExtendedCommandContext(term ioutils.Terminal, clientCtor newClientFromRe
 }
 
 type registerMemberArgs struct {
-	hostKubeConfig   string
-	memberKubeConfig string
-	hostNamespace    string
-	memberNamespace  string
-	nameSuffix       string
-	useLetsEncrypt   bool
+	hostKubeConfig      string
+	memberKubeConfig    string
+	hostNamespace       string
+	memberNamespace     string
+	nameSuffix          string
+	useLetsEncrypt      bool
+	waitForReadyTimeout time.Duration
 }
 
 func NewRegisterMemberCmd() *cobra.Command {
@@ -71,11 +72,12 @@ func NewRegisterMemberCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := newExtendedCommandContext(term, client.DefaultNewClientFromRestConfig)
-			return registerMemberCluster(ctx, 5*time.Minute, commandArgs)
+			return registerMemberCluster(ctx, commandArgs)
 		},
 	}
 
 	// keep these values in sync with the values in defaultRegisterMemberArgs() function in the tests.
+	defaultTimeout := 5 * time.Minute
 	defaultLetsEncrypt := true
 	defaultNameSuffix := ""
 	defaultHostNs := "toolchain-host-operator"
@@ -89,11 +91,12 @@ func NewRegisterMemberCmd() *cobra.Command {
 	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", defaultNameSuffix, fmt.Sprintf("The suffix to append to the member name used when there are multiple members in a single cluster (default: '%s')", defaultNameSuffix))
 	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, fmt.Sprintf("The namespace of the host operator in the host cluster (default: '%s')", defaultHostNs))
 	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", defaultMemberNs, fmt.Sprintf("The namespace of the member operator in the member cluster (default: '%s')", defaultMemberNs))
+	cmd.Flags().DurationVar(&commandArgs.waitForReadyTimeout, "timeout", defaultTimeout, fmt.Sprintf("The max timeout used when waiting for each of the computations to be completed. (default: '%d')", defaultTimeout))
 	return cmd
 }
 
-func registerMemberCluster(ctx *extendedCommandContext, waitForReadyTimeout time.Duration, args registerMemberArgs) error {
-	data, err := dataFromArgs(ctx, args, waitForReadyTimeout)
+func registerMemberCluster(ctx *extendedCommandContext, args registerMemberArgs) error {
+	data, err := dataFromArgs(ctx, args)
 	if err != nil {
 		return err
 	}
@@ -367,7 +370,6 @@ type registerMemberData struct {
 	hostApiEndpoint     string
 	memberApiEndpoint   string
 	args                registerMemberArgs
-	waitForReadyTimeout time.Duration
 }
 
 type registerMemberValidated struct {
@@ -378,7 +380,7 @@ type registerMemberValidated struct {
 	errors                     []string
 }
 
-func dataFromArgs(ctx *extendedCommandContext, args registerMemberArgs, waitForReadyTimeout time.Duration) (*registerMemberData, error) {
+func dataFromArgs(ctx *extendedCommandContext, args registerMemberArgs) (*registerMemberData, error) {
 	hostApiEndpoint, hostClusterClient, err := getApiEndpointAndClient(ctx, args.hostKubeConfig)
 	if err != nil {
 		return nil, err
@@ -395,7 +397,6 @@ func dataFromArgs(ctx *extendedCommandContext, args registerMemberArgs, waitForR
 		memberApiEndpoint:   memberApiEndpoint,
 		hostClusterClient:   hostClusterClient,
 		memberClusterClient: memberClusterClient,
-		waitForReadyTimeout: waitForReadyTimeout,
 	}, nil
 }
 
@@ -501,7 +502,7 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 		Name:      "toolchaincluster-" + string(configuration.Member),
 		Namespace: v.args.memberNamespace,
 	}
-	if err := waitForToolchainClusterSA(ctx.CommandContext, v.memberClusterClient, toolchainClusterSAKey, v.waitForReadyTimeout); err != nil {
+	if err := waitForToolchainClusterSA(ctx.CommandContext, v.memberClusterClient, toolchainClusterSAKey, v.args.waitForReadyTimeout); err != nil {
 		ctx.Println("The toolchaincluster-member ServiceAccount in the member cluster is not present.")
 		ctx.Printlnf("Please check the %s ToolchainCluster ServiceAccount in the %s member cluster.", toolchainClusterSAKey, v.memberApiEndpoint)
 		return err
@@ -516,7 +517,7 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 		Name:      v.hostToolchainClusterName,
 		Namespace: v.args.memberNamespace,
 	}
-	if err := waitUntilToolchainClusterReady(ctx.CommandContext, v.memberClusterClient, hostToolchainClusterKey, v.waitForReadyTimeout); err != nil {
+	if err := waitUntilToolchainClusterReady(ctx.CommandContext, v.memberClusterClient, hostToolchainClusterKey, v.args.waitForReadyTimeout); err != nil {
 		ctx.Println("The ToolchainCluster resource representing the host in the member cluster has not become ready.")
 		ctx.Printlnf("Please check the %s ToolchainCluster resource in the %s member cluster.", hostToolchainClusterKey, v.memberApiEndpoint)
 		return err
@@ -527,7 +528,7 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 		Name:      "toolchaincluster-" + string(configuration.Host),
 		Namespace: v.args.hostNamespace,
 	}
-	if err := waitForToolchainClusterSA(ctx.CommandContext, v.hostClusterClient, toolchainClusterSAKey, v.waitForReadyTimeout); err != nil {
+	if err := waitForToolchainClusterSA(ctx.CommandContext, v.hostClusterClient, toolchainClusterSAKey, v.args.waitForReadyTimeout); err != nil {
 		ctx.Println("The toolchaincluster-host ServiceAccount in the host cluster is not present.")
 		ctx.Printlnf("Please check the %s ToolchainCluster ServiceAccount in the %s host cluster.", toolchainClusterSAKey, v.hostApiEndpoint)
 		return err
@@ -541,7 +542,7 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 		return err
 	}
 
-	if err := waitUntilToolchainClusterReady(ctx.CommandContext, v.hostClusterClient, memberToolchainClusterKey, v.waitForReadyTimeout); err != nil {
+	if err := waitUntilToolchainClusterReady(ctx.CommandContext, v.hostClusterClient, memberToolchainClusterKey, v.args.waitForReadyTimeout); err != nil {
 		ctx.Println("The ToolchainCluster resource representing the member in the host cluster has not become ready.")
 		ctx.Printlnf("Please check the %s ToolchainCluster resource in the %s host cluster. Note also that there already exists %s ToolchainCluster resource in the member cluster.", memberToolchainClusterKey, v.hostApiEndpoint, hostToolchainClusterKey)
 		return err
