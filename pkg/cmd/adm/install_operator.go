@@ -11,9 +11,11 @@ import (
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	errs "github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/wait"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -163,21 +165,25 @@ func newSubscription(name types.NamespacedName, operatorName, catalogSourceName 
 }
 
 func waitUntilCatalogSourceIsReady(ctx *clicontext.TerminalContext, catalogSourceKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
-	return wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
+	cs := &olmv1alpha1.CatalogSource{}
+	if err := wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
 		ctx.Printlnf("waiting for CatalogSource %s to become ready", catalogSourceKey)
-		cs := &olmv1alpha1.CatalogSource{}
 		if err := ctx.KubeClient.Get(ctx, catalogSourceKey, cs); err != nil {
 			return false, err
 		}
 
 		return cs.Status.GRPCConnectionState != nil && cs.Status.GRPCConnectionState.LastObservedState == "READY", nil
-	})
+	}); err != nil {
+		csString, _ := json.Marshal(cs)
+		return errs.Wrapf(err, "failed waiting for catalog source to be ready.\n CatalogSrouce found: %v \n\t", string(csString))
+	}
+	return nil
 }
 
 func waitUntilInstallPlanIsComplete(ctx *clicontext.TerminalContext, cl runtimeclient.Client, namespace string, waitForReadyTimeout time.Duration) error {
-	return wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
+	plans := &olmv1alpha1.InstallPlanList{}
+	if err := wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
 		ctx.Printlnf("waiting for InstallPlans in namespace %s to complete", namespace)
-		plans := &olmv1alpha1.InstallPlanList{}
 		if err := cl.List(ctx, plans, runtimeclient.InNamespace(namespace),
 			runtimeclient.MatchingLabels{fmt.Sprintf("operators.coreos.com/%s.%s", namespace, namespace): ""},
 		); err != nil {
@@ -191,7 +197,11 @@ func waitUntilInstallPlanIsComplete(ctx *clicontext.TerminalContext, cl runtimec
 		}
 
 		return len(plans.Items) > 0, nil
-	})
+	}); err != nil {
+		plansString, _ := json.Marshal(plans)
+		return errs.Wrapf(err, "failed waiting for install plan to be complete.\n InstallPlans found: %s \n\t", string(plansString))
+	}
+	return nil
 }
 
 // checkOneOperatorPerNamespace returns an error in case the namespace contains the other operator installed.

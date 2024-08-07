@@ -103,7 +103,7 @@ func TestInstallOperator(t *testing.T) {
 			)
 
 			// then
-			require.EqualError(t, err, "timed out waiting for the condition")
+			require.EqualError(t, err, fmt.Sprintf("failed waiting for catalog source to be ready.\n CatalogSrouce found: {\"kind\":\"CatalogSource\",\"apiVersion\":\"operators.coreos.com/v1alpha1\",\"metadata\":{\"name\":\"%[1]s-operator\",\"namespace\":\"toolchain-%[1]s-operator\",\"resourceVersion\":\"1\",\"generation\":1,\"creationTimestamp\":null},\"spec\":{\"sourceType\":\"grpc\",\"image\":\"quay.io/codeready-toolchain/%[1]s-operator-index:latest\",\"updateStrategy\":{\"registryPoll\":{\"interval\":\"5m0s\"}},\"displayName\":\"KubeSaw %[1]s Operator\",\"publisher\":\"Red Hat\",\"icon\":{\"base64data\":\"\",\"mediatype\":\"\"}},\"status\":{}} \n\t: timed out waiting for the condition", operator))
 			AssertOperatorGroupDoesNotExist(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
 			AssertSubscriptionDoesNotExist(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
 			assert.NotContains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
@@ -111,8 +111,10 @@ func TestInstallOperator(t *testing.T) {
 
 		t.Run("install "+operator+" operators fails if InstallPlan is not ready", func(t *testing.T) {
 			// given
-			// no InstallPlan is pre provisioned
-			fakeClient := test.NewFakeClient(t)
+			// InstallPlan is pre provisioned but not ready
+			notReadyIP := installPlan.DeepCopy()
+			notReadyIP.Status = olmv1alpha1.InstallPlanStatus{Phase: olmv1alpha1.InstallPlanFailed}
+			fakeClient := test.NewFakeClient(t, notReadyIP)
 			fakeClientWithCatalogSource(fakeClient, "READY")
 			term := NewFakeTerminalWithResponse("Y")
 			ctx := clicontext.NewTerminalContext(term, fakeClient)
@@ -127,7 +129,7 @@ func TestInstallOperator(t *testing.T) {
 			)
 
 			// then
-			require.EqualError(t, err, "timed out waiting for the condition")
+			require.EqualError(t, err, fmt.Sprintf("failed waiting for install plan to be complete.\n InstallPlans found: {\"kind\":\"InstallPlanList\",\"apiVersion\":\"operators.coreos.com/v1alpha1\",\"metadata\":{},\"items\":[{\"metadata\":{\"name\":\"%[1]s-ip\",\"namespace\":\"toolchain-%[1]s-operator\",\"resourceVersion\":\"999\",\"creationTimestamp\":null,\"labels\":{\"operators.coreos.com/toolchain-%[1]s-operator.toolchain-%[1]s-operator\":\"\"}},\"spec\":{\"clusterServiceVersionNames\":null,\"approval\":\"\",\"approved\":false},\"status\":{\"phase\":\"InstallPlanFailed\",\"catalogSources\":null}}]} \n\t: timed out waiting for the condition", operator))
 			assert.NotContains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
 		})
 
