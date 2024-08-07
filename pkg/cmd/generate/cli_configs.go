@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/kubesaw/ksctl/pkg/assets"
@@ -21,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/utils/pointer"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,12 +52,9 @@ func NewCliConfigsCmd() *cobra.Command {
 	command.Flags().StringVarP(&f.outDir, "out-dir", "o", configDirPath, "Directory where generated ksctl.yaml files should be stored")
 	command.Flags().UintVarP(&f.tokenExpirationDays, "token-expiration-days", "e", 365, "Expiration time of the ServiceAccount tokens in days")
 
-	defaultKubeconfigPath := ""
-	if home := homedir.HomeDir(); home != "" {
-		defaultKubeconfigPath = filepath.Join(home, ".kube", "config")
-	}
-	command.Flags().StringSliceVarP(&f.kubeconfigs, "kubeconfig", "k", []string{defaultKubeconfigPath}, "Kubeconfig(s) for managing multiple clusters and the access to them - paths should be comma separated when using multiple of them. "+
+	command.Flags().StringSliceVarP(&f.kubeconfigs, "kubeconfig", "k", nil, "Kubeconfig(s) for managing multiple clusters and the access to them - paths should be comma separated when using multiple of them. "+
 		"In dev mode, the first one has to represent the host cluster.")
+	flags.MustMarkRequired(command, "kubeconfig")
 
 	return command
 }
