@@ -246,7 +246,6 @@ func secretName(SANamespacedName runtimeclient.ObjectKey, joiningOperatorNamespa
 
 func newRestClient(kubeConfigPath string) (*rest.RESTClient, error) {
 	restClientConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
-	restClientConfig.Timeout = 60 * time.Second
 	restClientConfig.ContentConfig = rest.ContentConfig{
 		GroupVersion:         &authv1.SchemeGroupVersion,
 		NegotiatedSerializer: scheme.Codecs,
