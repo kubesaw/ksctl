@@ -39,6 +39,9 @@ func TestInstallOperator(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      operator + "-ip",
 				Namespace: namespace,
+				Labels: map[string]string{
+					fmt.Sprintf("operators.coreos.com/%s.%s", namespace, namespace): "",
+				},
 			},
 			Status: olmv1alpha1.InstallPlanStatus{Phase: olmv1alpha1.InstallPlanPhaseComplete},
 		}
