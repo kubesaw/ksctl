@@ -175,6 +175,24 @@ func TestInstallOperator(t *testing.T) {
 			assert.NotContains(t, term.Output(), fmt.Sprintf("Creating new operator group %s in namespace %s.", operatorResourceName(operator), namespace))
 			assert.Contains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
 		})
+
+		t.Run("namespace is computed if not provided", func(t *testing.T) {
+			// given
+			fakeClient := test.NewFakeClient(t, &installPlan)
+			fakeClientWithCatalogSource(fakeClient, "READY")
+			term := NewFakeTerminalWithResponse("y")
+			ctx := clicontext.NewTerminalContext(term, fakeClient)
+
+			// when
+			err := installOperator(ctx, installArgs{namespace: "", kubeConfig: kubeconfig}, // we provide no namespace
+				operator,
+				1*time.Second,
+			)
+
+			// then
+			require.NoError(t, err)
+			assert.Contains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace)) // and it's installed in the expected namespace
+		})
 	}
 
 	t.Run("fails if operator name is invalid", func(t *testing.T) {

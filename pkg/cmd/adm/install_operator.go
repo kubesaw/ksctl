@@ -46,8 +46,7 @@ func NewInstallOperatorCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&commandArgs.kubeConfig, "kubeconfig", "", "Path to the kubeconfig file to use.")
 	flags.MustMarkRequired(cmd, "kubeconfig")
-	cmd.Flags().StringVar(&commandArgs.namespace, "namespace", "", "The namespace where the operator will be installed. Host and Member should be installed in separate namespaces")
-	flags.MustMarkRequired(cmd, "namespace")
+	cmd.Flags().StringVar(&commandArgs.namespace, "namespace", "", "The namespace where the operator will be installed. Host and Member should be installed in separate namespaces. If the namespace is not provided the standard namespace names are used: toolchain-host|member-operator.")
 	return cmd
 }
 
@@ -57,18 +56,24 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 		return fmt.Errorf("invalid operator type provided: %s. Valid ones are %s|%s", operator, string(configuration.Host), string(configuration.Member))
 	}
 
+	// assume "standard" namespace if not provided
+	namespace := args.namespace
+	if args.namespace == "" {
+		namespace = fmt.Sprintf("toolchain-%s-operator", operator)
+	}
+
 	if !ctx.AskForConfirmation(
-		ioutils.WithMessagef("install %s in namespace '%s'", operator, args.namespace)) {
+		ioutils.WithMessagef("install %s in namespace '%s'", operator, namespace)) {
 		return nil
 	}
 
 	// check that we don't install both host and member in the same namespace
-	if err := checkOneOperatorPerNamespace(ctx, args.namespace, operator); err != nil {
+	if err := checkOneOperatorPerNamespace(ctx, namespace, operator); err != nil {
 		return err
 	}
 
 	// install the catalog source
-	catalogSourceKey := types.NamespacedName{Name: operatorResourceName(operator), Namespace: args.namespace}
+	catalogSourceKey := types.NamespacedName{Name: operatorResourceName(operator), Namespace: namespace}
 	catalogSource := newCatalogSource(catalogSourceKey, operator)
 	if err := ctx.KubeClient.Create(ctx, catalogSource); err != nil {
 		return err
@@ -80,14 +85,14 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 
 	// check if operator group is already there
 	ogs := olmv1.OperatorGroupList{}
-	if err := ctx.KubeClient.List(ctx, &ogs, runtimeclient.InNamespace(args.namespace)); err != nil {
+	if err := ctx.KubeClient.List(ctx, &ogs, runtimeclient.InNamespace(namespace)); err != nil {
 		return err
 	}
 	if len(ogs.Items) > 0 {
-		ctx.Println(fmt.Sprintf("OperatorGroup %s already present in namespace %s. Skipping creation of new operator group.", ogs.Items[0].GetName(), args.namespace))
+		ctx.Println(fmt.Sprintf("OperatorGroup %s already present in namespace %s. Skipping creation of new operator group.", ogs.Items[0].GetName(), namespace))
 	} else {
 		// install operator group
-		operatorGroup := newOperatorGroup(types.NamespacedName{Name: operatorResourceName(operator), Namespace: args.namespace})
+		operatorGroup := newOperatorGroup(types.NamespacedName{Name: operatorResourceName(operator), Namespace: namespace})
 		ctx.Println(fmt.Sprintf("Creating new operator group %s in namespace %s.", operatorGroup.Name, operatorGroup.Namespace))
 		if err := ctx.KubeClient.Create(ctx, operatorGroup); err != nil {
 			return err
@@ -95,16 +100,16 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	}
 
 	// install subscription
-	subscription := newSubscription(types.NamespacedName{Name: operatorResourceName(operator), Namespace: args.namespace}, fmt.Sprintf("toolchain-%s-operator", operator), catalogSourceKey.Name)
+	subscription := newSubscription(types.NamespacedName{Name: operatorResourceName(operator), Namespace: namespace}, fmt.Sprintf("toolchain-%s-operator", operator), catalogSourceKey.Name)
 	if err := ctx.KubeClient.Create(ctx, subscription); err != nil {
 		return err
 	}
-	if err := waitUntilInstallPlanIsComplete(ctx, ctx.KubeClient, args.namespace, timeout); err != nil {
+	if err := waitUntilInstallPlanIsComplete(ctx, ctx.KubeClient, namespace, timeout); err != nil {
 		return err
 	}
 	ctx.Println(fmt.Sprintf("InstallPlan for the %s operator has been completed", operator))
 	ctx.Println("")
-	ctx.Println(fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, args.namespace))
+	ctx.Println(fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
 	return nil
 }
 
