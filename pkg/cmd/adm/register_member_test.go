@@ -209,6 +209,8 @@ func TestRegisterMember(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
+		assert.Contains(t, term.Output(), "joining cluster name: member-cool-server.com2")
+		assert.Contains(t, term.Output(), "the cluster name it is joining to: member-cool-server.com")
 		assert.Contains(t, term.Output(), "Modify and apply the following SpaceProvisionerConfig to the host cluster")
 		assert.Contains(t, term.Output(), "kind: SpaceProvisionerConfig")
 		assert.Contains(t, term.Output(), "toolchainCluster: member-cool-server.com2")
