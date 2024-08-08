@@ -4,10 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -16,24 +12,27 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/condition"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/cmd/flags"
+	"github.com/kubesaw/ksctl/pkg/cmd/generate"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 	"github.com/kubesaw/ksctl/pkg/utils"
-	errs "github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	authv1 "k8s.io/api/authentication/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/kubectl/pkg/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	AddClusterScriptDomain = "https://raw.githubusercontent.com/"
-	AddClusterScriptPath   = "codeready-toolchain/toolchain-cicd/master/scripts/add-cluster.sh"
-	AddClusterScriptURL    = AddClusterScriptDomain + AddClusterScriptPath
+	TokenExpirationDays = 3650
 )
 
 // newClientFromRestConfigFunc is a function to create a new Kubernetes client using the provided
@@ -54,12 +53,13 @@ func newExtendedCommandContext(term ioutils.Terminal, clientCtor newClientFromRe
 }
 
 type registerMemberArgs struct {
-	hostKubeConfig   string
-	memberKubeConfig string
-	hostNamespace    string
-	memberNamespace  string
-	nameSuffix       string
-	useLetsEncrypt   bool
+	hostKubeConfig      string
+	memberKubeConfig    string
+	hostNamespace       string
+	memberNamespace     string
+	nameSuffix          string
+	useLetsEncrypt      bool
+	waitForReadyTimeout time.Duration
 }
 
 func NewRegisterMemberCmd() *cobra.Command {
@@ -71,14 +71,12 @@ func NewRegisterMemberCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := newExtendedCommandContext(term, client.DefaultNewClientFromRestConfig)
-			newCommand := func(name string, args ...string) *exec.Cmd {
-				return exec.Command(name, args...)
-			}
-			return registerMemberCluster(ctx, newCommand, 5*time.Minute, commandArgs)
+			return registerMemberCluster(ctx, commandArgs)
 		},
 	}
 
 	// keep these values in sync with the values in defaultRegisterMemberArgs() function in the tests.
+	defaultTimeout := 5 * time.Minute
 	defaultLetsEncrypt := true
 	defaultNameSuffix := ""
 	defaultHostNs := "toolchain-host-operator"
@@ -92,11 +90,12 @@ func NewRegisterMemberCmd() *cobra.Command {
 	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", defaultNameSuffix, fmt.Sprintf("The suffix to append to the member name used when there are multiple members in a single cluster (default: '%s')", defaultNameSuffix))
 	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, fmt.Sprintf("The namespace of the host operator in the host cluster (default: '%s')", defaultHostNs))
 	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", defaultMemberNs, fmt.Sprintf("The namespace of the member operator in the member cluster (default: '%s')", defaultMemberNs))
+	cmd.Flags().DurationVar(&commandArgs.waitForReadyTimeout, "timeout", defaultTimeout, fmt.Sprintf("The max timeout used when waiting for each of the computations to be completed. (default: '%d')", defaultTimeout))
 	return cmd
 }
 
-func registerMemberCluster(ctx *extendedCommandContext, newCommand client.CommandCreator, waitForReadyTimeout time.Duration, args registerMemberArgs) error {
-	data, err := dataFromArgs(ctx, args, waitForReadyTimeout)
+func registerMemberCluster(ctx *extendedCommandContext, args registerMemberArgs) error {
+	data, err := dataFromArgs(ctx, args)
 	if err != nil {
 		return err
 	}
@@ -110,7 +109,7 @@ func registerMemberCluster(ctx *extendedCommandContext, newCommand client.Comman
 		sb := strings.Builder{}
 		sb.WriteString("Cannot proceed because of the following problems:")
 		for _, e := range validated.errors {
-			sb.WriteString("\n- ")
+			sb.WriteString("\n\t- ")
 			sb.WriteString(e)
 		}
 		return errors.New(sb.String())
@@ -120,59 +119,224 @@ func registerMemberCluster(ctx *extendedCommandContext, newCommand client.Comman
 		return nil
 	}
 
-	return validated.perform(ctx, newCommand)
+	return validated.perform(ctx)
 }
 
-func runAddClusterScript(term ioutils.Terminal, newCommand client.CommandCreator, joiningClusterType configuration.ClusterType, hostKubeconfig, hostNs, memberKubeconfig, memberNs, nameSuffix string, useLetsEncrypt bool) error {
+// joiningCluster is the cluster that we want to connect to the joinToCluster.
+// for example when we connect the member cluster to the host cluster the joiningCluster in this case is the member one, while the joinToCluster is the host cluster.
+type joiningCluster struct {
+	APIEndpoint, Name, KubeConfigPath, OperatorNamespace string
+}
+
+// clusterJoinTo is the cluster on which we create the secret and toolchaincluster cr for the joining cluster.
+type clusterJoinTo struct {
+	APIEndpoint, Name, OperatorNamespace string
+	KubeClient                           runtimeclient.Client
+}
+
+func (v *registerMemberValidated) getJoiningAndJoinToClusters(joiningClusterType configuration.ClusterType) (*joiningCluster, *clusterJoinTo) {
+	joiningC := &joiningCluster{}
+	joinTo := &clusterJoinTo{}
+	if joiningClusterType == configuration.Member {
+		// in this case we are connecting the member cluster to the host cluster,
+		// thus we fill joiningCluster variables with member cluster details
+		// and clusterJoinTo with host details.
+		joiningC.APIEndpoint = v.memberApiEndpoint
+		joiningC.Name = v.memberToolchainClusterName
+		joiningC.KubeConfigPath = v.args.memberKubeConfig
+		joiningC.OperatorNamespace = v.args.memberNamespace
+		joinTo.APIEndpoint = v.hostApiEndpoint
+		joinTo.Name = v.hostToolchainClusterName
+		joinTo.OperatorNamespace = v.args.hostNamespace
+		joinTo.KubeClient = v.hostClusterClient
+	} else {
+		// in this case we are connecting the host cluster to the member cluster,
+		// thus we fill joiningCluster variables with host cluster details
+		// and clusterJoinTo with member details.
+		joiningC.APIEndpoint = v.hostApiEndpoint
+		joiningC.Name = v.hostToolchainClusterName
+		joiningC.KubeConfigPath = v.args.hostKubeConfig
+		joiningC.OperatorNamespace = v.args.hostNamespace
+		joinTo.APIEndpoint = v.memberApiEndpoint
+		joinTo.Name = v.memberToolchainClusterName
+		joinTo.OperatorNamespace = v.args.memberNamespace
+		joinTo.KubeClient = v.memberClusterClient
+	}
+
+	return joiningC, joinTo
+}
+
+// addCluster creates a secret and a ToolchainCluster resource on the `clusterJoinTo`.
+// This ToolchainCluster CR stores a reference to the secret which contains the kubeconfig of the `joiningCluster`. Thus enables the `clusterJoinTo` to interact with the `joiningCluster`.
+// - `clusterJoinTo` is the cluster where we create the ToolchainCluster resource and the secret
+// - `joiningCluster` is the cluster referenced in the kubeconfig/ToolchainCluster of the `clusterJoinTo`
+func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespacedName runtimeclient.ObjectKey, joiningClusterType configuration.ClusterType) error {
 	if !term.AskForConfirmation(ioutils.WithMessagef("register the %s cluster by creating a ToolchainCluster CR, a Secret and a new ServiceAccount resource?", joiningClusterType)) {
 		return nil
 	}
 
-	script, err := downloadScript(term)
+	joiningClusterDetails, clusterJoinToDetails := v.getJoiningAndJoinToClusters(joiningClusterType)
+	// joining cluster details
+	term.Printlnf("API endpoint retrieved: %s", joiningClusterDetails.APIEndpoint)
+	term.Printlnf("joining cluster name: %s", joiningClusterDetails.Name)
+
+	// cluster join to details
+	term.Printlnf("API endpoint of the cluster it is joining to: %s", clusterJoinToDetails.APIEndpoint)
+	term.Printlnf("the cluster name it is joining to: %s", clusterJoinToDetails.Name)
+
+	// generate a token that will be used for the kubeconfig
+	joiningRestClient, err := newRestClient(joiningClusterDetails.KubeConfigPath)
 	if err != nil {
 		return err
 	}
-	args := []string{script.Name(), "--type", joiningClusterType.String(), "--host-kubeconfig", hostKubeconfig, "--host-ns", hostNs, "--member-kubeconfig", memberKubeconfig, "--member-ns", memberNs}
-	if len(nameSuffix) > 0 {
-		args = append(args, "--multi-member", nameSuffix)
+	token, err := generate.GetServiceAccountToken(joiningRestClient, SANamespacedName, TokenExpirationDays)
+	if err != nil {
+		return err
 	}
-	if useLetsEncrypt {
-		args = append(args, "--lets-encrypt")
+	var insecureSkipTLSVerify bool
+	if v.args.useLetsEncrypt {
+		term.Printlnf("using let's encrypt certificate")
+		insecureSkipTLSVerify = false
+	} else {
+		term.Printlnf("setting insecure skip tls verification flags")
+		insecureSkipTLSVerify = true
 	}
-	term.Printlnf("Command to be called: bash %s\n", strings.Join(args, " "))
-	bash := newCommand("bash", args...)
-	bash.Stdout = os.Stdout
-	bash.Stderr = os.Stderr
-	return bash.Run()
+	// generate the kubeconfig that can be used by clusterJoinTo to interact with the joiningCluster
+	generatedKubeConfig := generateKubeConfig(token, joiningClusterDetails.APIEndpoint, joiningClusterDetails.OperatorNamespace, insecureSkipTLSVerify)
+	generatedKubeConfigFormatted, err := clientcmd.Write(*generatedKubeConfig)
+	if err != nil {
+		return err
+	}
+
+	// Create or Update the secret on the clusterJoinTo
+	secretName := secretName(SANamespacedName, joiningClusterDetails.OperatorNamespace, joiningClusterDetails.Name)
+	term.Printlnf("creating %s secret with name %s/%s", joiningClusterType, clusterJoinToDetails.OperatorNamespace, secretName)
+	kubeConfigSecret := &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: clusterJoinToDetails.OperatorNamespace}}
+	op, err := controllerutil.CreateOrUpdate(context.TODO(), clusterJoinToDetails.KubeClient, kubeConfigSecret, func() error {
+
+		// update the secret label
+		labels := kubeConfigSecret.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		labels[toolchainv1alpha1.ToolchainClusterLabel] = joiningClusterDetails.Name
+		kubeConfigSecret.Labels = labels
+
+		// update the kubeconfig data
+		kubeConfigSecret.StringData = map[string]string{
+			"kubeconfig": string(generatedKubeConfigFormatted),
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+	term.Println("Secret successfully reconciled")
+	term.Printlnf("operation", op)
+
+	// TODO -- temporary logic
+	// The creation of the toolchaincluster is just temporary until we implement https://issues.redhat.com/browse/KUBESAW-44,
+	// the creation logic will be moved to the toolchaincluster_resource controller in toolchain-common and will be based on the secret created above.
+	//
+	// create/update toolchaincluster on the clusterJoinTo
+	term.Printlnf("creating ToolchainCluster representation of %s in %s:", joiningClusterType, clusterJoinToDetails.Name)
+	toolchainClusterCR := &toolchainv1alpha1.ToolchainCluster{ObjectMeta: metav1.ObjectMeta{Name: joiningClusterDetails.Name, Namespace: clusterJoinToDetails.OperatorNamespace}}
+	op, err = controllerutil.CreateOrUpdate(context.TODO(), clusterJoinToDetails.KubeClient, toolchainClusterCR, func() error {
+
+		// update the tc label
+		labels := toolchainClusterCR.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		labels["namespace"] = joiningClusterDetails.OperatorNamespace
+		if joiningClusterType == "member" {
+			labels["cluster-role.toolchain.dev.openshift.com/tenant"] = ""
+		}
+
+		toolchainClusterCR.Labels = labels
+		toolchainClusterCR.Spec.APIEndpoint = joiningClusterDetails.APIEndpoint
+		toolchainClusterCR.Spec.SecretRef.Name = secretName
+		if insecureSkipTLSVerify {
+			toolchainClusterCR.Spec.DisabledTLSValidations = []toolchainv1alpha1.TLSValidation{toolchainv1alpha1.TLSAll}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+	term.Println("Toolchaincluster successfully reconciled")
+	term.Printlnf("operation", op)
+	// -- end temporary logic
+
+	return err
 }
 
-func downloadScript(term ioutils.Terminal) (*os.File, error) {
-	resp, err := http.Get(AddClusterScriptURL)
-	if err != nil {
-		return nil, errs.Wrapf(err, "unable to get add-script.sh")
+func secretName(SANamespacedName runtimeclient.ObjectKey, joiningOperatorNamespace string, joiningClusterName string) string {
+	secretName := SANamespacedName.Name + "-" + joiningOperatorNamespace + "-" + joiningClusterName
+	return secretName
+}
+
+func newRestClient(kubeConfigPath string) (*rest.RESTClient, error) {
+	restClientConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
+	restClientConfig.ContentConfig = rest.ContentConfig{
+		GroupVersion:         &authv1.SchemeGroupVersion,
+		NegotiatedSerializer: scheme.Codecs,
 	}
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, fmt.Errorf("unable to get add-script.sh - response status %s", resp.Status)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			term.Printlnf(err.Error())
-		}
-	}()
-	// Create the file
-	file, err := os.CreateTemp("", "add-cluster-*.sh")
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			term.Printlnf(err.Error())
-		}
-	}()
+	restClient, err := rest.RESTClientFor(restClientConfig)
+	if err != nil {
+		return nil, err
+	}
+	return restClient, nil
+}
 
-	// Write the body to file
-	_, err = io.Copy(file, resp.Body)
-	return file, err
+func generateKubeConfig(token, APIEndpoint, namespace string, insecureSkipTLSVerify bool) *clientcmdapi.Config {
+	// create apiConfig based on the secret content
+	clusters := make(map[string]*clientcmdapi.Cluster, 1)
+	clusters["cluster"] = &clientcmdapi.Cluster{
+		Server:                APIEndpoint,
+		InsecureSkipTLSVerify: insecureSkipTLSVerify,
+	}
+
+	contexts := make(map[string]*clientcmdapi.Context, 1)
+	contexts["ctx"] = &clientcmdapi.Context{
+		Cluster:   "cluster",
+		Namespace: namespace,
+		AuthInfo:  "auth",
+	}
+	authinfos := make(map[string]*clientcmdapi.AuthInfo, 1)
+	authinfos["auth"] = &clientcmdapi.AuthInfo{
+		Token: token,
+	}
+
+	clientConfig := &clientcmdapi.Config{
+		Kind:           "Config",
+		APIVersion:     "v1",
+		Clusters:       clusters,
+		Contexts:       contexts,
+		CurrentContext: "ctx",
+		AuthInfos:      authinfos,
+	}
+	return clientConfig
+}
+
+// waitForToolchainClusterSA waits for the toolchaincluster service account to be present
+func waitForToolchainClusterSA(ctx *clicontext.CommandContext, cl runtimeclient.Client, toolchainClusterKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
+	return wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
+		ctx.Printlnf("waiting for ToolchainCluster SA %s to become ready", toolchainClusterKey)
+		tc := &v1.ServiceAccount{}
+		if err := cl.Get(ctx, toolchainClusterKey, tc); err != nil {
+			return false, err
+		}
+
+		return true, nil
+	})
 }
 
 func waitUntilToolchainClusterReady(ctx *clicontext.CommandContext, cl runtimeclient.Client, toolchainClusterKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
@@ -223,7 +387,6 @@ type registerMemberData struct {
 	hostApiEndpoint     string
 	memberApiEndpoint   string
 	args                registerMemberArgs
-	waitForReadyTimeout time.Duration
 }
 
 type registerMemberValidated struct {
@@ -234,7 +397,7 @@ type registerMemberValidated struct {
 	errors                     []string
 }
 
-func dataFromArgs(ctx *extendedCommandContext, args registerMemberArgs, waitForReadyTimeout time.Duration) (*registerMemberData, error) {
+func dataFromArgs(ctx *extendedCommandContext, args registerMemberArgs) (*registerMemberData, error) {
 	hostApiEndpoint, hostClusterClient, err := getApiEndpointAndClient(ctx, args.hostKubeConfig)
 	if err != nil {
 		return nil, err
@@ -251,7 +414,6 @@ func dataFromArgs(ctx *extendedCommandContext, args registerMemberArgs, waitForR
 		memberApiEndpoint:   memberApiEndpoint,
 		hostClusterClient:   hostClusterClient,
 		memberClusterClient: memberClusterClient,
-		waitForReadyTimeout: waitForReadyTimeout,
 	}, nil
 }
 
@@ -351,33 +513,53 @@ func (v *registerMemberValidated) confirmationPrompt() ioutils.ConfirmationMessa
 	return ioutils.WithMessagef(sb.String(), args...)
 }
 
-func (v *registerMemberValidated) perform(ctx *extendedCommandContext, newCommand client.CommandCreator) error {
+func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
+	// wait for the toolchaincluster-member SA to be ready
+	toolchainClusterSAKey := runtimeclient.ObjectKey{
+		Name:      "toolchaincluster-" + string(configuration.Member),
+		Namespace: v.args.memberNamespace,
+	}
+	if err := waitForToolchainClusterSA(ctx.CommandContext, v.memberClusterClient, toolchainClusterSAKey, v.args.waitForReadyTimeout); err != nil {
+		ctx.Println("The toolchaincluster-member ServiceAccount in the member cluster is not present.")
+		ctx.Printlnf("Please check the %s ToolchainCluster ServiceAccount in the %s member cluster.", toolchainClusterSAKey, v.memberApiEndpoint)
+		return err
+	}
 	// add the host entry to the member cluster first. We assume that there is just 1 toolchain cluster entry in the member
 	// cluster (i.e. it just points back to the host), so there's no need to determine the number of entries with the same
 	// API endpoint.
+	if err := v.addCluster(ctx, toolchainClusterSAKey, configuration.Host); err != nil {
+		return err
+	}
 	hostToolchainClusterKey := runtimeclient.ObjectKey{
 		Name:      v.hostToolchainClusterName,
 		Namespace: v.args.memberNamespace,
 	}
-	if err := runAddClusterScript(ctx, newCommand, configuration.Host, v.args.hostKubeConfig, v.args.hostNamespace, v.args.memberKubeConfig, v.args.memberNamespace, "", v.args.useLetsEncrypt); err != nil {
-		return err
-	}
-
-	if err := waitUntilToolchainClusterReady(ctx.CommandContext, v.memberClusterClient, hostToolchainClusterKey, v.waitForReadyTimeout); err != nil {
+	if err := waitUntilToolchainClusterReady(ctx.CommandContext, v.memberClusterClient, hostToolchainClusterKey, v.args.waitForReadyTimeout); err != nil {
 		ctx.Println("The ToolchainCluster resource representing the host in the member cluster has not become ready.")
 		ctx.Printlnf("Please check the %s ToolchainCluster resource in the %s member cluster.", hostToolchainClusterKey, v.memberApiEndpoint)
 		return err
 	}
 
+	// wait for the toolchaincluster-host SA to be ready
+	toolchainClusterSAKey = runtimeclient.ObjectKey{
+		Name:      "toolchaincluster-" + string(configuration.Host),
+		Namespace: v.args.hostNamespace,
+	}
+	if err := waitForToolchainClusterSA(ctx.CommandContext, v.hostClusterClient, toolchainClusterSAKey, v.args.waitForReadyTimeout); err != nil {
+		ctx.Println("The toolchaincluster-host ServiceAccount in the host cluster is not present.")
+		ctx.Printlnf("Please check the %s ToolchainCluster ServiceAccount in the %s host cluster.", toolchainClusterSAKey, v.hostApiEndpoint)
+		return err
+	}
+	// add the member entry in the host cluster
 	memberToolchainClusterKey := runtimeclient.ObjectKey{
 		Name:      v.memberToolchainClusterName,
 		Namespace: v.args.hostNamespace,
 	}
-	if err := runAddClusterScript(ctx, newCommand, configuration.Member, v.args.hostKubeConfig, v.args.hostNamespace, v.args.memberKubeConfig, v.args.memberNamespace, v.args.nameSuffix, v.args.useLetsEncrypt); err != nil {
+	if err := v.addCluster(ctx, toolchainClusterSAKey, configuration.Member); err != nil {
 		return err
 	}
 
-	if err := waitUntilToolchainClusterReady(ctx.CommandContext, v.hostClusterClient, memberToolchainClusterKey, v.waitForReadyTimeout); err != nil {
+	if err := waitUntilToolchainClusterReady(ctx.CommandContext, v.hostClusterClient, memberToolchainClusterKey, v.args.waitForReadyTimeout); err != nil {
 		ctx.Println("The ToolchainCluster resource representing the member in the host cluster has not become ready.")
 		ctx.Printlnf("Please check the %s ToolchainCluster resource in the %s host cluster. Note also that there already exists %s ToolchainCluster resource in the member cluster.", memberToolchainClusterKey, v.hostApiEndpoint, hostToolchainClusterKey)
 		return err
