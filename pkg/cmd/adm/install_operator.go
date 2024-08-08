@@ -228,9 +228,12 @@ func checkOneOperatorPerNamespace(ctx *clicontext.TerminalContext, namespace, op
 }
 
 func getOtherOperator(operator string) string {
-	operatorToCheck := map[string]string{
-		string(configuration.Host):   string(configuration.Member),
-		string(configuration.Member): string(configuration.Host),
+	otherOperator := ""
+	switch operator {
+	case string(configuration.Host):
+		otherOperator = string(configuration.Member)
+	case string(configuration.Member):
+		otherOperator = string(configuration.Host)
 	}
-	return operatorToCheck[operator]
+	return otherOperator
 }
