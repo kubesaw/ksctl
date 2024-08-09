@@ -214,7 +214,7 @@ func waitUntilInstallPlanIsComplete(ctx *clicontext.TerminalContext, cl runtimec
 func checkOneOperatorPerNamespace(ctx *clicontext.TerminalContext, namespace, operator string) error {
 	namespacedName := types.NamespacedName{
 		Namespace: namespace,
-		Name:      getOtherOperator(operator),
+		Name:      configuration.ClusterType(operator).TheOtherType().String(),
 	}
 	subscription := olmv1alpha1.Subscription{}
 	if err := ctx.KubeClient.Get(ctx.Context, namespacedName, &subscription); err != nil {
