@@ -182,7 +182,7 @@ func waitUntilCatalogSourceIsReady(ctx *clicontext.TerminalContext, catalogSourc
 		return cs.Status.GRPCConnectionState != nil && cs.Status.GRPCConnectionState.LastObservedState == "READY", nil
 	}); err != nil {
 		csString, _ := json.Marshal(cs)
-		return errs.Wrapf(err, "failed waiting for catalog source to be ready.\n CatalogSrouce found: %v \n\t", string(csString))
+		return fmt.Errorf("failed waiting for catalog source to be ready.\n CatalogSrouce found: %v \n\t", string(csString))
 	}
 	return nil
 }
