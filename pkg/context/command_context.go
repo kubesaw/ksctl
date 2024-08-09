@@ -31,14 +31,12 @@ func NewCommandContext(term ioutils.Terminal, newClient NewClientFunc) *CommandC
 type TerminalContext struct {
 	context.Context
 	ioutils.Terminal
-	KubeClient runtimeclient.Client
 }
 
 // NewTerminalContext returns the context with the terminal utilities and the kubeClient to be used by the CLI command.
-func NewTerminalContext(term ioutils.Terminal, client runtimeclient.Client) *TerminalContext {
+func NewTerminalContext(term ioutils.Terminal) *TerminalContext {
 	return &TerminalContext{
-		Context:    context.Background(),
-		Terminal:   term,
-		KubeClient: client,
+		Context:  context.Background(),
+		Terminal: term,
 	}
 }

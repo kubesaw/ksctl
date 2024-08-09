@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	commonclient "github.com/codeready-toolchain/toolchain-common/pkg/client"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
@@ -56,7 +57,7 @@ func TestInstallOperator(t *testing.T) {
 			fakeClient := test.NewFakeClient(t, &installPlan)
 			fakeClientWithReadyCatalogSource(fakeClient)
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewTerminalContext(term, fakeClient)
+			ctx := clicontext.NewTerminalContext(term)
 
 			// when
 			err := installOperator(ctx, installArgs{
@@ -65,6 +66,7 @@ func TestInstallOperator(t *testing.T) {
 			},
 				operator,
 				timeout,
+				commonclient.NewApplyClient(fakeClient),
 			)
 
 			// then
@@ -96,7 +98,7 @@ func TestInstallOperator(t *testing.T) {
 			// given
 			fakeClient := test.NewFakeClient(t)
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewTerminalContext(term, fakeClient)
+			ctx := clicontext.NewTerminalContext(term)
 
 			// when
 			err := installOperator(ctx, installArgs{
@@ -105,6 +107,7 @@ func TestInstallOperator(t *testing.T) {
 			},
 				operator,
 				timeout,
+				commonclient.NewApplyClient(fakeClient),
 			)
 
 			// then
@@ -122,7 +125,7 @@ func TestInstallOperator(t *testing.T) {
 			fakeClient := test.NewFakeClient(t, notReadyIP)
 			fakeClientWithReadyCatalogSource(fakeClient)
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewTerminalContext(term, fakeClient)
+			ctx := clicontext.NewTerminalContext(term)
 
 			// when
 			err := installOperator(ctx, installArgs{
@@ -131,6 +134,7 @@ func TestInstallOperator(t *testing.T) {
 			},
 				operator,
 				timeout,
+				commonclient.NewApplyClient(fakeClient),
 			)
 
 			// then
@@ -146,12 +150,13 @@ func TestInstallOperator(t *testing.T) {
 			}
 			fakeClient := test.NewFakeClient(t, &existingSubscription)
 			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewTerminalContext(term, fakeClient)
+			ctx := clicontext.NewTerminalContext(term)
 
 			// when
 			err := installOperator(ctx, installArgs{namespace: namespace},
 				operator,
 				1*time.Second,
+				commonclient.NewApplyClient(fakeClient),
 			)
 
 			// then
@@ -166,12 +171,13 @@ func TestInstallOperator(t *testing.T) {
 			fakeClient := test.NewFakeClient(t, &existingOperatorGroup, &installPlan)
 			fakeClientWithReadyCatalogSource(fakeClient)
 			term := NewFakeTerminalWithResponse("y")
-			ctx := clicontext.NewTerminalContext(term, fakeClient)
+			ctx := clicontext.NewTerminalContext(term)
 
 			// when
 			err := installOperator(ctx, installArgs{namespace: namespace, kubeConfig: kubeconfig},
 				operator,
 				1*time.Second,
+				commonclient.NewApplyClient(fakeClient),
 			)
 
 			// then
@@ -186,12 +192,13 @@ func TestInstallOperator(t *testing.T) {
 			fakeClient := test.NewFakeClient(t, &installPlan)
 			fakeClientWithReadyCatalogSource(fakeClient)
 			term := NewFakeTerminalWithResponse("y")
-			ctx := clicontext.NewTerminalContext(term, fakeClient)
+			ctx := clicontext.NewTerminalContext(term)
 
 			// when
 			err := installOperator(ctx, installArgs{namespace: "", kubeConfig: kubeconfig}, // we provide no namespace
 				operator,
 				1*time.Second,
+				commonclient.NewApplyClient(fakeClient),
 			)
 
 			// then
@@ -205,12 +212,13 @@ func TestInstallOperator(t *testing.T) {
 		fakeClient := test.NewFakeClient(t)
 		fakeClientWithReadyCatalogSource(fakeClient)
 		term := NewFakeTerminalWithResponse("Y")
-		ctx := clicontext.NewTerminalContext(term, fakeClient)
+		ctx := clicontext.NewTerminalContext(term)
 
 		// when
 		err := installOperator(ctx, installArgs{},
 			"INVALIDOPERATOR",
 			1*time.Second,
+			commonclient.NewApplyClient(fakeClient),
 		)
 
 		// then
@@ -221,13 +229,14 @@ func TestInstallOperator(t *testing.T) {
 		// given
 		fakeClient := test.NewFakeClient(t)
 		term := NewFakeTerminalWithResponse("n")
-		ctx := clicontext.NewTerminalContext(term, fakeClient)
+		ctx := clicontext.NewTerminalContext(term)
 
 		// when
 		operator := "host"
 		err := installOperator(ctx, installArgs{namespace: "toolchain-host-operator"},
 			operator,
 			1*time.Second,
+			commonclient.NewApplyClient(fakeClient),
 		)
 
 		// then

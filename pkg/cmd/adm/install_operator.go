@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	commonclient "github.com/codeready-toolchain/toolchain-common/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/cmd/flags"
 	"github.com/kubesaw/ksctl/pkg/configuration"
@@ -39,8 +40,10 @@ func NewInstallOperatorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ctx := clicontext.NewTerminalContext(term, kubeClient)
-			return installOperator(ctx, commandArgs, args[0], time.Second*60)
+
+			cl := commonclient.NewApplyClient(kubeClient)
+			ctx := clicontext.NewTerminalContext(term)
+			return installOperator(ctx, commandArgs, args[0], time.Second*60, cl)
 		},
 	}
 
@@ -50,7 +53,7 @@ func NewInstallOperatorCmd() *cobra.Command {
 	return cmd
 }
 
-func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator string, timeout time.Duration) error {
+func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator string, timeout time.Duration, applyClient *commonclient.ApplyClient) error {
 	// validate cluster type
 	if operator != string(configuration.Host) && operator != string(configuration.Member) {
 		return fmt.Errorf("invalid operator type provided: %s. Valid ones are %s|%s", operator, configuration.Host, configuration.Member)
@@ -69,12 +72,12 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 
 	// check if namespace exists
 	// otherwise create it
-	if err := createNamespaceIfNotFound(ctx, namespace); err != nil {
+	if err := createNamespaceIfNotFound(ctx, applyClient, namespace); err != nil {
 		return nil
 	}
 
 	// check that we don't install both host and member in the same namespace
-	if err := checkOneOperatorPerNamespace(ctx, namespace, operator); err != nil {
+	if err := checkOneOperatorPerNamespace(ctx, applyClient, namespace, operator); err != nil {
 		return err
 	}
 
@@ -82,18 +85,18 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	namespacedName := types.NamespacedName{Name: operatorResourceName(operator), Namespace: namespace}
 	catalogSource := newCatalogSource(namespacedName, operator)
 	ctx.Println(fmt.Sprintf("Creating CatalogSource %s in namespace %s.", catalogSource.Name, catalogSource.Namespace))
-	if err := ctx.KubeClient.Create(ctx, catalogSource); err != nil {
+	if _, err := applyClient.ApplyObject(ctx.Context, catalogSource, commonclient.SaveConfiguration(false)); err != nil {
 		return err
 	}
 	ctx.Println(fmt.Sprintf("CatalogSource %s created.", catalogSource.Name))
-	if err := waitUntilCatalogSourceIsReady(ctx, namespacedName, timeout); err != nil {
+	if err := waitUntilCatalogSourceIsReady(ctx, applyClient, namespacedName, timeout); err != nil {
 		return err
 	}
 	ctx.Printlnf("CatalogSource %s is ready", namespacedName)
 
 	// check if operator group is already there
 	ogs := olmv1.OperatorGroupList{}
-	if err := ctx.KubeClient.List(ctx, &ogs, runtimeclient.InNamespace(namespace)); err != nil {
+	if err := applyClient.List(ctx, &ogs, runtimeclient.InNamespace(namespace)); err != nil {
 		return err
 	}
 	if len(ogs.Items) > 0 {
@@ -102,7 +105,7 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 		// install operator group
 		operatorGroup := newOperatorGroup(namespacedName)
 		ctx.Println(fmt.Sprintf("Creating new operator group %s in namespace %s.", operatorGroup.Name, operatorGroup.Namespace))
-		if err := ctx.KubeClient.Create(ctx, operatorGroup); err != nil {
+		if _, err := applyClient.ApplyObject(ctx, operatorGroup, commonclient.SaveConfiguration(false)); err != nil {
 			return err
 		}
 		ctx.Println(fmt.Sprintf("OperatorGroup %s created.", operatorGroup.Name))
@@ -111,11 +114,11 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	// install subscription
 	subscription := newSubscription(namespacedName, fmt.Sprintf("toolchain-%s-operator", operator), namespacedName.Name)
 	ctx.Println(fmt.Sprintf("Creating Subscription %s in namespace %s.", subscription.Name, subscription.Namespace))
-	if err := ctx.KubeClient.Create(ctx, subscription); err != nil {
+	if _, err := applyClient.ApplyObject(ctx, subscription, commonclient.SaveConfiguration(false)); err != nil {
 		return err
 	}
 	ctx.Println(fmt.Sprintf("Subcription %s created.", subscription.Name))
-	if err := waitUntilInstallPlanIsComplete(ctx, ctx.KubeClient, namespace, timeout); err != nil {
+	if err := waitUntilInstallPlanIsComplete(ctx, applyClient, namespace, timeout); err != nil {
 		return err
 	}
 	ctx.Println(fmt.Sprintf("InstallPlan for the %s operator has been completed", operator))
@@ -124,13 +127,13 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	return nil
 }
 
-func createNamespaceIfNotFound(ctx *clicontext.TerminalContext, namespace string) error {
+func createNamespaceIfNotFound(ctx *clicontext.TerminalContext, applyClient *commonclient.ApplyClient, namespace string) error {
 	ns := &v1.Namespace{}
-	if err := ctx.KubeClient.Get(ctx.Context, types.NamespacedName{Name: namespace}, ns); err != nil {
+	if err := applyClient.Get(ctx.Context, types.NamespacedName{Name: namespace}, ns); err != nil {
 		if errors.IsNotFound(err) {
 			ctx.Println(fmt.Sprintf("Creating namespace %s.", namespace))
 			ns.Name = namespace
-			if errNs := ctx.KubeClient.Create(ctx.Context, ns); errNs != nil {
+			if errNs := applyClient.Create(ctx.Context, ns); errNs != nil {
 				return errNs
 			}
 		} else {
@@ -196,12 +199,12 @@ func newSubscription(name types.NamespacedName, operatorName, catalogSourceName 
 	}
 }
 
-func waitUntilCatalogSourceIsReady(ctx *clicontext.TerminalContext, catalogSourceKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
+func waitUntilCatalogSourceIsReady(ctx *clicontext.TerminalContext, applyClient *commonclient.ApplyClient, catalogSourceKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
 	cs := &olmv1alpha1.CatalogSource{}
 	if err := wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
 		ctx.Printlnf("waiting for CatalogSource %s to become ready", catalogSourceKey)
 		cs = &olmv1alpha1.CatalogSource{}
-		if err := ctx.KubeClient.Get(ctx, catalogSourceKey, cs); err != nil {
+		if err := applyClient.Get(ctx, catalogSourceKey, cs); err != nil {
 			return false, err
 		}
 
@@ -240,13 +243,13 @@ func waitUntilInstallPlanIsComplete(ctx *clicontext.TerminalContext, cl runtimec
 
 // checkOneOperatorPerNamespace returns an error in case the namespace contains the other operator installed.
 // So for host namespace member operator should not be installed in there and vice-versa.
-func checkOneOperatorPerNamespace(ctx *clicontext.TerminalContext, namespace, operator string) error {
+func checkOneOperatorPerNamespace(ctx *clicontext.TerminalContext, applyClient *commonclient.ApplyClient, namespace, operator string) error {
 	namespacedName := types.NamespacedName{
 		Namespace: namespace,
 		Name:      configuration.ClusterType(operator).TheOtherType().String(),
 	}
 	subscription := olmv1alpha1.Subscription{}
-	if err := ctx.KubeClient.Get(ctx.Context, namespacedName, &subscription); err != nil {
+	if err := applyClient.Get(ctx.Context, namespacedName, &subscription); err != nil {
 		if errors.IsNotFound(err) {
 			return nil
 		}
