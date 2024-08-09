@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
@@ -67,6 +69,8 @@ func TestInstallOperator(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
+			ns := &corev1.Namespace{}
+			require.NoError(t, fakeClient.Get(context.TODO(), types.NamespacedName{Name: namespace}, ns)) // check that the namespace was created as well
 			AssertCatalogSourceExists(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
 			AssertCatalogSourceHasSpec(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace},
 				olmv1alpha1.CatalogSourceSpec{

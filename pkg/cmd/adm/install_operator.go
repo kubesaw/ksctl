@@ -11,6 +11,7 @@ import (
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -66,6 +67,12 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 		return nil
 	}
 
+	// check if namespace exists
+	// otherwise create it
+	if err := createNamespaceIfNotFound(ctx, namespace); err != nil {
+		return nil
+	}
+
 	// check that we don't install both host and member in the same namespace
 	if err := checkOneOperatorPerNamespace(ctx, namespace, operator); err != nil {
 		return err
@@ -114,6 +121,22 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	ctx.Println(fmt.Sprintf("InstallPlan for the %s operator has been completed", operator))
 	ctx.Println("")
 	ctx.Println(fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
+	return nil
+}
+
+func createNamespaceIfNotFound(ctx *clicontext.TerminalContext, namespace string) error {
+	ns := &v1.Namespace{}
+	if err := ctx.KubeClient.Get(ctx.Context, types.NamespacedName{Name: namespace}, ns); err != nil {
+		if errors.IsNotFound(err) {
+			ctx.Println(fmt.Sprintf("Creating namespace %s.", namespace))
+			ns.Name = namespace
+			if errNs := ctx.KubeClient.Create(ctx.Context, ns); errNs != nil {
+				return errNs
+			}
+		} else {
+			return err
+		}
+	}
 	return nil
 }
 
