@@ -175,6 +175,7 @@ func waitUntilCatalogSourceIsReady(ctx *clicontext.TerminalContext, catalogSourc
 	cs := &olmv1alpha1.CatalogSource{}
 	if err := wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
 		ctx.Printlnf("waiting for CatalogSource %s to become ready", catalogSourceKey)
+		cs = &olmv1alpha1.CatalogSource{}
 		if err := ctx.KubeClient.Get(ctx, catalogSourceKey, cs); err != nil {
 			return false, err
 		}
