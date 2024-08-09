@@ -53,7 +53,7 @@ func NewInstallOperatorCmd() *cobra.Command {
 func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator string, timeout time.Duration) error {
 	// validate cluster type
 	if operator != string(configuration.Host) && operator != string(configuration.Member) {
-		return fmt.Errorf("invalid operator type provided: %s. Valid ones are %s|%s", operator, string(configuration.Host), string(configuration.Member))
+		return fmt.Errorf("invalid operator type provided: %s. Valid ones are %s|%s", operator, configuration.Host, configuration.Member)
 	}
 
 	// assume "standard" namespace if not provided
