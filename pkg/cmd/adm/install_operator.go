@@ -191,6 +191,7 @@ func waitUntilInstallPlanIsComplete(ctx *clicontext.TerminalContext, cl runtimec
 	plans := &olmv1alpha1.InstallPlanList{}
 	if err := wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
 		ctx.Printlnf("waiting for InstallPlans in namespace %s to complete", namespace)
+		plans = &olmv1alpha1.InstallPlanList{}
 		if err := cl.List(ctx, plans, runtimeclient.InNamespace(namespace),
 			runtimeclient.MatchingLabels{fmt.Sprintf("operators.coreos.com/%s.%s", namespace, namespace): ""},
 		); err != nil {
