@@ -13,6 +13,7 @@ import (
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/ghodss/yaml"
 	configv1 "github.com/openshift/api/config/v1"
@@ -87,6 +88,27 @@ func NewClientFromRestConfig(cfg *rest.Config) (runtimeclient.Client, error) {
 	}
 
 	return cl, nil
+}
+
+// NewKubeClientFromKubeConfig initializes a runtime client starting from a KubeConfig file path.
+func NewKubeClientFromKubeConfig(kubeConfigPath string) (cl runtimeclient.Client, err error) {
+	var kubeConfig *clientcmdapi.Config
+	var clientConfig *rest.Config
+
+	kubeConfig, err = clientcmd.LoadFromFile(kubeConfigPath)
+	if err != nil {
+		return
+	}
+	clientConfig, err = clientcmd.NewDefaultClientConfig(*kubeConfig, nil).ClientConfig()
+	if err != nil {
+		return
+	}
+	cl, err = NewClientFromRestConfig(clientConfig)
+	if err != nil {
+		return
+	}
+
+	return
 }
 
 func newTlsVerifySkippingTransport() http.RoundTripper {

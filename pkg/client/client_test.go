@@ -8,11 +8,10 @@ import (
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/codeready-toolchain/toolchain-common/pkg/states"
 	commontest "github.com/codeready-toolchain/toolchain-common/pkg/test"
+	"github.com/h2non/gock"
 	"github.com/kubesaw/ksctl/pkg/client"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
-
-	"github.com/h2non/gock"
 	routev1 "github.com/openshift/api/route/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -543,6 +542,34 @@ func TestGetRoute(t *testing.T) {
 			require.Error(t, err)
 			require.EqualError(t, err, "unable to get route to openshift-monitoring/thanos-querier: timed out waiting for the condition")
 		})
+	})
+}
+
+func TestNewKubeClientFromKubeConfig(t *testing.T) {
+	// given
+	t.Cleanup(gock.OffAll)
+	gock.New("https://cool-server.com").
+		Get("api").
+		Persist().
+		Reply(200).
+		BodyString("{}")
+
+	t.Run("success", func(j *testing.T) {
+		// when
+		cl, err := client.NewKubeClientFromKubeConfig(PersistKubeConfigFile(t, HostKubeConfig()))
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, cl)
+	})
+
+	t.Run("error", func(j *testing.T) {
+		// when
+		cl, err := client.NewKubeClientFromKubeConfig("/invalid/kube/config")
+
+		// then
+		require.Error(t, err)
+		assert.Nil(t, cl)
 	})
 }
 
