@@ -206,7 +206,7 @@ func waitUntilInstallPlanIsComplete(ctx *clicontext.TerminalContext, cl runtimec
 		return len(plans.Items) > 0, nil
 	}); err != nil {
 		plansString, _ := json.Marshal(plans)
-		return errs.Wrapf(err, "failed waiting for install plan to be complete.\n InstallPlans found: %s \n\t", string(plansString))
+		return fmt.Errorf("failed waiting for install plan to be complete.\n InstallPlans found: %s \n\t", string(plansString))
 	}
 	return nil
 }
