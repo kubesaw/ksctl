@@ -224,7 +224,7 @@ func checkOneOperatorPerNamespace(ctx *clicontext.TerminalContext, namespace, op
 
 		return err
 	}
-	return fmt.Errorf("found already installed subscription %s in namespace %s", subscription.GetName(), subscription.GetNamespace())
+	return fmt.Errorf("found already installed subscription %s in namespace %s - it's not allowed to have host and member in the same namespace", subscription.GetName(), subscription.GetNamespace())
 }
 
 func getOtherOperator(operator string) string {
