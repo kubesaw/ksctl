@@ -75,9 +75,11 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	// install the catalog source
 	catalogSourceKey := types.NamespacedName{Name: operatorResourceName(operator), Namespace: namespace}
 	catalogSource := newCatalogSource(catalogSourceKey, operator)
+	ctx.Println(fmt.Sprintf("Creating CatalogSource %s in namespace %s.", catalogSource.Name, catalogSource.Namespace))
 	if err := ctx.KubeClient.Create(ctx, catalogSource); err != nil {
 		return err
 	}
+	ctx.Println(fmt.Sprintf("CatalogSource %s created.", catalogSource.Name))
 	if err := waitUntilCatalogSourceIsReady(ctx, catalogSourceKey, timeout); err != nil {
 		return err
 	}
