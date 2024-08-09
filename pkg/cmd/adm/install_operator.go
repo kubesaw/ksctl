@@ -73,7 +73,7 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	// check if namespace exists
 	// otherwise create it
 	if err := createNamespaceIfNotFound(ctx, applyClient, namespace); err != nil {
-		return nil
+		return err
 	}
 
 	// check that we don't install both host and member in the same namespace
