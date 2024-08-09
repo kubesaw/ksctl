@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -162,9 +163,11 @@ const header = `# --------------------------------------------------------------
 
 func writeFile(filePath string, content []byte) error {
 	// https://github.com/kubernetes/kubernetes/issues/67610
-	contentString := strings.ReplaceAll(string(content), "\n  creationTimestamp: null", "")
-	contentString = strings.ReplaceAll(contentString, "\n      creationTimestamp: null", " {}")
+	emptyCreationTimestamp := regexp.MustCompile(`\n *creationTimestamp: null`)
+	contentString := emptyCreationTimestamp.ReplaceAllString(string(content), "")
 	contentString = strings.ReplaceAll(contentString, "\nuser: {}", "")
+	// This will only apply to konflux tier template that start with metadata = {}
+	contentString = strings.ReplaceAll(contentString, "metadata:\n    objects:", "metadata: {}\n    objects:")
 	contentString = fmt.Sprintf("%s%s", header, contentString)
 	return os.WriteFile(filePath, []byte(contentString), 0600)
 }
