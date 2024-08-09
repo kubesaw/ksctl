@@ -8,6 +8,7 @@ import (
 
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/client"
+	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	v1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -103,7 +104,7 @@ func TestInstallOperator(t *testing.T) {
 			)
 
 			// then
-			require.EqualError(t, err, fmt.Sprintf("failed waiting for catalog source to be ready.\n CatalogSrouce found: {\"kind\":\"CatalogSource\",\"apiVersion\":\"operators.coreos.com/v1alpha1\",\"metadata\":{\"name\":\"%[1]s-operator\",\"namespace\":\"toolchain-%[1]s-operator\",\"resourceVersion\":\"1\",\"generation\":1,\"creationTimestamp\":null},\"spec\":{\"sourceType\":\"grpc\",\"image\":\"quay.io/codeready-toolchain/%[1]s-operator-index:latest\",\"updateStrategy\":{\"registryPoll\":{\"interval\":\"5m0s\"}},\"displayName\":\"KubeSaw %[1]s Operator\",\"publisher\":\"Red Hat\",\"icon\":{\"base64data\":\"\",\"mediatype\":\"\"}},\"status\":{}} \n\t: timed out waiting for the condition", operator))
+			require.EqualError(t, err, fmt.Sprintf("failed waiting for catalog source to be ready.\n CatalogSrouce found: {\"kind\":\"CatalogSource\",\"apiVersion\":\"operators.coreos.com/v1alpha1\",\"metadata\":{\"name\":\"%[1]s-operator\",\"namespace\":\"toolchain-%[1]s-operator\",\"resourceVersion\":\"1\",\"generation\":1,\"creationTimestamp\":null},\"spec\":{\"sourceType\":\"grpc\",\"image\":\"quay.io/codeready-toolchain/%[1]s-operator-index:latest\",\"updateStrategy\":{\"registryPoll\":{\"interval\":\"5m0s\"}},\"displayName\":\"KubeSaw %[1]s Operator\",\"publisher\":\"Red Hat\",\"icon\":{\"base64data\":\"\",\"mediatype\":\"\"}},\"status\":{}} \n\t", operator))
 			AssertOperatorGroupDoesNotExist(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
 			AssertSubscriptionDoesNotExist(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
 			assert.NotContains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
@@ -129,13 +130,13 @@ func TestInstallOperator(t *testing.T) {
 			)
 
 			// then
-			require.EqualError(t, err, fmt.Sprintf("failed waiting for install plan to be complete.\n InstallPlans found: {\"kind\":\"InstallPlanList\",\"apiVersion\":\"operators.coreos.com/v1alpha1\",\"metadata\":{},\"items\":[{\"metadata\":{\"name\":\"%[1]s-ip\",\"namespace\":\"toolchain-%[1]s-operator\",\"resourceVersion\":\"999\",\"creationTimestamp\":null,\"labels\":{\"operators.coreos.com/toolchain-%[1]s-operator.toolchain-%[1]s-operator\":\"\"}},\"spec\":{\"clusterServiceVersionNames\":null,\"approval\":\"\",\"approved\":false},\"status\":{\"phase\":\"InstallPlanFailed\",\"catalogSources\":null}}]} \n\t: timed out waiting for the condition", operator))
+			require.EqualError(t, err, fmt.Sprintf("failed waiting for install plan to be complete.\n InstallPlans found: {\"kind\":\"InstallPlanList\",\"apiVersion\":\"operators.coreos.com/v1alpha1\",\"metadata\":{},\"items\":[{\"metadata\":{\"name\":\"%[1]s-ip\",\"namespace\":\"toolchain-%[1]s-operator\",\"resourceVersion\":\"999\",\"creationTimestamp\":null,\"labels\":{\"operators.coreos.com/toolchain-%[1]s-operator.toolchain-%[1]s-operator\":\"\"}},\"spec\":{\"clusterServiceVersionNames\":null,\"approval\":\"\",\"approved\":false},\"status\":{\"phase\":\"InstallPlanFailed\",\"catalogSources\":null}}]} \n\t", operator))
 			assert.NotContains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
 		})
 
 		t.Run(operator+" fails to install if the other operator is installed", func(t *testing.T) {
 			// given
-			operatorAlreadyInstalled := getOtherOperator(operator)
+			operatorAlreadyInstalled := configuration.ClusterType(operator).TheOtherType().String()
 			existingSubscription := olmv1alpha1.Subscription{
 				ObjectMeta: metav1.ObjectMeta{Name: operatorAlreadyInstalled, Namespace: namespace},
 			}
@@ -150,7 +151,7 @@ func TestInstallOperator(t *testing.T) {
 			)
 
 			// then
-			require.EqualError(t, err, fmt.Sprintf("found already installed subscription %s in namespace %s", operatorAlreadyInstalled, namespace))
+			require.EqualError(t, err, fmt.Sprintf("found already installed subscription %s in namespace %s - it's not allowed to have host and member in the same namespace", operatorAlreadyInstalled, namespace))
 		})
 
 		t.Run("skip creation of operator group if already present", func(t *testing.T) {

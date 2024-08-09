@@ -11,7 +11,6 @@ import (
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	errs "github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -73,17 +72,17 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	}
 
 	// install the catalog source
-	catalogSourceKey := types.NamespacedName{Name: operatorResourceName(operator), Namespace: namespace}
-	catalogSource := newCatalogSource(catalogSourceKey, operator)
+	namespacedName := types.NamespacedName{Name: operatorResourceName(operator), Namespace: namespace}
+	catalogSource := newCatalogSource(namespacedName, operator)
 	ctx.Println(fmt.Sprintf("Creating CatalogSource %s in namespace %s.", catalogSource.Name, catalogSource.Namespace))
 	if err := ctx.KubeClient.Create(ctx, catalogSource); err != nil {
 		return err
 	}
 	ctx.Println(fmt.Sprintf("CatalogSource %s created.", catalogSource.Name))
-	if err := waitUntilCatalogSourceIsReady(ctx, catalogSourceKey, timeout); err != nil {
+	if err := waitUntilCatalogSourceIsReady(ctx, namespacedName, timeout); err != nil {
 		return err
 	}
-	ctx.Printlnf("CatalogSource %s is ready", catalogSourceKey)
+	ctx.Printlnf("CatalogSource %s is ready", namespacedName)
 
 	// check if operator group is already there
 	ogs := olmv1.OperatorGroupList{}
@@ -94,18 +93,21 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 		ctx.Println(fmt.Sprintf("OperatorGroup %s already present in namespace %s. Skipping creation of new operator group.", ogs.Items[0].GetName(), namespace))
 	} else {
 		// install operator group
-		operatorGroup := newOperatorGroup(types.NamespacedName{Name: operatorResourceName(operator), Namespace: namespace})
+		operatorGroup := newOperatorGroup(namespacedName)
 		ctx.Println(fmt.Sprintf("Creating new operator group %s in namespace %s.", operatorGroup.Name, operatorGroup.Namespace))
 		if err := ctx.KubeClient.Create(ctx, operatorGroup); err != nil {
 			return err
 		}
+		ctx.Println(fmt.Sprintf("OperatorGroup %s created.", operatorGroup.Name))
 	}
 
 	// install subscription
-	subscription := newSubscription(types.NamespacedName{Name: operatorResourceName(operator), Namespace: namespace}, fmt.Sprintf("toolchain-%s-operator", operator), catalogSourceKey.Name)
+	subscription := newSubscription(namespacedName, fmt.Sprintf("toolchain-%s-operator", operator), namespacedName.Name)
+	ctx.Println(fmt.Sprintf("Creating Subscription %s in namespace %s.", subscription.Name, subscription.Namespace))
 	if err := ctx.KubeClient.Create(ctx, subscription); err != nil {
 		return err
 	}
+	ctx.Println(fmt.Sprintf("Subcription %s created.", subscription.Name))
 	if err := waitUntilInstallPlanIsComplete(ctx, ctx.KubeClient, namespace, timeout); err != nil {
 		return err
 	}
@@ -229,15 +231,4 @@ func checkOneOperatorPerNamespace(ctx *clicontext.TerminalContext, namespace, op
 		return err
 	}
 	return fmt.Errorf("found already installed subscription %s in namespace %s - it's not allowed to have host and member in the same namespace", subscription.GetName(), subscription.GetNamespace())
-}
-
-func getOtherOperator(operator string) string {
-	otherOperator := ""
-	switch operator {
-	case string(configuration.Host):
-		otherOperator = string(configuration.Member)
-	case string(configuration.Member):
-		otherOperator = string(configuration.Host)
-	}
-	return otherOperator
 }
