@@ -118,7 +118,7 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 		return err
 	}
 	ctx.Println(fmt.Sprintf("Subcription %s created.", subscription.Name))
-	if err := waitUntilInstallPlanIsComplete(ctx, applyClient, namespace, timeout); err != nil {
+	if err := waitUntilInstallPlanIsComplete(ctx, applyClient, operator, namespace, timeout); err != nil {
 		return err
 	}
 	ctx.Println(fmt.Sprintf("InstallPlan for the %s operator has been completed", operator))
@@ -216,13 +216,13 @@ func waitUntilCatalogSourceIsReady(ctx *clicontext.TerminalContext, applyClient 
 	return nil
 }
 
-func waitUntilInstallPlanIsComplete(ctx *clicontext.TerminalContext, cl runtimeclient.Client, namespace string, waitForReadyTimeout time.Duration) error {
+func waitUntilInstallPlanIsComplete(ctx *clicontext.TerminalContext, cl runtimeclient.Client, operator, namespace string, waitForReadyTimeout time.Duration) error {
 	plans := &olmv1alpha1.InstallPlanList{}
 	if err := wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
 		ctx.Printlnf("waiting for InstallPlans in namespace %s to complete", namespace)
 		plans = &olmv1alpha1.InstallPlanList{}
 		if err := cl.List(ctx, plans, runtimeclient.InNamespace(namespace),
-			runtimeclient.MatchingLabels{fmt.Sprintf("operators.coreos.com/%s.%s", namespace, namespace): ""},
+			runtimeclient.MatchingLabels{fmt.Sprintf("operators.coreos.com/%s.%s", operator, namespace): ""},
 		); err != nil {
 			return false, err
 		}
