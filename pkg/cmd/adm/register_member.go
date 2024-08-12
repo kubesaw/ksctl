@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	authv1 "k8s.io/api/authentication/v1"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -331,9 +332,14 @@ func waitForToolchainClusterSA(ctx *clicontext.CommandContext, cl runtimeclient.
 		ctx.Printlnf("waiting for ToolchainCluster SA %s to become ready", toolchainClusterKey)
 		tc := &v1.ServiceAccount{}
 		if err := cl.Get(ctx, toolchainClusterKey, tc); err != nil {
+			if apierrors.IsNotFound(err) {
+				// keep looking for the resource
+				return false, nil
+			}
+			// exit if and error occurred
 			return false, err
 		}
-
+		// exit if we found the resource
 		return true, nil
 	})
 }
@@ -343,6 +349,11 @@ func waitUntilToolchainClusterReady(ctx *clicontext.CommandContext, cl runtimecl
 		ctx.Printlnf("waiting for ToolchainCluster %s to become ready", toolchainClusterKey)
 		tc := &toolchainv1alpha1.ToolchainCluster{}
 		if err := cl.Get(ctx, toolchainClusterKey, tc); err != nil {
+			if apierrors.IsNotFound(err) {
+				// keep looking for the resource
+				return false, nil
+			}
+			// exit if and error occurred
 			return false, err
 		}
 
