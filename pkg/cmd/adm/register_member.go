@@ -77,7 +77,6 @@ func NewRegisterMemberCmd() *cobra.Command {
 
 	// keep these values in sync with the values in defaultRegisterMemberArgs() function in the tests.
 	defaultTimeout := 2 * time.Minute
-	defaultLetsEncrypt := true
 	defaultNameSuffix := ""
 	defaultHostNs := "toolchain-host-operator"
 	defaultMemberNs := "toolchain-member-operator"
@@ -86,11 +85,11 @@ func NewRegisterMemberCmd() *cobra.Command {
 	flags.MustMarkRequired(cmd, "host-kubeconfig")
 	cmd.Flags().StringVar(&commandArgs.memberKubeConfig, "member-kubeconfig", "", "Path to the kubeconfig file of the member cluster")
 	flags.MustMarkRequired(cmd, "member-kubeconfig")
-	cmd.Flags().BoolVar(&commandArgs.useLetsEncrypt, "lets-encrypt", defaultLetsEncrypt, fmt.Sprintf("Whether to use Let's Encrypt certificates or rely on the cluster certs (default: %t)", defaultLetsEncrypt))
-	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", defaultNameSuffix, fmt.Sprintf("The suffix to append to the member name used when there are multiple members in a single cluster (default: '%s')", defaultNameSuffix))
-	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, fmt.Sprintf("The namespace of the host operator in the host cluster (default: '%s')", defaultHostNs))
-	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", defaultMemberNs, fmt.Sprintf("The namespace of the member operator in the member cluster (default: '%s')", defaultMemberNs))
-	cmd.Flags().DurationVar(&commandArgs.waitForReadyTimeout, "timeout", defaultTimeout, fmt.Sprintf("The max timeout used when waiting for each of the computations to be completed. (default: '%d')", defaultTimeout))
+	cmd.Flags().BoolVar(&commandArgs.useLetsEncrypt, "lets-encrypt", true, "Whether to use Let's Encrypt certificates or rely on the cluster certs.")
+	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", defaultNameSuffix, "The suffix to append to the member name used when there are multiple members in a single cluster.")
+	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, "The namespace of the host operator in the host cluster.")
+	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", defaultMemberNs, "The namespace of the member operator in the member cluster.")
+	cmd.Flags().DurationVar(&commandArgs.waitForReadyTimeout, "timeout", defaultTimeout, "The max timeout used when waiting for each of the computations to be completed.")
 	return cmd
 }
 
