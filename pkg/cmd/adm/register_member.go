@@ -515,7 +515,7 @@ func (v *registerMemberValidated) confirmationPrompt() ioutils.ConfirmationMessa
 func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 	// wait for the toolchaincluster-member SA to be ready
 	toolchainClusterSAKey := runtimeclient.ObjectKey{
-		Name:      "toolchaincluster-" + string(configuration.Member),
+		Name:      "toolchaincluster-member",
 		Namespace: v.args.memberNamespace,
 	}
 	if err := waitForToolchainClusterSA(ctx.CommandContext, v.memberClusterClient, toolchainClusterSAKey, v.args.waitForReadyTimeout); err != nil {
