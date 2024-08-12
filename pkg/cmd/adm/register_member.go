@@ -309,8 +309,8 @@ func generateKubeConfig(token, APIEndpoint, namespace string, insecureSkipTLSVer
 		Namespace: namespace,
 		AuthInfo:  "auth",
 	}
-	authinfos := make(map[string]*clientcmdapi.AuthInfo, 1)
-	authinfos["auth"] = &clientcmdapi.AuthInfo{
+	authInfos := make(map[string]*clientcmdapi.AuthInfo, 1)
+	authInfos["auth"] = &clientcmdapi.AuthInfo{
 		Token: token,
 	}
 
@@ -320,7 +320,7 @@ func generateKubeConfig(token, APIEndpoint, namespace string, insecureSkipTLSVer
 		Clusters:       clusters,
 		Contexts:       contexts,
 		CurrentContext: "ctx",
-		AuthInfos:      authinfos,
+		AuthInfos:      authInfos,
 	}
 	return clientConfig
 }
