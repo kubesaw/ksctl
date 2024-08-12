@@ -193,6 +193,7 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 	if err != nil {
 		return err
 	}
+	// TODO drop this part together with the --lets-encrypt flag and start loading certificate from the kubeconfig as soon as ToolchainCluster controller supports loading certificates from kubeconfig
 	var insecureSkipTLSVerify bool
 	if v.args.useLetsEncrypt {
 		term.Printlnf("using let's encrypt certificate")
@@ -249,6 +250,7 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 		if labels == nil {
 			labels = make(map[string]string)
 		}
+		// TODO drop this "namespace" label as soon as ToolchainCluster controller supports loading data from kubeconfig
 		labels["namespace"] = joiningClusterDetails.OperatorNamespace
 		if joiningClusterType == "member" {
 			labels["cluster-role.toolchain.dev.openshift.com/tenant"] = ""
@@ -308,8 +310,8 @@ func generateKubeConfig(token, APIEndpoint, namespace string, insecureSkipTLSVer
 		Namespace: namespace,
 		AuthInfo:  "auth",
 	}
-	authinfos := make(map[string]*clientcmdapi.AuthInfo, 1)
-	authinfos["auth"] = &clientcmdapi.AuthInfo{
+	authInfos := make(map[string]*clientcmdapi.AuthInfo, 1)
+	authInfos["auth"] = &clientcmdapi.AuthInfo{
 		Token: token,
 	}
 
@@ -319,7 +321,7 @@ func generateKubeConfig(token, APIEndpoint, namespace string, insecureSkipTLSVer
 		Clusters:       clusters,
 		Contexts:       contexts,
 		CurrentContext: "ctx",
-		AuthInfos:      authinfos,
+		AuthInfos:      authInfos,
 	}
 	return clientConfig
 }
