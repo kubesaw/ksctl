@@ -193,6 +193,7 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 	if err != nil {
 		return err
 	}
+	// TODO drop this part together with the --lets-encrypt flag and start loading certificate from the kubeconfig as soon as ToolchainCluster controller supports loading certificates from kubeconfig
 	var insecureSkipTLSVerify bool
 	if v.args.useLetsEncrypt {
 		term.Printlnf("using let's encrypt certificate")
