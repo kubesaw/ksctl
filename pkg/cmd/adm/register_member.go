@@ -250,6 +250,7 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 		if labels == nil {
 			labels = make(map[string]string)
 		}
+		// TODO drop this "namespace" label as soon as ToolchainCluster controller supports loading data from kubeconfig
 		labels["namespace"] = joiningClusterDetails.OperatorNamespace
 		if joiningClusterType == "member" {
 			labels["cluster-role.toolchain.dev.openshift.com/tenant"] = ""
