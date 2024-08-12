@@ -117,14 +117,14 @@ func registerMemberCluster(ctx *extendedCommandContext, args registerMemberArgs)
 	return validated.perform(ctx)
 }
 
-func (v *registerMemberValidated) getSourceAndTargetClusters(joiningClusterType configuration.ClusterType) (clusterData, clusterData) {
-	if joiningClusterType == configuration.Member {
+func (v *registerMemberValidated) getSourceAndTargetClusters(sourceClusterType configuration.ClusterType) (clusterData, clusterData) {
+	if sourceClusterType == configuration.Member {
 		return v.memberClusterData, v.hostClusterData
 	}
 	return v.hostClusterData, v.memberClusterData
 }
 
-// addCluster creates a secret and a ToolchainCluster resource on the `clusterJoinTo`.
+// addCluster creates a secret and a ToolchainCluster resource on the `targetCluster`.
 // This ToolchainCluster CR stores a reference to the secret which contains the kubeconfig of the `sourceCluster`. Thus enables the `targetCluster` to interact with the `sourceCluster`.
 // - `targetCluster` is the cluster where we create the ToolchainCluster resource and the secret
 // - `sourceCluster` is the cluster referenced in the kubeconfig/ToolchainCluster of the `targetCluster`
@@ -134,11 +134,11 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 	}
 
 	sourceClusterDetails, targetClusterDetails := v.getSourceAndTargetClusters(sourceClusterType)
-	// joining cluster details
+	// source cluster details
 	term.Printlnf("API endpoint retrieved: %s", sourceClusterDetails.apiEndpoint)
 	term.Printlnf("joining cluster name: %s", sourceClusterDetails.toolchainClusterName)
 
-	// cluster join to details
+	// target to details
 	term.Printlnf("API endpoint of the cluster it is joining to: %s", targetClusterDetails.apiEndpoint)
 	term.Printlnf("the cluster name it is joining to: %s", targetClusterDetails.toolchainClusterName)
 
@@ -160,15 +160,15 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 		term.Printlnf("setting insecure skip tls verification flags")
 		insecureSkipTLSVerify = true
 	}
-	// generate the kubeconfig that can be used by clusterJoinTo to interact with the joiningCluster
+	// generate the kubeconfig that can be used by target cluster to interact with the source cluster
 	generatedKubeConfig := generateKubeConfig(token, sourceClusterDetails.apiEndpoint, sourceClusterDetails.namespace, insecureSkipTLSVerify)
 	generatedKubeConfigFormatted, err := clientcmd.Write(*generatedKubeConfig)
 	if err != nil {
 		return err
 	}
 
-	// Create or Update the secret on the clusterJoinTo
-	secretName := secretName(SANamespacedName, sourceClusterDetails.namespace, sourceClusterDetails.toolchainClusterName)
+	// Create or Update the secret on the targetCluster
+	secretName := secretName(SANamespacedName, sourceClusterDetails.toolchainClusterName)
 	term.Printlnf("creating %s secret with name %s/%s", sourceClusterType, targetClusterDetails.namespace, secretName)
 	kubeConfigSecret := &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: targetClusterDetails.namespace}}
 	_, err = controllerutil.CreateOrUpdate(context.TODO(), targetClusterDetails.client, kubeConfigSecret, func() error {
@@ -199,7 +199,7 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 	// The creation of the toolchaincluster is just temporary until we implement https://issues.redhat.com/browse/KUBESAW-44,
 	// the creation logic will be moved to the toolchaincluster_resource controller in toolchain-common and will be based on the secret created above.
 	//
-	// create/update toolchaincluster on the clusterJoinTo
+	// create/update toolchaincluster on the targetCluster
 	term.Printlnf("creating ToolchainCluster representation of %s in %s:", sourceClusterType, targetClusterDetails.toolchainClusterName)
 	toolchainClusterCR := &toolchainv1alpha1.ToolchainCluster{ObjectMeta: metav1.ObjectMeta{Name: sourceClusterDetails.toolchainClusterName, Namespace: targetClusterDetails.namespace}}
 	_, err = controllerutil.CreateOrUpdate(context.TODO(), targetClusterDetails.client, toolchainClusterCR, func() error {
@@ -234,8 +234,8 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 	return err
 }
 
-func secretName(SANamespacedName runtimeclient.ObjectKey, joiningOperatorNamespace string, joiningClusterName string) string {
-	secretName := SANamespacedName.Name + "-" + joiningOperatorNamespace + "-" + joiningClusterName
+func secretName(SANamespacedName runtimeclient.ObjectKey, sourceClusterName string) string {
+	secretName := SANamespacedName.Name + "-" + sourceClusterName
 	return secretName
 }
 
