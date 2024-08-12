@@ -76,7 +76,7 @@ func NewRegisterMemberCmd() *cobra.Command {
 	}
 
 	// keep these values in sync with the values in defaultRegisterMemberArgs() function in the tests.
-	defaultTimeout := 5 * time.Minute
+	defaultTimeout := 2 * time.Minute
 	defaultLetsEncrypt := true
 	defaultNameSuffix := ""
 	defaultHostNs := "toolchain-host-operator"
