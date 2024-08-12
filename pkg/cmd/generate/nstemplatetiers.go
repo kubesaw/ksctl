@@ -29,11 +29,8 @@ func NewNSTemplateTiersCmd() *cobra.Command {
 			return NSTemplateTiers(term, source, outDir, hostNs)
 		},
 	}
-	command.Flags().StringVarP(&source, "source", "s", "", "The source of NSTemplateTier templates")
 	command.Flags().StringVarP(&outDir, "out-dir", "o", "", "Directory where generated manifests should be stored")
 	command.Flags().StringVar(&hostNs, "host-namespace", "toolchain-host-operator", "Host operator namespace to be set in the generated manifests")
-
-	flags.MustMarkRequired(command, "source")
 	flags.MustMarkRequired(command, "out-dir")
 
 	return command
