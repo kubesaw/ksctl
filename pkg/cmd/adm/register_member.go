@@ -212,7 +212,7 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 	secretName := secretName(SANamespacedName, joiningClusterDetails.OperatorNamespace, joiningClusterDetails.Name)
 	term.Printlnf("creating %s secret with name %s/%s", joiningClusterType, clusterJoinToDetails.OperatorNamespace, secretName)
 	kubeConfigSecret := &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: clusterJoinToDetails.OperatorNamespace}}
-	op, err := controllerutil.CreateOrUpdate(context.TODO(), clusterJoinToDetails.KubeClient, kubeConfigSecret, func() error {
+	_, err = controllerutil.CreateOrUpdate(context.TODO(), clusterJoinToDetails.KubeClient, kubeConfigSecret, func() error {
 
 		// update the secret label
 		labels := kubeConfigSecret.GetLabels()
@@ -242,7 +242,7 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 	// create/update toolchaincluster on the clusterJoinTo
 	term.Printlnf("creating ToolchainCluster representation of %s in %s:", joiningClusterType, clusterJoinToDetails.Name)
 	toolchainClusterCR := &toolchainv1alpha1.ToolchainCluster{ObjectMeta: metav1.ObjectMeta{Name: joiningClusterDetails.Name, Namespace: clusterJoinToDetails.OperatorNamespace}}
-	op, err = controllerutil.CreateOrUpdate(context.TODO(), clusterJoinToDetails.KubeClient, toolchainClusterCR, func() error {
+	_, err = controllerutil.CreateOrUpdate(context.TODO(), clusterJoinToDetails.KubeClient, toolchainClusterCR, func() error {
 
 		// update the tc label
 		labels := toolchainClusterCR.GetLabels()
