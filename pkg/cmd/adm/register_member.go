@@ -234,7 +234,6 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 		return err
 	}
 	term.Println("Secret successfully reconciled")
-	term.Printlnf("operation", op)
 
 	// TODO -- temporary logic
 	// The creation of the toolchaincluster is just temporary until we implement https://issues.redhat.com/browse/KUBESAW-44,
@@ -269,7 +268,6 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 		return err
 	}
 	term.Println("Toolchaincluster successfully reconciled")
-	term.Printlnf("operation", op)
 	// -- end temporary logic
 
 	return err
