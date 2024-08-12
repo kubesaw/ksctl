@@ -184,6 +184,7 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 		// update the kubeconfig data
 		kubeConfigSecret.StringData = map[string]string{
 			"kubeconfig": string(generatedKubeConfigFormatted),
+			"token":      token,
 		}
 
 		return nil

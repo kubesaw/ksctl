@@ -503,6 +503,7 @@ func verifyToolchainClusterSecret(t *testing.T, fakeClient *test.FakeClient, sec
 	assert.Len(t, secrets.Items, 1)
 	assert.NotEmpty(t, secrets.Items[0].Labels)
 	assert.Equal(t, tcName, secrets.Items[0].Labels[toolchainv1alpha1.ToolchainClusterLabel])
+	assert.NotEmpty(t, secrets.Items[0].StringData["token"])
 	assert.NotEmpty(t, secrets.Items[0].StringData["kubeconfig"])
 	apiConfig, err := clientcmd.Load([]byte(secrets.Items[0].StringData["kubeconfig"]))
 	require.NoError(t, err)
