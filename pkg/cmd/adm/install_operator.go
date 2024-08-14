@@ -140,6 +140,7 @@ func createNamespaceIfNotFound(ctx *clicontext.TerminalContext, applyClient *com
 			return err
 		}
 	}
+	ctx.Println(fmt.Sprintf("Namespace %s created.", namespace))
 	return nil
 }
 
