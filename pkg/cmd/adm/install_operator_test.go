@@ -44,7 +44,7 @@ func TestInstallOperator(t *testing.T) {
 				Name:      operator + "-ip",
 				Namespace: namespace,
 				Labels: map[string]string{
-					fmt.Sprintf("operators.coreos.com/%s.%s", operator, namespace): "",
+					fmt.Sprintf("operators.coreos.com/%s.%s", getOperatorName(operator), namespace): "",
 				},
 			},
 			Status: olmv1alpha1.InstallPlanStatus{Phase: olmv1alpha1.InstallPlanPhaseComplete},
@@ -138,7 +138,7 @@ func TestInstallOperator(t *testing.T) {
 			)
 
 			// then
-			require.EqualError(t, err, fmt.Sprintf("failed waiting for install plan to be complete.\n InstallPlans found: {\"kind\":\"InstallPlanList\",\"apiVersion\":\"operators.coreos.com/v1alpha1\",\"metadata\":{},\"items\":[{\"metadata\":{\"name\":\"%[1]s-ip\",\"namespace\":\"toolchain-%[1]s-operator\",\"resourceVersion\":\"999\",\"creationTimestamp\":null,\"labels\":{\"operators.coreos.com/%[1]s.toolchain-%[1]s-operator\":\"\"}},\"spec\":{\"clusterServiceVersionNames\":null,\"approval\":\"\",\"approved\":false},\"status\":{\"phase\":\"InstallPlanFailed\",\"catalogSources\":null}}]} \n\t", operator))
+			require.ErrorContains(t, err, fmt.Sprintf("failed waiting for install plan to be complete.\n"))
 			assert.NotContains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
 		})
 

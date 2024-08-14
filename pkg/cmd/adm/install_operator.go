@@ -112,19 +112,24 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 	}
 
 	// install subscription
-	subscription := newSubscription(namespacedName, fmt.Sprintf("toolchain-%s-operator", operator), namespacedName.Name)
+	operatorName := getOperatorName(operator)
+	subscription := newSubscription(namespacedName, operatorName, namespacedName.Name)
 	ctx.Println(fmt.Sprintf("Creating Subscription %s in namespace %s.", subscription.Name, subscription.Namespace))
 	if _, err := applyClient.ApplyObject(ctx, subscription, commonclient.SaveConfiguration(false)); err != nil {
 		return err
 	}
 	ctx.Println(fmt.Sprintf("Subcription %s created.", subscription.Name))
-	if err := waitUntilInstallPlanIsComplete(ctx, applyClient, operator, namespace, timeout); err != nil {
+	if err := waitUntilInstallPlanIsComplete(ctx, applyClient, operatorName, namespace, timeout); err != nil {
 		return err
 	}
 	ctx.Println(fmt.Sprintf("InstallPlan for the %s operator has been completed", operator))
 	ctx.Println("")
 	ctx.Println(fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
 	return nil
+}
+
+func getOperatorName(operator string) string {
+	return fmt.Sprintf("toolchain-%s-operator", operator)
 }
 
 func createNamespaceIfNotFound(ctx *clicontext.TerminalContext, applyClient *commonclient.ApplyClient, namespace string) error {
