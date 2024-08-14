@@ -426,6 +426,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterHostSa) // we pre-provision only the host toolchaincluster ServiceAccount
+		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
@@ -433,32 +434,31 @@ func TestRegisterMember(t *testing.T) {
 
 		// then
 		require.Error(t, err)
-		assert.Contains(t, term.Output(), "The toolchaincluster-member ServiceAccount in the member cluster is not present.")
-		tcs := &toolchainv1alpha1.ToolchainClusterList{}
-		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-host-operator")))
-		assert.Empty(t, tcs.Items)
-		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-member-operator")))
-		assert.Empty(t, tcs.Items)
-	})
-
-	t.Run("reports error when host toolchaincluster ServiceAccount is not there", func(t *testing.T) {
-		// given
-		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa)  // we pre-provision only the member toolchaincluster ServiceAccount
-		mockCreateToolchainClusterInNamespaceWithReadyCondition(fakeClient, "toolchain-member-operator") // set to ready only the host toolchaincluster in member operator namespace
-		ctx := newExtendedCommandContext(term, newClient)
-
-		// when
-		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
-
-		// then
-		require.Error(t, err)
-		assert.Contains(t, term.Output(), "The toolchaincluster-host ServiceAccount in the host cluster is not present.")
+		assert.Contains(t, term.Output(), "The toolchain-member-operator/toolchaincluster-member ServiceAccount in the member cluster is not present.")
 		tcs := &toolchainv1alpha1.ToolchainClusterList{}
 		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-host-operator")))
 		assert.Empty(t, tcs.Items)
 		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-member-operator")))
 		assert.Len(t, tcs.Items, 1)
+	})
+
+	t.Run("reports error when host toolchaincluster ServiceAccount is not there", func(t *testing.T) {
+		// given
+		term := NewFakeTerminalWithResponse("Y")
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
+		ctx := newExtendedCommandContext(term, newClient)
+
+		// when
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
+
+		// then
+		require.Error(t, err)
+		assert.Contains(t, term.Output(), "The toolchain-host-operator/toolchaincluster-host ServiceAccount in the host cluster is not present.")
+		tcs := &toolchainv1alpha1.ToolchainClusterList{}
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-host-operator")))
+		assert.Empty(t, tcs.Items)
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-member-operator")))
+		assert.Empty(t, tcs.Items)
 	})
 }
 

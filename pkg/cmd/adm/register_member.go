@@ -128,36 +128,45 @@ func (v *registerMemberValidated) getSourceAndTargetClusters(sourceClusterType c
 // This ToolchainCluster CR stores a reference to the secret which contains the kubeconfig of the `sourceCluster`. Thus enables the `targetCluster` to interact with the `sourceCluster`.
 // - `targetCluster` is the cluster where we create the ToolchainCluster resource and the secret
 // - `sourceCluster` is the cluster referenced in the kubeconfig/ToolchainCluster of the `targetCluster`
-func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespacedName runtimeclient.ObjectKey, sourceClusterType configuration.ClusterType) error {
-	if !term.AskForConfirmation(ioutils.WithMessagef("register the %s cluster by creating a ToolchainCluster CR, a Secret and a new ServiceAccount resource?", sourceClusterType)) {
+func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, sourceClusterType configuration.ClusterType) error {
+	if !ctx.AskForConfirmation(ioutils.WithMessagef("register the %s cluster by creating a ToolchainCluster CR, a Secret and a new ServiceAccount resource?", sourceClusterType)) {
 		return nil
 	}
-
 	sourceClusterDetails, targetClusterDetails := v.getSourceAndTargetClusters(sourceClusterType)
+	// wait for the SA to be ready
+	toolchainClusterSAKey := runtimeclient.ObjectKey{
+		Name:      fmt.Sprintf("toolchaincluster-%s", sourceClusterType),
+		Namespace: sourceClusterDetails.namespace,
+	}
+	if err := waitForToolchainClusterSA(ctx.CommandContext, sourceClusterDetails.client, toolchainClusterSAKey, v.args.waitForReadyTimeout); err != nil {
+		ctx.Printlnf("The %s ServiceAccount in the %s cluster is not present.", toolchainClusterSAKey, sourceClusterType)
+		ctx.Printlnf("Please check the %s ToolchainCluster ServiceAccount in the %s %s cluster.", toolchainClusterSAKey, sourceClusterDetails.apiEndpoint, sourceClusterType)
+		return err
+	}
 	// source cluster details
-	term.Printlnf("API endpoint retrieved: %s", sourceClusterDetails.apiEndpoint)
-	term.Printlnf("joining cluster name: %s", sourceClusterDetails.toolchainClusterName)
+	ctx.Printlnf("API endpoint retrieved: %s", sourceClusterDetails.apiEndpoint)
+	ctx.Printlnf("joining cluster name: %s", sourceClusterDetails.toolchainClusterName)
 
 	// target to details
-	term.Printlnf("API endpoint of the cluster it is joining to: %s", targetClusterDetails.apiEndpoint)
-	term.Printlnf("the cluster name it is joining to: %s", targetClusterDetails.toolchainClusterName)
+	ctx.Printlnf("API endpoint of the cluster it is joining to: %s", targetClusterDetails.apiEndpoint)
+	ctx.Printlnf("the cluster name it is joining to: %s", targetClusterDetails.toolchainClusterName)
 
 	// generate a token that will be used for the kubeconfig
 	sourceTargetRestClient, err := newRestClient(sourceClusterDetails.kubeConfig)
 	if err != nil {
 		return err
 	}
-	token, err := generate.GetServiceAccountToken(sourceTargetRestClient, SANamespacedName, TokenExpirationDays)
+	token, err := generate.GetServiceAccountToken(sourceTargetRestClient, toolchainClusterSAKey, TokenExpirationDays)
 	if err != nil {
 		return err
 	}
 	// TODO drop this part together with the --lets-encrypt flag and start loading certificate from the kubeconfig as soon as ToolchainCluster controller supports loading certificates from kubeconfig
 	var insecureSkipTLSVerify bool
 	if v.args.useLetsEncrypt {
-		term.Printlnf("using let's encrypt certificate")
+		ctx.Printlnf("using let's encrypt certificate")
 		insecureSkipTLSVerify = false
 	} else {
-		term.Printlnf("setting insecure skip tls verification flags")
+		ctx.Printlnf("setting insecure skip tls verification flags")
 		insecureSkipTLSVerify = true
 	}
 	// generate the kubeconfig that can be used by target cluster to interact with the source cluster
@@ -168,8 +177,8 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 	}
 
 	// Create or Update the secret on the targetCluster
-	secretName := secretName(SANamespacedName, sourceClusterDetails.toolchainClusterName)
-	term.Printlnf("creating %s secret with name %s/%s", sourceClusterType, targetClusterDetails.namespace, secretName)
+	secretName := secretName(toolchainClusterSAKey, sourceClusterDetails.toolchainClusterName)
+	ctx.Printlnf("creating %s secret with name %s/%s", sourceClusterType, targetClusterDetails.namespace, secretName)
 	kubeConfigSecret := &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: targetClusterDetails.namespace}}
 	_, err = controllerutil.CreateOrUpdate(context.TODO(), targetClusterDetails.client, kubeConfigSecret, func() error {
 
@@ -193,14 +202,14 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 	if err != nil {
 		return err
 	}
-	term.Println("Secret successfully reconciled")
+	ctx.Println("Secret successfully reconciled")
 
 	// TODO -- temporary logic
 	// The creation of the toolchaincluster is just temporary until we implement https://issues.redhat.com/browse/KUBESAW-44,
 	// the creation logic will be moved to the toolchaincluster_resource controller in toolchain-common and will be based on the secret created above.
 	//
 	// create/update toolchaincluster on the targetCluster
-	term.Printlnf("creating ToolchainCluster representation of %s in %s:", sourceClusterType, targetClusterDetails.toolchainClusterName)
+	ctx.Printlnf("creating ToolchainCluster representation of %s in %s:", sourceClusterType, targetClusterDetails.toolchainClusterName)
 	toolchainClusterCR := &toolchainv1alpha1.ToolchainCluster{ObjectMeta: metav1.ObjectMeta{Name: sourceClusterDetails.toolchainClusterName, Namespace: targetClusterDetails.namespace}}
 	_, err = controllerutil.CreateOrUpdate(context.TODO(), targetClusterDetails.client, toolchainClusterCR, func() error {
 
@@ -224,7 +233,7 @@ func (v *registerMemberValidated) addCluster(term ioutils.Terminal, SANamespaced
 	if err != nil {
 		return err
 	}
-	term.Println("Toolchaincluster successfully reconciled")
+	ctx.Println("Toolchaincluster successfully reconciled")
 	// -- end temporary logic
 
 	return err
@@ -481,20 +490,10 @@ func (v *registerMemberValidated) confirmationPrompt() ioutils.ConfirmationMessa
 }
 
 func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
-	// wait for the toolchaincluster-member SA to be ready
-	toolchainClusterSAKey := runtimeclient.ObjectKey{
-		Name:      "toolchaincluster-member",
-		Namespace: v.args.memberNamespace,
-	}
-	if err := waitForToolchainClusterSA(ctx.CommandContext, v.memberClusterData.client, toolchainClusterSAKey, v.args.waitForReadyTimeout); err != nil {
-		ctx.Println("The toolchaincluster-member ServiceAccount in the member cluster is not present.")
-		ctx.Printlnf("Please check the %s ToolchainCluster ServiceAccount in the %s member cluster.", toolchainClusterSAKey, v.memberClusterData.apiEndpoint)
-		return err
-	}
 	// add the host entry to the member cluster first. We assume that there is just 1 toolchain cluster entry in the member
 	// cluster (i.e. it just points back to the host), so there's no need to determine the number of entries with the same
 	// API endpoint.
-	if err := v.addCluster(ctx, toolchainClusterSAKey, configuration.Host); err != nil {
+	if err := v.addCluster(ctx, configuration.Host); err != nil {
 		return err
 	}
 	hostToolchainClusterKey := runtimeclient.ObjectKey{
@@ -507,22 +506,12 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 		return err
 	}
 
-	// wait for the toolchaincluster-host SA to be ready
-	toolchainClusterSAKey = runtimeclient.ObjectKey{
-		Name:      "toolchaincluster-host",
-		Namespace: v.args.hostNamespace,
-	}
-	if err := waitForToolchainClusterSA(ctx.CommandContext, v.hostClusterData.client, toolchainClusterSAKey, v.args.waitForReadyTimeout); err != nil {
-		ctx.Println("The toolchaincluster-host ServiceAccount in the host cluster is not present.")
-		ctx.Printlnf("Please check the %s ToolchainCluster ServiceAccount in the %s host cluster.", toolchainClusterSAKey, v.hostClusterData.apiEndpoint)
-		return err
-	}
 	// add the member entry in the host cluster
 	memberToolchainClusterKey := runtimeclient.ObjectKey{
 		Name:      v.memberClusterData.toolchainClusterName,
 		Namespace: v.hostClusterData.namespace,
 	}
-	if err := v.addCluster(ctx, toolchainClusterSAKey, configuration.Member); err != nil {
+	if err := v.addCluster(ctx, configuration.Member); err != nil {
 		return err
 	}
 
