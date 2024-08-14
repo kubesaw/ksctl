@@ -49,8 +49,11 @@ func TestInstallOperator(t *testing.T) {
 			},
 			Status: olmv1alpha1.InstallPlanStatus{Phase: olmv1alpha1.InstallPlanPhaseComplete},
 		}
-
 		timeout := 1 * time.Second
+		args := installArgs{
+			kubeConfig: kubeconfig,
+			namespace:  namespace,
+		}
 
 		t.Run("install "+operator+" operator is successful", func(t *testing.T) {
 			// given
@@ -60,14 +63,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, installArgs{
-				kubeConfig: kubeconfig,
-				namespace:  namespace,
-			},
-				operator,
-				timeout,
-				commonclient.NewApplyClient(fakeClient),
-			)
+			err := installOperator(ctx, args, operator, timeout, commonclient.NewApplyClient(fakeClient))
 
 			// then
 			require.NoError(t, err)
@@ -101,14 +97,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, installArgs{
-				kubeConfig: kubeconfig,
-				namespace:  namespace,
-			},
-				operator,
-				timeout,
-				commonclient.NewApplyClient(fakeClient),
-			)
+			err := installOperator(ctx, args, operator, timeout, commonclient.NewApplyClient(fakeClient))
 
 			// then
 			require.EqualError(t, err, fmt.Sprintf("failed waiting for catalog source to be ready.\n CatalogSrouce found: {\"kind\":\"CatalogSource\",\"apiVersion\":\"operators.coreos.com/v1alpha1\",\"metadata\":{\"name\":\"%[1]s-operator\",\"namespace\":\"toolchain-%[1]s-operator\",\"resourceVersion\":\"1\",\"generation\":1,\"creationTimestamp\":null},\"spec\":{\"sourceType\":\"grpc\",\"image\":\"quay.io/codeready-toolchain/%[1]s-operator-index:latest\",\"updateStrategy\":{\"registryPoll\":{\"interval\":\"5m0s\"}},\"displayName\":\"KubeSaw %[1]s Operator\",\"publisher\":\"Red Hat\",\"icon\":{\"base64data\":\"\",\"mediatype\":\"\"}},\"status\":{}} \n\t", operator))
@@ -128,14 +117,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, installArgs{
-				kubeConfig: kubeconfig,
-				namespace:  namespace,
-			},
-				operator,
-				timeout,
-				commonclient.NewApplyClient(fakeClient),
-			)
+			err := installOperator(ctx, args, operator, timeout, commonclient.NewApplyClient(fakeClient))
 
 			// then
 			require.ErrorContains(t, err, fmt.Sprintf("failed waiting for install plan to be complete.\n"))
@@ -174,11 +156,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, installArgs{namespace: namespace, kubeConfig: kubeconfig},
-				operator,
-				1*time.Second,
-				commonclient.NewApplyClient(fakeClient),
-			)
+			err := installOperator(ctx, args, operator, timeout, commonclient.NewApplyClient(fakeClient))
 
 			// then
 			require.NoError(t, err)
@@ -197,10 +175,9 @@ func TestInstallOperator(t *testing.T) {
 			// when
 			err := installOperator(ctx, installArgs{namespace: "", kubeConfig: kubeconfig}, // we provide no namespace
 				operator,
-				1*time.Second,
+				timeout,
 				commonclient.NewApplyClient(fakeClient),
 			)
-
 			// then
 			require.NoError(t, err)
 			assert.Contains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace)) // and it's installed in the expected namespace
