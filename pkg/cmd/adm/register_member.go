@@ -175,7 +175,7 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	}
 
 	// Create or Update the secret on the targetCluster
-	secretName := secretName(toolchainClusterSAKey, sourceClusterDetails.toolchainClusterName)
+	secretName := toolchainClusterSAKey.Name + "-" + sourceClusterDetails.toolchainClusterName
 	ctx.Printlnf("creating %s secret with name %s/%s", sourceClusterType, targetClusterDetails.namespace, secretName)
 	kubeConfigSecret := &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: targetClusterDetails.namespace}}
 	_, err = controllerutil.CreateOrUpdate(context.TODO(), targetClusterDetails.client, kubeConfigSecret, func() error {
