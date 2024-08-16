@@ -237,11 +237,6 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	return err
 }
 
-func secretName(SANamespacedName runtimeclient.ObjectKey, sourceClusterName string) string {
-	secretName := SANamespacedName.Name + "-" + sourceClusterName
-	return secretName
-}
-
 func newRestClient(kubeConfigPath string) (*rest.RESTClient, error) {
 	restClientConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
 	restClientConfig.ContentConfig = rest.ContentConfig{
