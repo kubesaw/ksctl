@@ -148,8 +148,8 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	ctx.Printlnf("The API endpoint of the source cluster: %s", sourceClusterDetails.apiEndpoint)
 
 	// target to details
-	ctx.Printlnf("API endpoint of the cluster it is joining to: %s", targetClusterDetails.apiEndpoint)
-	ctx.Printlnf("the cluster name it is joining to: %s", targetClusterDetails.toolchainClusterName)
+	ctx.Printlnf("The name of the target cluster: %s", targetClusterDetails.toolchainClusterName)
+	ctx.Printlnf("The API endpoint of the target cluster: %s", targetClusterDetails.apiEndpoint)
 
 	// generate a token that will be used for the kubeconfig
 	sourceTargetRestClient, err := newRestClient(sourceClusterDetails.kubeConfig)
