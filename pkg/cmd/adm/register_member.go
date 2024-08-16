@@ -144,8 +144,8 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 		return err
 	}
 	// source cluster details
-	ctx.Printlnf("API endpoint retrieved: %s", sourceClusterDetails.apiEndpoint)
-	ctx.Printlnf("joining cluster name: %s", sourceClusterDetails.toolchainClusterName)
+	ctx.Printlnf("The source cluster name: %s", sourceClusterDetails.toolchainClusterName)
+	ctx.Printlnf("The API endpoint of the source cluster: %s", sourceClusterDetails.apiEndpoint)
 
 	// target to details
 	ctx.Printlnf("API endpoint of the cluster it is joining to: %s", targetClusterDetails.apiEndpoint)
