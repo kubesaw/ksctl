@@ -129,9 +129,7 @@ func (v *registerMemberValidated) getSourceAndTargetClusters(sourceClusterType c
 // - `targetCluster` is the cluster where we create the ToolchainCluster resource and the secret
 // - `sourceCluster` is the cluster referenced in the kubeconfig/ToolchainCluster of the `targetCluster`
 func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, sourceClusterType configuration.ClusterType) error {
-	if !ctx.AskForConfirmation(ioutils.WithMessagef("register the %s cluster by creating a ToolchainCluster CR, a Secret and a new ServiceAccount resource?", sourceClusterType)) {
-		return nil
-	}
+	ctx.PrintContextSeparatorf("Ensuring connection from the %s cluster to the %s via a ToolchainCluster CR, a Secret, and a new ServiceAccount resource", sourceClusterType, sourceClusterType.TheOtherType())
 	sourceClusterDetails, targetClusterDetails := v.getSourceAndTargetClusters(sourceClusterType)
 	// wait for the SA to be ready
 	toolchainClusterSAKey := runtimeclient.ObjectKey{
