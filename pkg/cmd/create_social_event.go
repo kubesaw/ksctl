@@ -21,13 +21,13 @@ import (
 )
 
 func NewCreateSocialEventCmd() *cobra.Command {
-	var startDate string       // format" YYYY-MM-DD
-	var endDate string         // format" YYYY-MM-DD
-	var maxAttendees int       // must be greater than 0
-	var description string     // optional
-	var userTier string        // optional, default to `base`
-	var spaceTier string       // optional, default to `deactivate30`
-	var preferSameCluster bool // optional, default to `false`
+	var startDate string     // format" YYYY-MM-DD
+	var endDate string       // format" YYYY-MM-DD
+	var maxAttendees int     // must be greater than 0
+	var description string   // optional
+	var userTier string      // optional, default to `base`
+	var spaceTier string     // optional, default to `deactivate30`
+	var targetCluster string // optional
 
 	command := &cobra.Command{
 		Use:   "create-event --description=<description> --start-date=<YYYY-MM-DD> --end-date=<YYYY-MM-DD> --max-attendees=<int>",
@@ -37,7 +37,7 @@ func NewCreateSocialEventCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
-			return CreateSocialEvent(ctx, startDate, endDate, description, userTier, spaceTier, maxAttendees, preferSameCluster)
+			return CreateSocialEvent(ctx, startDate, endDate, description, userTier, spaceTier, maxAttendees, targetCluster)
 		},
 	}
 	command.Flags().StringVar(&startDate, "start-date", "", "start date of the event/when the activation code becomes valid (YYYY-MM-DD)")
@@ -49,11 +49,22 @@ func NewCreateSocialEventCmd() *cobra.Command {
 	command.Flags().StringVar(&description, "description", "", "event description")
 	command.Flags().StringVar(&userTier, "user-tier", "deactivate30", "tier to provision users")
 	command.Flags().StringVar(&spaceTier, "space-tier", "base", "tier to provision spaces")
-	command.Flags().BoolVar(&preferSameCluster, "prefer-same-cluster", false, "if true, a best effort is made to provision all attendees on the same cluster")
+	command.Flags().StringVar(&targetCluster, "target-cluster", "", "the cluster in which the user/space should be provisioned in. If not set then the target cluster will be picked automatically")
 	return command
 }
 
-func CreateSocialEvent(ctx *clicontext.CommandContext, startDate, endDate, description, userTier, spaceTier string, maxAttendees int, preferSameCluster bool) error {
+func CreateSocialEvent(ctx *clicontext.CommandContext, startDate, endDate, description, userTier, spaceTier string, maxAttendees int, targetCluster string) error {
+	if targetCluster != "" {
+		// Verify the target cluster name
+		targetCfg, err := configuration.LoadClusterAccessDefinition(ctx, targetCluster)
+		if err != nil {
+			return err
+		}
+		if targetCfg.ClusterType != configuration.Member {
+			return fmt.Errorf("cluster '%s' is not a member cluster", targetCluster)
+		}
+	}
+
 	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
 	if err != nil {
 		return err
@@ -101,13 +112,13 @@ func CreateSocialEvent(ctx *clicontext.CommandContext, startDate, endDate, descr
 			Name:      code,
 		},
 		Spec: toolchainv1alpha1.SocialEventSpec{
-			StartTime:         metav1.NewTime(start),
-			EndTime:           metav1.NewTime(end),
-			MaxAttendees:      maxAttendees,
-			UserTier:          userTier,
-			SpaceTier:         spaceTier,
-			Description:       description,
-			PreferSameCluster: preferSameCluster,
+			StartTime:     metav1.NewTime(start),
+			EndTime:       metav1.NewTime(end),
+			MaxAttendees:  maxAttendees,
+			UserTier:      userTier,
+			SpaceTier:     spaceTier,
+			Description:   description,
+			TargetCluster: targetCluster,
 		},
 	}
 
