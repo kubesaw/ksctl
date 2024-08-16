@@ -41,7 +41,7 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint, suffix string) (str
 
 	maxAllowedClusterHostNameLen := K8sLabelWithoutSuffixMaxLength - fixedLength // I think 62 is here, because we might default the suffix to "1" later on
 
-	clusterHostName, err := GetClusterHostName(serverAPIEndpoint, maxAllowedClusterHostNameLen, suffix)
+	clusterHostName, err := getClusterHostName(serverAPIEndpoint, maxAllowedClusterHostNameLen, suffix)
 	if err != nil {
 		return "", err
 	}
@@ -49,7 +49,7 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint, suffix string) (str
 	return fmt.Sprintf("%s-%s", clusterType, clusterHostName), nil
 }
 
-func GetClusterHostName(serverAPIEndpoint string, maxAllowedClusterHostNameLen int, suffix string) (string, error) {
+func getClusterHostName(serverAPIEndpoint string, maxAllowedClusterHostNameLen int, suffix string) (string, error) {
 	clusterHostName, err := sanitizeEndpointForUsageAsName(serverAPIEndpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to sanitize the endpoint for naming purposes: %w", err)
