@@ -138,7 +138,7 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	}
 	if err := waitForToolchainClusterSA(ctx.CommandContext, sourceClusterDetails.client, toolchainClusterSAKey, v.args.waitForReadyTimeout); err != nil {
 		ctx.Printlnf("The %s ServiceAccount is not present in the %s cluster.", toolchainClusterSAKey, sourceClusterType)
-		ctx.Printlnf"Please check the %[1]s ToolchainCluster ServiceAccount in the %[2]s %[3]s cluster or the deployment of the %[3]s operator.", toolchainClusterSAKey, sourceClusterDetails.apiEndpoint, sourceClusterType)
+		ctx.Printlnf("Please check the %[1]s ToolchainCluster ServiceAccount in the %[2]s %[3]s cluster or the deployment of the %[3]s operator.", toolchainClusterSAKey, sourceClusterDetails.apiEndpoint, sourceClusterType)
 		return err
 	}
 	// source cluster details
@@ -258,34 +258,29 @@ func newRestClient(kubeConfigPath string) (*rest.RESTClient, error) {
 	return restClient, nil
 }
 
-func generateKubeConfig(token, APIEndpoint, namespace string, insecureSkipTLSVerify bool) *clientcmdapi.Config {
+func generateKubeConfig(token, apiEndpoint, namespace string, insecureSkipTLSVerify bool) *clientcmdapi.Config {
 	// create apiConfig based on the secret content
-	clusters := make(map[string]*clientcmdapi.Cluster, 1)
-	clusters["cluster"] = &clientcmdapi.Cluster{
-		Server:                APIEndpoint,
-		InsecureSkipTLSVerify: insecureSkipTLSVerify,
-	}
-
-	contexts := make(map[string]*clientcmdapi.Context, 1)
-	contexts["ctx"] = &clientcmdapi.Context{
-		Cluster:   "cluster",
-		Namespace: namespace,
-		AuthInfo:  "auth",
-	}
-	authInfos := make(map[string]*clientcmdapi.AuthInfo, 1)
-	authInfos["auth"] = &clientcmdapi.AuthInfo{
-		Token: token,
-	}
-
-	clientConfig := &clientcmdapi.Config{
-		Kind:           "Config",
-		APIVersion:     "v1",
-		Clusters:       clusters,
-		Contexts:       contexts,
+	return &clientcmdapi.Config{
+		Contexts: map[string]*clientcmdapi.Context{
+			"ctx": {
+				Cluster:   "cluster",
+				Namespace: namespace,
+				AuthInfo:  "auth",
+			},
+		},
 		CurrentContext: "ctx",
-		AuthInfos:      authInfos,
+		Clusters: map[string]*clientcmdapi.Cluster{
+			"cluster": {
+				Server:                apiEndpoint,
+				InsecureSkipTLSVerify: insecureSkipTLSVerify,
+			},
+		},
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			"auth": {
+				Token: token,
+			},
+		},
 	}
-	return clientConfig
 }
 
 // waitForToolchainClusterSA waits for the toolchaincluster service account to be present

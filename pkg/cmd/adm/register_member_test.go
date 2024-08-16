@@ -209,8 +209,8 @@ func TestRegisterMember(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Contains(t, term.Output(), "joining cluster name: member-cool-server.com2")
-		assert.Contains(t, term.Output(), "the cluster name it is joining to: member-cool-server.com")
+		assert.Contains(t, term.Output(), "source cluster name: member-cool-server.com2")
+		assert.Contains(t, term.Output(), "The name of the target cluster: member-cool-server.com")
 		assert.Contains(t, term.Output(), "Modify and apply the following SpaceProvisionerConfig to the host cluster")
 		assert.Contains(t, term.Output(), "kind: SpaceProvisionerConfig")
 		assert.Contains(t, term.Output(), "toolchainCluster: member-cool-server.com2")
@@ -434,7 +434,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// then
 		require.Error(t, err)
-		assert.Contains(t, term.Output(), "The toolchain-member-operator/toolchaincluster-member ServiceAccount in the member cluster is not present.")
+		assert.Contains(t, term.Output(), "The toolchain-member-operator/toolchaincluster-member ServiceAccount is not present in the member cluster.")
 		tcs := &toolchainv1alpha1.ToolchainClusterList{}
 		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-host-operator")))
 		assert.Empty(t, tcs.Items)
@@ -453,7 +453,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// then
 		require.Error(t, err)
-		assert.Contains(t, term.Output(), "The toolchain-host-operator/toolchaincluster-host ServiceAccount in the host cluster is not present.")
+		assert.Contains(t, term.Output(), "The toolchain-host-operator/toolchaincluster-host ServiceAccount is not present in the host cluster.")
 		tcs := &toolchainv1alpha1.ToolchainClusterList{}
 		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-host-operator")))
 		assert.Empty(t, tcs.Items)
