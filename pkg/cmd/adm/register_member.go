@@ -139,7 +139,7 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 		Namespace: sourceClusterDetails.namespace,
 	}
 	if err := waitForToolchainClusterSA(ctx.CommandContext, sourceClusterDetails.client, toolchainClusterSAKey, v.args.waitForReadyTimeout); err != nil {
-		ctx.Printlnf("The %s ServiceAccount in the %s cluster is not present.", toolchainClusterSAKey, sourceClusterType)
+		ctx.Printlnf("The %s ServiceAccount is not present in the %s cluster.", toolchainClusterSAKey, sourceClusterType)
 		ctx.Printlnf("Please check the %s ToolchainCluster ServiceAccount in the %s %s cluster.", toolchainClusterSAKey, sourceClusterDetails.apiEndpoint, sourceClusterType)
 		return err
 	}
