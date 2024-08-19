@@ -54,17 +54,6 @@ func NewCreateSocialEventCmd() *cobra.Command {
 }
 
 func CreateSocialEvent(ctx *clicontext.CommandContext, startDate, endDate, description, userTier, spaceTier string, maxAttendees int, targetCluster string) error {
-	if targetCluster != "" {
-		// Verify the target cluster name
-		targetCfg, err := configuration.LoadClusterAccessDefinition(ctx, targetCluster)
-		if err != nil {
-			return err
-		}
-		if targetCfg.ClusterType != configuration.Member {
-			return fmt.Errorf("cluster '%s' is not a member cluster", targetCluster)
-		}
-	}
-
 	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
 	if err != nil {
 		return err
@@ -112,14 +101,19 @@ func CreateSocialEvent(ctx *clicontext.CommandContext, startDate, endDate, descr
 			Name:      code,
 		},
 		Spec: toolchainv1alpha1.SocialEventSpec{
-			StartTime:     metav1.NewTime(start),
-			EndTime:       metav1.NewTime(end),
-			MaxAttendees:  maxAttendees,
-			UserTier:      userTier,
-			SpaceTier:     spaceTier,
-			Description:   description,
-			TargetCluster: targetCluster,
+			StartTime:    metav1.NewTime(start),
+			EndTime:      metav1.NewTime(end),
+			MaxAttendees: maxAttendees,
+			UserTier:     userTier,
+			SpaceTier:    spaceTier,
+			Description:  description,
 		},
+	}
+	if targetCluster != "" {
+		se.Spec.TargetCluster, err = configuration.GetMemberClusterName(ctx, targetCluster)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := cl.Create(context.TODO(), se); err != nil {

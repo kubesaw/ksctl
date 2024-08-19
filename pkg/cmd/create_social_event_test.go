@@ -50,7 +50,7 @@ func TestCreateSocialEvent(t *testing.T) {
 			assert.Equal(t, userTier.Name, event.Spec.UserTier)
 			assert.Equal(t, spaceTier.Name, event.Spec.SpaceTier)
 			assert.Equal(t, maxAttendees, event.Spec.MaxAttendees)
-			assert.Equal(t, "member-1", event.Spec.TargetCluster)
+			assert.Equal(t, "member-cool-server.com", event.Spec.TargetCluster)
 			assert.Empty(t, event.Spec.Description)
 		})
 
@@ -174,8 +174,7 @@ func TestCreateSocialEvent(t *testing.T) {
 				err := cmd.CreateSocialEvent(ctx, startDate, endDate, "", userTier.Name, spaceTier.Name, maxAttendees, "unknown-cluster")
 
 				// then
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), "the provided cluster-name 'unknown-cluster' is not present in your ksctl.yaml file. The available cluster names are\n------------------------\nhost\nmember-1\n------------------------")
+				require.Error(t, err, "the provided cluster-name 'unknown-cluster' is not present in your ksctl.yaml file. The available cluster names are\n------------------------\nhost\nmember-1\n------------------------")
 			})
 
 			t.Run("not a member target cluster", func(t *testing.T) {
@@ -183,8 +182,7 @@ func TestCreateSocialEvent(t *testing.T) {
 				err := cmd.CreateSocialEvent(ctx, startDate, endDate, "", userTier.Name, spaceTier.Name, maxAttendees, "host")
 
 				// then
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), "cluster 'host' is not a member cluster")
+				require.Error(t, err, "expected target cluster to have clusterType 'member'")
 			})
 		})
 	})

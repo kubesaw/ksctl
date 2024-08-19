@@ -238,3 +238,17 @@ func (c ClusterConfig) Path(term ioutils.Terminal, clusterConfigName, section, c
 	}
 	return fmt.Sprintf("%s/%s/%s/%s", baseDir, section, c.ClusterType, component), nil
 }
+
+// GetMemberClusterName returns the full name of the member cluster (used in ToolchainCluster CRs)
+// for the provided shot cluster name such as member-1 (used in ksctl.yaml)
+func GetMemberClusterName(term ioutils.Terminal, ctlClusterName string) (string, error) {
+	memberClusterConfig, err := LoadClusterConfig(term, ctlClusterName)
+	if err != nil {
+		return "", err
+	}
+	// target cluster must have 'member' cluster type
+	if memberClusterConfig.ClusterType != Member {
+		return "", fmt.Errorf("expected target cluster to have clusterType '%s', actual: '%s'", Member, memberClusterConfig.ClusterType)
+	}
+	return "member-" + memberClusterConfig.ServerName, nil
+}
