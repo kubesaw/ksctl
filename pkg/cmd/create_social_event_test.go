@@ -174,7 +174,7 @@ func TestCreateSocialEvent(t *testing.T) {
 				err := cmd.CreateSocialEvent(ctx, startDate, endDate, "", userTier.Name, spaceTier.Name, maxAttendees, "unknown-cluster")
 
 				// then
-				require.Error(t, err, "the provided cluster-name 'unknown-cluster' is not present in your ksctl.yaml file. The available cluster names are\n------------------------\nhost\nmember-1\n------------------------")
+				require.EqualError(t, err, "the provided cluster-name 'unknown-cluster' is not present in your ksctl.yaml file. The available cluster names are\n------------------------\nhost\nmember-1\n------------------------")
 			})
 
 			t.Run("not a member target cluster", func(t *testing.T) {
@@ -182,7 +182,7 @@ func TestCreateSocialEvent(t *testing.T) {
 				err := cmd.CreateSocialEvent(ctx, startDate, endDate, "", userTier.Name, spaceTier.Name, maxAttendees, "host")
 
 				// then
-				require.Error(t, err, "expected target cluster to have clusterType 'member'")
+				require.EqualError(t, err, "expected target cluster to have clusterType 'member', actual: 'host'")
 			})
 		})
 	})
