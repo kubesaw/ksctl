@@ -43,7 +43,7 @@ jobs:
           image: codeready-toolchain/user-identity-mapper
           tags: latest
           containerfiles: |
-            cmd/user-identity-mapper/Dockerfile
+            user-identity-mapper/Dockerfile
 
       - name: Log into quay.io
         uses: redhat-actions/podman-login@v1

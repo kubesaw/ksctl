@@ -14,7 +14,7 @@ COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
 COPY pkg  ./pkg
-COPY cmd/user-identity-mapper ./cmd/user-identity-mapper
+COPY user-identity-mapper/cmd ./cmd/user-identity-mapper
 
 RUN go build -v -o user-identity-mapper cmd/user-identity-mapper/*.go
 

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
-	useridentitymapper "github.com/kubesaw/ksctl/cmd/user-identity-mapper"
+	useridentitymapper "github.com/kubesaw/ksctl/user-identity-mapper/cmd"
 
 	"github.com/charmbracelet/log"
 	userv1 "github.com/openshift/api/user/v1"
