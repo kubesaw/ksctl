@@ -234,7 +234,6 @@ func TestGetServiceAccountToken(t *testing.T) {
 	setupGockForServiceAccounts(t, "https://api.example.com", 365, newServiceAccount("openshift-customer-monitoring", "loki"))
 	t.Cleanup(gock.OffAll)
 	cl, err := newGockRESTClient("secret_token", "https://api.example.com")
-	// gock.Observe(gock.DumpRequest)
 	require.NoError(t, err)
 	// when
 	actualToken, err := getServiceAccountToken(cl, types.NamespacedName{
