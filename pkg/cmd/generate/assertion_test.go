@@ -325,11 +325,11 @@ type groupsUserBelongsTo []string
 type extraGroupsPresentInCluster []string
 
 func groups(groups ...string) groupsUserBelongsTo {
-	return groupsUserBelongsTo(groups)
+	return groups
 }
 
 func extraGroupsUserIsNotPartOf(groups ...string) extraGroupsPresentInCluster {
-	return extraGroupsPresentInCluster(groups)
+	return groups
 }
 
 func (a userAssertion) belongsToGroups(groups groupsUserBelongsTo, extraGroups extraGroupsPresentInCluster) userAssertion {
