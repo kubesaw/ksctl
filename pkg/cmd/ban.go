@@ -28,8 +28,6 @@ only one parameter which is the name of the UserSignup to be used for banning`,
 	}
 }
 
-const BannedByLabel = toolchainv1alpha1.LabelKeyPrefix + "banned-by"
-
 func Ban(ctx *clicontext.CommandContext, args ...string) error {
 	return CreateBannedUser(ctx, args[0], func(userSignup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 		if _, exists := bannedUser.Labels[toolchainv1alpha1.BannedUserPhoneNumberHashLabelKey]; !exists {

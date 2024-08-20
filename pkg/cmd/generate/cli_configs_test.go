@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 )
 
@@ -232,9 +233,7 @@ func TestGetServiceAccountToken(t *testing.T) {
 
 	setupGockForServiceAccounts(t, "https://api.example.com", 365, newServiceAccount("openshift-customer-monitoring", "loki"))
 	t.Cleanup(gock.OffAll)
-	cl, err := client.NewRESTClient("secret_token", "https://api.example.com")
-	cl.Client.Transport = gock.DefaultTransport // make sure that the underlying client's request are intercepted by Gock
-	// gock.Observe(gock.DumpRequest)
+	cl, err := newGockRESTClient("secret_token", "https://api.example.com")
 	require.NoError(t, err)
 	// when
 	actualToken, err := GetServiceAccountToken(cl, types.NamespacedName{
@@ -245,6 +244,19 @@ func TestGetServiceAccountToken(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	assert.Equal(t, "token-secret-for-loki", actualToken) // `token-secret-for-loki` is the answered mock by Gock in `setupGockForServiceAccounts(...)`
+}
+
+func newGockRESTClient(token, apiEndpoint string) (*rest.RESTClient, error) {
+	config := &rest.Config{
+		BearerToken: token,
+		Host:        apiEndpoint,
+		Transport:   gock.DefaultTransport, // make sure that the underlying client's request are intercepted by Gock
+		ContentConfig: rest.ContentConfig{
+			GroupVersion:         &authv1.SchemeGroupVersion,
+			NegotiatedSerializer: scheme.Codecs,
+		},
+	}
+	return rest.RESTClientFor(config)
 }
 
 func verifyKsctlConfigFiles(t *testing.T, tempDir string, clusterAssertions ...userConfigClusterAssertions) {

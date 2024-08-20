@@ -13,6 +13,7 @@ import (
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/ghodss/yaml"
 	configv1 "github.com/openshift/api/config/v1"
@@ -23,7 +24,6 @@ import (
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	errs "github.com/pkg/errors"
-	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -68,7 +68,7 @@ func NewClientWithTransport(token, apiEndpoint string, transport http.RoundTripp
 	}
 
 	cfg.Transport = transport
-	cfg.BearerToken = string(token)
+	cfg.BearerToken = token
 	cfg.QPS = 40.0
 	cfg.Burst = 50
 	cfg.Timeout = 60 * time.Second
@@ -89,32 +89,33 @@ func NewClientFromRestConfig(cfg *rest.Config) (runtimeclient.Client, error) {
 	return cl, nil
 }
 
+// NewKubeClientFromKubeConfig initializes a runtime client starting from a KubeConfig file path.
+func NewKubeClientFromKubeConfig(kubeConfigPath string) (cl runtimeclient.Client, err error) {
+	var kubeConfig *clientcmdapi.Config
+	var clientConfig *rest.Config
+
+	kubeConfig, err = clientcmd.LoadFromFile(kubeConfigPath)
+	if err != nil {
+		return
+	}
+	clientConfig, err = clientcmd.NewDefaultClientConfig(*kubeConfig, nil).ClientConfig()
+	if err != nil {
+		return
+	}
+	cl, err = NewClientFromRestConfig(clientConfig)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 func newTlsVerifySkippingTransport() http.RoundTripper {
 	return &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true, // nolint: gosec
 		},
 	}
-}
-
-var DefaultNewRESTClient = NewRESTClient
-
-func NewRESTClient(token, apiEndpoint string) (*rest.RESTClient, error) {
-	if err := AddToScheme(); err != nil {
-		return nil, err
-	}
-	config := &rest.Config{
-		BearerToken: token,
-		Host:        apiEndpoint,
-		Transport:   newTlsVerifySkippingTransport(),
-		Timeout:     60 * time.Second,
-		// These fields need to be set when using the REST client ¯\_(ツ)_/¯
-		ContentConfig: rest.ContentConfig{
-			GroupVersion:         &authv1.SchemeGroupVersion,
-			NegotiatedSerializer: scheme.Codecs,
-		},
-	}
-	return rest.RESTClientFor(config)
 }
 
 func PatchUserSignup(ctx *clicontext.CommandContext, name string, changeUserSignup func(*toolchainv1alpha1.UserSignup) (bool, error), afterMessage string) error {
