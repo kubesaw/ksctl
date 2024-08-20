@@ -207,3 +207,17 @@ func (c ClusterConfig) GetServerParam() string {
 func (c ClusterConfig) GetNamespaceParam() string {
 	return "--namespace=" + c.OperatorNamespace
 }
+
+// GetMemberClusterName returns the full name of the member cluster (used in ToolchainCluster CRs)
+// for the provided shot cluster name such as member-1 (used in ksctl.yaml)
+func GetMemberClusterName(term ioutils.Terminal, ctlClusterName string) (string, error) {
+	memberClusterConfig, err := LoadClusterConfig(term, ctlClusterName)
+	if err != nil {
+		return "", err
+	}
+	// target cluster must have 'member' cluster type
+	if memberClusterConfig.ClusterType != Member {
+		return "", fmt.Errorf("expected target cluster to have clusterType '%s', actual: '%s'", Member, memberClusterConfig.ClusterType)
+	}
+	return "member-" + memberClusterConfig.ServerName, nil
+}
