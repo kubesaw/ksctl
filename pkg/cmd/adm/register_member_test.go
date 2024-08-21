@@ -96,8 +96,14 @@ func TestRegisterMember(t *testing.T) {
 		tcs := &toolchainv1alpha1.ToolchainClusterList{}
 		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-host-operator")))
 		assert.Len(t, tcs.Items, 1)
+		assert.Equal(t, memberToolchainClusterName, tcs.Items[0].Name)
+		// secret ref in tc matches
+		assert.Equal(t, toolchainClusterMemberSa.Name+"-"+memberToolchainClusterName, tcs.Items[0].Spec.SecretRef.Name)
 		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-member-operator")))
 		assert.Len(t, tcs.Items, 1)
+		assert.Equal(t, hostToolchainClusterName, tcs.Items[0].Name)
+		// secret ref in tc matches
+		assert.Equal(t, toolchainClusterHostSa.Name+"-"+hostToolchainClusterName, tcs.Items[0].Spec.SecretRef.Name)
 		assert.Contains(t, term.Output(), "Modify and apply the following SpaceProvisionerConfig to the host cluster")
 		actualExampleSPC := extractExampleSPCFromOutput(t, term.Output())
 		assert.Equal(t, *expectedExampleSPC, actualExampleSPC)
