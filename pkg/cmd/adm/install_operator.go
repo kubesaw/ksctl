@@ -24,8 +24,9 @@ import (
 )
 
 type installArgs struct {
-	kubeConfig string
-	namespace  string
+	kubeConfig          string
+	namespace           string
+	waitForReadyTimeout time.Duration
 }
 
 func NewInstallOperatorCmd() *cobra.Command {
@@ -43,17 +44,18 @@ func NewInstallOperatorCmd() *cobra.Command {
 
 			cl := commonclient.NewApplyClient(kubeClient)
 			ctx := clicontext.NewTerminalContext(term)
-			return installOperator(ctx, commandArgs, args[0], time.Second*180, cl)
+			return installOperator(ctx, commandArgs, args[0], cl)
 		},
 	}
 
 	cmd.Flags().StringVar(&commandArgs.kubeConfig, "kubeconfig", "", "Path to the kubeconfig file to use.")
 	flags.MustMarkRequired(cmd, "kubeconfig")
 	cmd.Flags().StringVar(&commandArgs.namespace, "namespace", "", "The namespace where the operator will be installed. Host and Member should be installed in separate namespaces. If the namespace is not provided the standard namespace names are used: toolchain-host|member-operator.")
+	cmd.Flags().DurationVar(&commandArgs.waitForReadyTimeout, "timeout", time.Second*180, "The max timeout used when waiting for each of the resources to be installed.")
 	return cmd
 }
 
-func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator string, timeout time.Duration, applyClient *commonclient.ApplyClient) error {
+func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator string, applyClient *commonclient.ApplyClient) error {
 	// validate cluster type
 	if operator != string(configuration.Host) && operator != string(configuration.Member) {
 		return fmt.Errorf("invalid operator type provided: %s. Valid ones are %s|%s", operator, configuration.Host, configuration.Member)
@@ -89,7 +91,7 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 		return err
 	}
 	ctx.Println(fmt.Sprintf("CatalogSource %s created.", catalogSource.Name))
-	if err := waitUntilCatalogSourceIsReady(ctx, applyClient, namespacedName, timeout); err != nil {
+	if err := waitUntilCatalogSourceIsReady(ctx, applyClient, namespacedName, args.waitForReadyTimeout); err != nil {
 		return err
 	}
 	ctx.Printlnf("CatalogSource %s is ready", namespacedName)
@@ -119,7 +121,7 @@ func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator
 		return err
 	}
 	ctx.Println(fmt.Sprintf("Subcription %s created.", subscription.Name))
-	if err := waitUntilInstallPlanIsComplete(ctx, applyClient, operatorName, namespace, timeout); err != nil {
+	if err := waitUntilInstallPlanIsComplete(ctx, applyClient, operatorName, namespace, args.waitForReadyTimeout); err != nil {
 		return err
 	}
 	ctx.Println(fmt.Sprintf("InstallPlan for the %s operator has been completed", operator))
