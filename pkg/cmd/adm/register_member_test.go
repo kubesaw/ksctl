@@ -512,6 +512,7 @@ func verifyToolchainClusterSecret(t *testing.T, fakeClient *test.FakeClient, saN
 	assert.Equal(t, "cluster", apiConfig.Contexts["ctx"].Cluster)
 	assert.Equal(t, ctxNamespace, apiConfig.Contexts["ctx"].Namespace)
 	assert.NotEmpty(t, apiConfig.AuthInfos["auth"].Token)
+	require.Equal(t, fmt.Sprintf("token-secret-for-%s", saName), apiConfig.AuthInfos["auth"].Token)
 }
 
 func whenDeploymentThenUpdated(t *testing.T, fakeClient *test.FakeClient, namespacedName types.NamespacedName, currentReplicas int32, numberOfUpdateCalls *int) func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.UpdateOption) error {
