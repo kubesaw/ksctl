@@ -234,7 +234,7 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	ctx.Println("Toolchaincluster successfully reconciled")
 	// -- end temporary logic
 
-	return err
+	return nil
 }
 
 func newRestClient(kubeConfigPath string) (*rest.RESTClient, error) {
