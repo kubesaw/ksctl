@@ -38,7 +38,7 @@ func Retarget(ctx *clicontext.CommandContext, spaceName, targetCluster string) e
 	}
 
 	// note: view toolchain role on the member cluster is good enough for retargeting since the retarget role is mainly for modifying the Space on the host
-	memberClusterConfig, err := configuration.LoadClusterConfig(ctx, targetCluster)
+	fullTargetClusterName, err := configuration.GetMemberClusterName(ctx, targetCluster)
 	if err != nil {
 		return err
 	}
@@ -58,13 +58,8 @@ func Retarget(ctx *clicontext.CommandContext, spaceName, targetCluster string) e
 		return err
 	}
 
-	if space.Spec.TargetCluster == memberToolchainClusterName(memberClusterConfig) {
+	if space.Spec.TargetCluster == fullTargetClusterName {
 		return fmt.Errorf("the Space '%s' is already targeted to cluster '%s'", spaceName, targetCluster)
-	}
-
-	// target cluster must have 'member' cluster type
-	if memberClusterConfig.ClusterType != configuration.Member {
-		return fmt.Errorf("expected target cluster to have clusterType '%s', actual: '%s'", configuration.Member, memberClusterConfig.ClusterType)
 	}
 
 	// print Space before prompt
@@ -90,7 +85,7 @@ func Retarget(ctx *clicontext.CommandContext, spaceName, targetCluster string) e
 	}
 
 	err = client.PatchSpace(ctx, space.Name, func(space *toolchainv1alpha1.Space) (bool, error) {
-		space.Spec.TargetCluster = memberToolchainClusterName(memberClusterConfig)
+		space.Spec.TargetCluster = fullTargetClusterName
 		return true, nil
 	}, "Space has been patched to target cluster "+targetCluster)
 	if err != nil {
@@ -99,8 +94,4 @@ func Retarget(ctx *clicontext.CommandContext, spaceName, targetCluster string) e
 
 	ctx.Printlnf("\nSpace has been retargeted to cluster " + targetCluster)
 	return nil
-}
-
-func memberToolchainClusterName(memberClusterConfig configuration.ClusterConfig) string {
-	return "member-" + memberClusterConfig.ServerName
 }

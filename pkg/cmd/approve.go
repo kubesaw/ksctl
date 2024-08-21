@@ -118,7 +118,8 @@ func Approve(ctx *clicontext.CommandContext, lookupUserSignup LookupUserSignup, 
 	states.SetDeactivated(userSignup, false)
 	states.SetApprovedManually(userSignup, true)
 	if targetCluster != "" {
-		if err = setTargetCluster(ctx, targetCluster, userSignup); err != nil {
+		userSignup.Spec.TargetCluster, err = configuration.GetMemberClusterName(ctx, targetCluster)
+		if err != nil {
 			return err
 		}
 	}
@@ -126,19 +127,5 @@ func Approve(ctx *clicontext.CommandContext, lookupUserSignup LookupUserSignup, 
 		return err
 	}
 	ctx.Printlnf("UserSignup has been approved")
-	return nil
-}
-
-func setTargetCluster(ctx *clicontext.CommandContext, targetCluster string, userSignup *toolchainv1alpha1.UserSignup) error {
-	memberClusterConfig, err := configuration.LoadClusterConfig(ctx, targetCluster)
-	if err != nil {
-		return err
-	}
-	// target cluster must have 'member' cluster type
-	if memberClusterConfig.ClusterType != configuration.Member {
-		return fmt.Errorf("expected target cluster to have clusterType '%s', actual: '%s'", configuration.Member, memberClusterConfig.ClusterType)
-	}
-	// set the specified target cluster
-	userSignup.Spec.TargetCluster = memberToolchainClusterName(memberClusterConfig)
 	return nil
 }
