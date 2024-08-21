@@ -2,6 +2,7 @@ package adm
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -89,11 +90,9 @@ func TestRegisterMember(t *testing.T) {
 		require.NoError(t, err)
 		// check the expected secrets are there with the kubeconfigs
 		// the member kubeconfig secret in the host namespace
-		secretName := toolchainClusterMemberSa.Name + "-" + memberToolchainClusterName
-		verifyToolchainClusterSecret(t, fakeClient, "toolchain-host-operator", secretName, "toolchain-member-operator", memberToolchainClusterName)
+		verifyToolchainClusterSecret(t, fakeClient, toolchainClusterMemberSa.Name, "toolchain-host-operator", "toolchain-member-operator", memberToolchainClusterName)
 		// the host secret in the member namespace
-		secretName = toolchainClusterHostSa.Name + "-" + hostToolchainClusterName
-		verifyToolchainClusterSecret(t, fakeClient, "toolchain-member-operator", secretName, "toolchain-host-operator", hostToolchainClusterName)
+		verifyToolchainClusterSecret(t, fakeClient, toolchainClusterHostSa.Name, "toolchain-member-operator", "toolchain-host-operator", hostToolchainClusterName)
 		tcs := &toolchainv1alpha1.ToolchainClusterList{}
 		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace("toolchain-host-operator")))
 		assert.Len(t, tcs.Items, 1)
@@ -496,12 +495,14 @@ func mockCreateToolchainClusterWithReadyCondition(fakeClient *test.FakeClient) {
 	}
 }
 
-func verifyToolchainClusterSecret(t *testing.T, fakeClient *test.FakeClient, secretNamespace, secretName, ctxNamespace, tcName string) {
+func verifyToolchainClusterSecret(t *testing.T, fakeClient *test.FakeClient, saName, secretNamespace, ctxNamespace, tcName string) {
 	secret := &corev1.Secret{}
+	secretName := fmt.Sprintf("%s-%s", saName, tcName)
 	require.NoError(t, fakeClient.Get(context.TODO(), runtimeclient.ObjectKey{Namespace: secretNamespace, Name: secretName}, secret))
 	assert.NotEmpty(t, secret.Labels)
 	assert.Equal(t, tcName, secret.Labels[toolchainv1alpha1.ToolchainClusterLabel])
 	assert.NotEmpty(t, secret.StringData["token"])
+	require.Equal(t, fmt.Sprintf("token-secret-for-%s", saName), secret.StringData["token"])
 	assert.NotEmpty(t, secret.StringData["kubeconfig"])
 	apiConfig, err := clientcmd.Load([]byte(secret.StringData["kubeconfig"]))
 	require.NoError(t, err)
