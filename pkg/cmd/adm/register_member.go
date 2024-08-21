@@ -232,6 +232,15 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 		return err
 	}
 	ctx.Println("Toolchaincluster successfully reconciled")
+	toolchainClusterKey := runtimeclient.ObjectKey{
+		Name:      sourceClusterDetails.toolchainClusterName,
+		Namespace: targetClusterDetails.namespace,
+	}
+	if err := waitUntilToolchainClusterReady(ctx.CommandContext, targetClusterDetails.client, toolchainClusterKey, v.args.waitForReadyTimeout); err != nil {
+		ctx.Printlnf("The ToolchainCluster resource representing the %s in the %s cluster has not become ready.", sourceClusterType, sourceClusterType.TheOtherType())
+		ctx.Printlnf("Please check the %s ToolchainCluster resource in the %s %s cluster.", toolchainClusterKey, targetClusterDetails.apiEndpoint, sourceClusterType.TheOtherType())
+		return err
+	}
 	// -- end temporary logic
 
 	return err
@@ -484,15 +493,6 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 	if err := v.addCluster(ctx, configuration.Host); err != nil {
 		return err
 	}
-	hostToolchainClusterKey := runtimeclient.ObjectKey{
-		Name:      v.hostClusterData.toolchainClusterName,
-		Namespace: v.memberClusterData.namespace,
-	}
-	if err := waitUntilToolchainClusterReady(ctx.CommandContext, v.memberClusterData.client, hostToolchainClusterKey, v.args.waitForReadyTimeout); err != nil {
-		ctx.Println("The ToolchainCluster resource representing the host in the member cluster has not become ready.")
-		ctx.Printlnf("Please check the %s ToolchainCluster resource in the %s member cluster.", hostToolchainClusterKey, v.memberClusterData.apiEndpoint)
-		return err
-	}
 
 	// add the member entry in the host cluster
 	memberToolchainClusterKey := runtimeclient.ObjectKey{
@@ -500,12 +500,6 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 		Namespace: v.hostClusterData.namespace,
 	}
 	if err := v.addCluster(ctx, configuration.Member); err != nil {
-		return err
-	}
-
-	if err := waitUntilToolchainClusterReady(ctx.CommandContext, v.hostClusterData.client, memberToolchainClusterKey, v.args.waitForReadyTimeout); err != nil {
-		ctx.Println("The ToolchainCluster resource representing the member in the host cluster has not become ready.")
-		ctx.Printlnf("Please check the %s ToolchainCluster resource in the %s host cluster. Note also that there already exists %s ToolchainCluster resource in the member cluster.", memberToolchainClusterKey, v.hostClusterData.apiEndpoint, hostToolchainClusterKey)
 		return err
 	}
 
