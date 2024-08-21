@@ -20,7 +20,7 @@ func TestCreateSocialEvent(t *testing.T) {
 
 	spaceTier := newNSTemplateTier("base")
 	userTier := newUserTier("deactivate30")
-	SetFileConfig(t, Host())
+	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("y")
 
 	t.Run("success", func(t *testing.T) {
@@ -34,7 +34,7 @@ func TestCreateSocialEvent(t *testing.T) {
 			description := ""
 			maxAttendees := 10
 			// when
-			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, false)
+			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, "member-1")
 
 			// then
 			require.NoError(t, err)
@@ -50,6 +50,7 @@ func TestCreateSocialEvent(t *testing.T) {
 			assert.Equal(t, userTier.Name, event.Spec.UserTier)
 			assert.Equal(t, spaceTier.Name, event.Spec.SpaceTier)
 			assert.Equal(t, maxAttendees, event.Spec.MaxAttendees)
+			assert.Equal(t, "member-cool-server.com", event.Spec.TargetCluster)
 			assert.Empty(t, event.Spec.Description)
 		})
 
@@ -62,7 +63,7 @@ func TestCreateSocialEvent(t *testing.T) {
 			description := "summer workshop"
 			maxAttendees := 10
 			// when
-			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, false)
+			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, "")
 
 			// then
 			require.NoError(t, err)
@@ -73,6 +74,7 @@ func TestCreateSocialEvent(t *testing.T) {
 			require.Len(t, ses.Items, 1)
 			event := ses.Items[0]
 			assert.Equal(t, description, event.Spec.Description)
+			assert.Empty(t, event.Spec.TargetCluster)
 			// no need to re-verify other fields, test above already took care of them
 		})
 	})
@@ -88,7 +90,7 @@ func TestCreateSocialEvent(t *testing.T) {
 			description := "summer workshop"
 			maxAttendees := 10
 			// when
-			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, false)
+			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, "")
 
 			// then
 			require.Error(t, err)
@@ -104,7 +106,7 @@ func TestCreateSocialEvent(t *testing.T) {
 			description := "summer workshop"
 			maxAttendees := 10
 			// when
-			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, false)
+			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, "")
 
 			// then
 			require.Error(t, err)
@@ -120,7 +122,7 @@ func TestCreateSocialEvent(t *testing.T) {
 			description := "summer workshop"
 			maxAttendees := 10
 			// when
-			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, false)
+			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, "")
 
 			// then
 			require.Error(t, err)
@@ -136,7 +138,7 @@ func TestCreateSocialEvent(t *testing.T) {
 			description := "summer workshop"
 			maxAttendees := 10
 			// when
-			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, false)
+			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, "")
 
 			// then
 			require.Error(t, err)
@@ -152,12 +154,36 @@ func TestCreateSocialEvent(t *testing.T) {
 			description := "summer workshop"
 			maxAttendees := 10
 			// when
-			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, false)
+			err := cmd.CreateSocialEvent(ctx, startDate, endDate, description, userTier.Name, spaceTier.Name, maxAttendees, "")
 
 			// then
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), fmt.Sprintf("NSTemplateTier '%s' does not exist", spaceTier.Name))
 		})
 
+		t.Run("invalid target cluster", func(t *testing.T) {
+			// given
+			newClient, _ := NewFakeClients(t, userTier, spaceTier)
+			ctx := clicontext.NewCommandContext(term, newClient)
+			startDate := "2022-06-21" // summer 🏝
+			endDate := "2022-06-21"   // ends same day
+			maxAttendees := 10
+
+			t.Run("unknown target cluster", func(t *testing.T) {
+				// when
+				err := cmd.CreateSocialEvent(ctx, startDate, endDate, "", userTier.Name, spaceTier.Name, maxAttendees, "unknown-cluster")
+
+				// then
+				require.EqualError(t, err, "the provided cluster-name 'unknown-cluster' is not present in your ksctl.yaml file. The available cluster names are\n------------------------\nhost\nmember-1\n------------------------")
+			})
+
+			t.Run("not a member target cluster", func(t *testing.T) {
+				// when
+				err := cmd.CreateSocialEvent(ctx, startDate, endDate, "", userTier.Name, spaceTier.Name, maxAttendees, "host")
+
+				// then
+				require.EqualError(t, err, "expected target cluster to have clusterType 'member', actual: 'host'")
+			})
+		})
 	})
 }
