@@ -34,9 +34,6 @@ func TestRegisterMember(t *testing.T) {
 	hostKubeconfig := PersistKubeConfigFile(t, HostKubeConfig())
 	memberKubeconfig := PersistKubeConfigFile(t, MemberKubeConfig())
 
-	hostDeploymentName := test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager")
-	deployment := newDeployment(hostDeploymentName, 1)
-	deployment.Labels = map[string]string{"olm.owner.namespace": "toolchain-host-operator"}
 	toolchainClusterMemberSa := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "toolchaincluster-member",
@@ -62,7 +59,7 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("produces valid example SPC", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
 		// force the ready condition on the toolchaincluster created ( this is done by the tc controller in prod env )
 		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
@@ -108,7 +105,7 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("reports error when member ToolchainCluster is not ready in host", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
 		mockCreateToolchainClusterInNamespaceWithReadyCondition(fakeClient, "toolchain-member-operator") // we set to ready only the host toolchaincluster in member operator namespace
 		ctx := newExtendedCommandContext(term, newClient)
 
@@ -128,7 +125,7 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("reports error when host ToolchainCluster is not ready in member", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
 		mockCreateToolchainClusterInNamespaceWithReadyCondition(fakeClient, "toolchain-host-operator") // set to ready only the member toolchaincluster in host operator namespace
 		ctx := newExtendedCommandContext(term, newClient)
 
@@ -148,7 +145,7 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("single toolchain in cluster", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
 		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 
@@ -164,7 +161,7 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("single toolchain in cluster with --lets-encrypt", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
 		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 
@@ -180,7 +177,7 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("multiple toolchains in cluster", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
 		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 		preexistingToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
@@ -220,7 +217,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term1 := NewFakeTerminalWithResponse("Y")
 		term2 := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
 		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx1 := newExtendedCommandContext(term1, newClient)
 		ctx2 := newExtendedCommandContext(term2, newClient)
@@ -243,7 +240,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term1 := NewFakeTerminalWithResponse("Y")
 		term2 := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
 		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx1 := newExtendedCommandContext(term1, newClient)
 		ctx2 := newExtendedCommandContext(term2, newClient)
@@ -267,7 +264,7 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("Errors when member already registered with multiple hosts", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterMemberSa, &toolchainClusterHostSa)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
 		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 		preexistingToolchainCluster1 := &toolchainv1alpha1.ToolchainCluster{
@@ -320,7 +317,7 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("Errors when registering into another host", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t)
 		ctx := newExtendedCommandContext(term, newClient)
 		preexistingToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -354,7 +351,7 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("Errors when host with different name already exists", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t)
 		ctx := newExtendedCommandContext(term, newClient)
 		preexistingToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -388,7 +385,7 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("Errors when member with different name already exists", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t)
 		ctx := newExtendedCommandContext(term, newClient)
 		preexistingToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -425,7 +422,7 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("reports error when member toolchaincluster ServiceAccount is not there", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment, &toolchainClusterHostSa) // we pre-provision only the host toolchaincluster ServiceAccount
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterHostSa) // we pre-provision only the host toolchaincluster ServiceAccount
 		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 
@@ -445,7 +442,7 @@ func TestRegisterMember(t *testing.T) {
 	t.Run("reports error when host toolchaincluster ServiceAccount is not there", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
-		newClient, fakeClient := newFakeClientsFromRestConfig(t, deployment)
+		newClient, fakeClient := newFakeClientsFromRestConfig(t)
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
