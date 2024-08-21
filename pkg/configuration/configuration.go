@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/kubesaw/ksctl/pkg/ioutils"
@@ -145,6 +146,7 @@ func getAllClusterNames(config KsctlConfig) []string {
 	for clusterName := range config.ClusterAccessDefinitions {
 		clusterNames = append(clusterNames, utils.CamelCaseToKebabCase(clusterName))
 	}
+	sort.Strings(clusterNames)
 	return clusterNames
 }
 
