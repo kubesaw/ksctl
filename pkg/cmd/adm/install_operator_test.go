@@ -51,8 +51,9 @@ func TestInstallOperator(t *testing.T) {
 		}
 		timeout := 1 * time.Second
 		args := installArgs{
-			kubeConfig: kubeconfig,
-			namespace:  namespace,
+			kubeConfig:          kubeconfig,
+			namespace:           namespace,
+			waitForReadyTimeout: timeout,
 		}
 
 		t.Run("install "+operator+" operator is successful", func(t *testing.T) {
@@ -63,7 +64,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, args, operator, timeout, commonclient.NewApplyClient(fakeClient))
+			err := installOperator(ctx, args, operator, commonclient.NewApplyClient(fakeClient))
 
 			// then
 			require.NoError(t, err)
@@ -97,7 +98,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, args, operator, timeout, commonclient.NewApplyClient(fakeClient))
+			err := installOperator(ctx, args, operator, commonclient.NewApplyClient(fakeClient))
 
 			// then
 			require.ErrorContains(t, err, "failed waiting for catalog source to be ready.")
@@ -117,7 +118,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, args, operator, timeout, commonclient.NewApplyClient(fakeClient))
+			err := installOperator(ctx, args, operator, commonclient.NewApplyClient(fakeClient))
 
 			// then
 			require.ErrorContains(t, err, "failed waiting for install plan to be complete.")
@@ -135,9 +136,8 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, installArgs{namespace: namespace},
+			err := installOperator(ctx, installArgs{namespace: namespace, waitForReadyTimeout: 1 * time.Second},
 				operator,
-				1*time.Second,
 				commonclient.NewApplyClient(fakeClient),
 			)
 
@@ -156,7 +156,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, args, operator, timeout, commonclient.NewApplyClient(fakeClient))
+			err := installOperator(ctx, args, operator, commonclient.NewApplyClient(fakeClient))
 
 			// then
 			require.NoError(t, err)
@@ -173,9 +173,8 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, installArgs{namespace: "", kubeConfig: kubeconfig}, // we provide no namespace
+			err := installOperator(ctx, installArgs{namespace: "", kubeConfig: kubeconfig, waitForReadyTimeout: timeout}, // we provide no namespace
 				operator,
-				timeout,
 				commonclient.NewApplyClient(fakeClient),
 			)
 			// then
@@ -194,7 +193,6 @@ func TestInstallOperator(t *testing.T) {
 		// when
 		err := installOperator(ctx, installArgs{},
 			"INVALIDOPERATOR",
-			1*time.Second,
 			commonclient.NewApplyClient(fakeClient),
 		)
 
@@ -210,9 +208,8 @@ func TestInstallOperator(t *testing.T) {
 
 		// when
 		operator := "host"
-		err := installOperator(ctx, installArgs{namespace: "toolchain-host-operator"},
+		err := installOperator(ctx, installArgs{namespace: "toolchain-host-operator", waitForReadyTimeout: time.Second * 1},
 			operator,
-			1*time.Second,
 			commonclient.NewApplyClient(fakeClient),
 		)
 
