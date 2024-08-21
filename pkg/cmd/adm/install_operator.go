@@ -43,7 +43,7 @@ func NewInstallOperatorCmd() *cobra.Command {
 
 			cl := commonclient.NewApplyClient(kubeClient)
 			ctx := clicontext.NewTerminalContext(term)
-			return installOperator(ctx, commandArgs, args[0], time.Second*60, cl)
+			return installOperator(ctx, commandArgs, args[0], time.Second*180, cl)
 		},
 	}
 
