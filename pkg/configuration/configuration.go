@@ -35,17 +35,6 @@ func Load(term ioutils.Terminal) (KsctlConfig, error) {
 			return KsctlConfig{}, errs.Wrap(err, "unable to read home directory")
 		}
 		path = filepath.Join(home, ".ksctl.yaml")
-
-		if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
-			if _, err := os.Stat(filepath.Join(home, ".sandbox.yaml")); err != nil && !os.IsNotExist(err) {
-				return KsctlConfig{}, err
-			} else if err == nil {
-				path = filepath.Join(home, ".sandbox.yaml")
-				term.Println("The default location of ~/.sandbox.yaml file is deprecated. Rename it to ~/.ksctl.yaml")
-			}
-		} else if err != nil {
-			return KsctlConfig{}, err
-		}
 	}
 
 	info, err := os.Stat(path)
