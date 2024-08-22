@@ -73,7 +73,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 	t.Run("successful", func(t *testing.T) {
 		t.Run("when there is host and two members", func(t *testing.T) {
 			// given
-			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			tempDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir, tokenExpirationDays: 50}
 
@@ -101,7 +101,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			kubeSawAdminsContent, err := yaml.Marshal(saInHostOnly)
 			require.NoError(t, err)
 			configFile := createKubeSawAdminsFile(t, "kubesaw.host.openshiftapps.com", kubeSawAdminsContent)
-			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			tempDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir, tokenExpirationDays: 50}
 
@@ -121,7 +121,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 				newServiceAccount("sandbox-sre-member", "john"),
 				newServiceAccount("sandbox-sre-member", "bob"),
 			)
-			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			tempDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			kubeconfigFiles := createKubeconfigFiles(t, ksctlKubeconfigContent)
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir, dev: true, tokenExpirationDays: 50}
@@ -176,7 +176,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 
 		t.Run("wrong kubesaw-admins.yaml file path", func(t *testing.T) {
 			// given
-			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			tempDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: "does/not/exist", outDir: tempDir}
 
@@ -190,7 +190,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 
 		t.Run("wrong kubeconfig file path", func(t *testing.T) {
 			// given
-			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			tempDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			flags := generateFlags{kubeconfigs: []string{"does/not/exist"}, kubeSawAdminsFile: configFile, outDir: tempDir}
 
@@ -212,8 +212,8 @@ func TestGenerateCliConfigs(t *testing.T) {
 				Users())
 			kubeSawAdminsContent, err := yaml.Marshal(saInHostOnly)
 			require.NoError(t, err)
-			configFile := createKubeSawAdminsFile(t, "sandbox.host.openshiftapps.com", kubeSawAdminsContent)
-			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			configFile := createKubeSawAdminsFile(t, "kubesaw.host.openshiftapps.com", kubeSawAdminsContent)
+			tempDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir}
 
@@ -327,8 +327,8 @@ func (a *ksctlConfigAssertion) hasCluster(clusterName, subDomain string, cluster
 
 	assert.NotNil(a.t, a.ksctlConfig.ClusterAccessDefinitions[clusterName])
 	assert.Equal(a.t, clusterType, a.ksctlConfig.ClusterAccessDefinitions[clusterName].ClusterType)
-	assert.Equal(a.t, fmt.Sprintf("sandbox.%s.openshiftapps.com", subDomain), a.ksctlConfig.ClusterAccessDefinitions[clusterName].ServerName)
-	assert.Equal(a.t, fmt.Sprintf("https://api.sandbox.%s.openshiftapps.com:6443", subDomain), a.ksctlConfig.ClusterAccessDefinitions[clusterName].ServerAPI)
+	assert.Equal(a.t, fmt.Sprintf("kubesaw.%s.openshiftapps.com", subDomain), a.ksctlConfig.ClusterAccessDefinitions[clusterName].ServerName)
+	assert.Equal(a.t, fmt.Sprintf("https://api.kubesaw.%s.openshiftapps.com:6443", subDomain), a.ksctlConfig.ClusterAccessDefinitions[clusterName].ServerAPI)
 
 	assert.Equal(a.t, fmt.Sprintf("token-secret-for-%s", a.saBaseName), a.ksctlConfig.ClusterAccessDefinitions[clusterName].Token)
 }

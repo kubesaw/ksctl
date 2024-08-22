@@ -29,7 +29,7 @@ func TestUserIdentityMapper(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "user1",
 			Labels: map[string]string{
-				"provider": "sandbox-sre",
+				"provider": "ksctl",
 			},
 		},
 	}
@@ -37,7 +37,7 @@ func TestUserIdentityMapper(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "identity1",
 			Labels: map[string]string{
-				"provider": "sandbox-sre",
+				"provider": "ksctl",
 				"username": "user1",
 			},
 		},
@@ -46,7 +46,7 @@ func TestUserIdentityMapper(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "user2",
 			Labels: map[string]string{
-				"provider": "sandbox-sre",
+				"provider": "ksctl",
 			},
 		},
 	}
@@ -54,7 +54,7 @@ func TestUserIdentityMapper(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "identity2",
 			Labels: map[string]string{
-				"provider": "sandbox-sre",
+				"provider": "ksctl",
 				"username": "user2",
 			},
 		},
@@ -62,14 +62,14 @@ func TestUserIdentityMapper(t *testing.T) {
 	user3 := &userv1.User{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "user3",
-			// not managed by sandbox-sre
+			// not managed by ksctl
 		},
 	}
 	identity3 := &userv1.Identity{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "identity3",
 			Labels: map[string]string{
-				"provider": "sandbox-sre",
+				"provider": "ksctl",
 				"username": "user3",
 			},
 		},
@@ -88,7 +88,7 @@ func TestUserIdentityMapper(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotContains(t, out.String(), "unable to list identities")
 		uim := &userv1.UserIdentityMapping{}
-		// `user1` and `user2` are not managed by sandbox (ie, labelled with `provider: sandbox-sre`), hence the `UserIdentityMappings` exist
+		// `user1` and `user2` are not managed by ksctl (ie, labelled with `provider: ksctl`), hence the `UserIdentityMappings` exist
 		require.NoError(t, cl.Get(context.TODO(), types.NamespacedName{Name: identity1.Name}, uim))
 		assert.Equal(t, identity1.Name, uim.Identity.Name)
 		assert.Equal(t, user1.Name, uim.User.Name)
@@ -111,7 +111,7 @@ func TestUserIdentityMapper(t *testing.T) {
 			// then
 			require.NoError(t, err)
 			assert.NotContains(t, out.String(), "unable to list identities")
-			// `user3` is not managed by sandbox (ie, not labelled with `provider: sandbox-sre`), , hence the `UserIdentityMappings` does not exist
+			// `user3` is not managed by ksctl (ie, not labelled with `provider: ksctl`), , hence the `UserIdentityMappings` does not exist
 			require.EqualError(t, cl.Get(context.TODO(), types.NamespacedName{Name: identity3.Name}, &userv1.UserIdentityMapping{}), `useridentitymappings.user.openshift.io "identity3" not found`)
 		})
 

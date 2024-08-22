@@ -9,7 +9,7 @@ objects:
   metadata:
     name: install-operator
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - operators.coreos.com
@@ -29,7 +29,7 @@ objects:
   metadata:
     name: approve-operator-update
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - operators.coreos.com
@@ -48,7 +48,7 @@ objects:
   metadata:
     name: restart-deployment
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - apps
@@ -65,7 +65,7 @@ objects:
   metadata:
     name: view-secrets
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - ""
@@ -80,7 +80,7 @@ objects:
   metadata:
     name: edit-secrets
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - ""
@@ -99,7 +99,7 @@ objects:
   metadata:
     name: configure-monitoring
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - ""
@@ -155,7 +155,7 @@ objects:
   metadata:
     name: edit-csv
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - operators.coreos.com

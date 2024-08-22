@@ -36,7 +36,7 @@ func TestMustGatherNamespaceCmd(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		t.Run("create the dest-dir on-the-fly", func(t *testing.T) {
 			// given
-			baseDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			baseDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			destDir := filepath.Join(baseDir, "test-dev")
 
@@ -51,7 +51,7 @@ func TestMustGatherNamespaceCmd(t *testing.T) {
 
 		t.Run("dest-dir already exists and is empty", func(t *testing.T) {
 			// given
-			baseDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			baseDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			destDir := filepath.Join(baseDir, "test-dev")
 			err = os.Mkdir(destDir, 0755)
@@ -71,7 +71,7 @@ func TestMustGatherNamespaceCmd(t *testing.T) {
 
 		t.Run("dest-dir already exists but is not empty", func(t *testing.T) {
 			// given
-			baseDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			baseDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			destDir := filepath.Join(baseDir, "test-dev")
 			err = os.Mkdir(destDir, 0755)
