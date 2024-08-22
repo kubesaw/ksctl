@@ -248,6 +248,8 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 
 func newRestClient(kubeConfigPath string) (*rest.RESTClient, error) {
 	restClientConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
+	// those fields are required when using the rest client otherwise it throws and error
+	// see: https://github.com/kubernetes/client-go/blob/46965213e4561ad1b9c585d1c3551a0cc8d3fcd6/rest/config.go#L310-L315
 	restClientConfig.ContentConfig = rest.ContentConfig{
 		GroupVersion:         &authv1.SchemeGroupVersion,
 		NegotiatedSerializer: scheme.Codecs,
