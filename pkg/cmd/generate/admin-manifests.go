@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -35,7 +36,7 @@ ksctl generate admin-manifests ./path/to/kubesaw-stage.openshiftapps.com/kubesaw
 	}
 	command.Flags().StringVarP(&f.kubeSawAdminsFile, "kubesaw-admins", "c", "", "Use the given kubesaw-admin file")
 	command.Flags().StringVarP(&f.outDir, "out-dir", "o", "", "Directory where generated manifests should be stored")
-	command.Flags().BoolVarP(&f.singleCluster, "single-cluster", "s", false, "If host and member are deployed to the same cluster")
+	command.Flags().BoolVarP(&f.singleCluster, "single-cluster", "s", false, "If host and member are deployed to the same cluster. Cannot be used with separateKustomizeComponent set in one of the members.")
 	command.Flags().StringVar(&f.hostRootDir, "host-root-dir", "host", "The root directory name for host manifests")
 	command.Flags().StringVar(&f.memberRootDir, "member-root-dir", "member", "The root directory name for member manifests")
 
@@ -60,6 +61,13 @@ func adminManifests(term ioutils.Terminal, files assets.FS, flags adminManifests
 	if err != nil {
 		return errs.Wrapf(err, "unable get kubesaw-admins.yaml file from %s", flags.kubeSawAdminsFile)
 	}
+	if flags.singleCluster {
+		for _, memberCluster := range kubeSawAdmins.Clusters.Members {
+			if memberCluster.SeparateKustomizeComponent {
+				return fmt.Errorf("--single-cluster flag cannot be used with separateKustomizeComponent set in one of the members (%s)", memberCluster.Name)
+			}
+		}
+	}
 	err = os.RemoveAll(flags.outDir)
 	if err != nil {
 		return err
@@ -71,11 +79,19 @@ func adminManifests(term ioutils.Terminal, files assets.FS, flags adminManifests
 		files:               files,
 	}
 	objsCache := objectsCache{}
-	if err := ensureCluster(ctx, configuration.Host, objsCache); err != nil {
+	if err := ensureCluster(ctx, configuration.Host, objsCache, ""); err != nil {
 		return err
 	}
-	if err := ensureCluster(ctx, configuration.Member, objsCache); err != nil {
+	if err := ensureCluster(ctx, configuration.Member, objsCache, ""); err != nil {
 		return err
+	}
+
+	for _, memberCluster := range kubeSawAdmins.Clusters.Members {
+		if memberCluster.SeparateKustomizeComponent {
+			if err := ensureCluster(ctx, configuration.Member, objsCache, memberCluster.Name); err != nil {
+				return err
+			}
+		}
 	}
 	return objsCache.writeManifests(ctx)
 }
@@ -87,12 +103,17 @@ type adminManifestsContext struct {
 	files         assets.FS
 }
 
-func ensureCluster(ctx *adminManifestsContext, clusterType configuration.ClusterType, cache objectsCache) error {
-	ctx.PrintContextSeparatorf("Generating manifests for %s cluster type", clusterType)
+func ensureCluster(ctx *adminManifestsContext, clusterType configuration.ClusterType, cache objectsCache, specificKMemberName string) error {
+	if specificKMemberName == "" {
+		ctx.PrintContextSeparatorf("Generating manifests for %s cluster type", clusterType)
+	} else {
+		ctx.PrintContextSeparatorf("Generating manifests for %s cluster type in the special Kustomize component: %s", clusterType, specificKMemberName)
+	}
 
 	clusterCtx := &clusterContext{
 		adminManifestsContext: ctx,
 		clusterType:           clusterType,
+		specificKMemberName:   specificKMemberName,
 	}
 
 	if err := ensureServiceAccounts(clusterCtx, cache); err != nil {

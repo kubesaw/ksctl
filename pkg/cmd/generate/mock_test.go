@@ -67,9 +67,21 @@ func newAdminManifestsContext(t *testing.T, config *assets.KubeSawAdmins, files 
 
 // ClusterContext part
 
-func newFakeClusterContext(adminManifestsContext *adminManifestsContext, clusterType configuration.ClusterType) *clusterContext {
-	return &clusterContext{
+func newFakeClusterContext(adminManifestsContext *adminManifestsContext, clusterType configuration.ClusterType, options ...fakeClusterContextOption) *clusterContext {
+	ctx := &clusterContext{
 		adminManifestsContext: adminManifestsContext,
 		clusterType:           clusterType,
+	}
+	for _, modify := range options {
+		modify(ctx)
+	}
+	return ctx
+}
+
+type fakeClusterContextOption func(ctx *clusterContext)
+
+func withSpecialKMemberName(specialKMemberName string) fakeClusterContextOption {
+	return func(ctx *clusterContext) {
+		ctx.specificKMemberName = specialKMemberName
 	}
 }

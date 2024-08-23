@@ -12,8 +12,9 @@ type Clusters struct {
 }
 
 type MemberCluster struct {
-	Name          string `yaml:"name"`
-	ClusterConfig `yaml:",inline"`
+	Name                       string `yaml:"name"`
+	ClusterConfig              `yaml:",inline"`
+	SeparateKustomizeComponent bool `yaml:"separateKustomizeComponent"`
 }
 
 type ClusterConfig struct {
@@ -21,9 +22,14 @@ type ClusterConfig struct {
 }
 
 type ServiceAccount struct {
-	Name                      string `yaml:"name"`
-	Namespace                 string `yaml:"namespace,omitempty"`
+	Name                      string   `yaml:"name"`
+	Namespace                 string   `yaml:"namespace,omitempty"`
+	Selector                  Selector `yaml:"selector"`
 	PermissionsPerClusterType `yaml:",inline"`
+}
+
+type Selector struct {
+	SkipMembers []string `yaml:"skipMembers,omitempty"`
 }
 
 type User struct {
@@ -31,6 +37,7 @@ type User struct {
 	ID                        []string `yaml:"id"`
 	AllClusters               bool     `yaml:"allClusters,omitempty"` // force user and identity manifest generation on all clusters, even if no permissions are specified
 	Groups                    []string `yaml:"groups"`
+	Selector                  Selector `yaml:"selector"`
 	PermissionsPerClusterType `yaml:",inline,omitempty"`
 }
 
