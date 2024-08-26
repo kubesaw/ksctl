@@ -12,8 +12,9 @@ type Clusters struct {
 }
 
 type MemberCluster struct {
-	Name                       string `yaml:"name"`
-	ClusterConfig              `yaml:",inline"`
+	Name          string `yaml:"name"`
+	ClusterConfig `yaml:",inline"`
+	// SeparateKustomizeComponent when set to true, then the manifests for the member cluster will be generated in a separate Kustomize folder
 	SeparateKustomizeComponent bool `yaml:"separateKustomizeComponent"`
 }
 
@@ -28,7 +29,9 @@ type ServiceAccount struct {
 	PermissionsPerClusterType `yaml:",inline"`
 }
 
+// Selector contains fields to select clusters the entity should (not) be applied for
 type Selector struct {
+	// SkipMembers can contain a list of member cluster names the entity shouldn't be applied for
 	SkipMembers []string `yaml:"skipMembers,omitempty"`
 }
 
