@@ -79,7 +79,7 @@ func TestAdminManifests(t *testing.T) {
 			err = adminManifests(term, files, flags)
 
 			// then
-			require.Error(t, err)
+			require.EqualError(t, err, "--single-cluster flag cannot be used with separateKustomizeComponent set in one of the members (member2)")
 		})
 
 		t.Run("without separateKustomizeComponent set for member2", func(t *testing.T) {
