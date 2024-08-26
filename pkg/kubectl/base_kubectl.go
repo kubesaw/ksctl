@@ -1,4 +1,4 @@
-package cmd
+package kubectl
 
 import (
 	"fmt"
@@ -15,10 +15,10 @@ import (
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
-type newCmd func(cmdutil.Factory, genericclioptions.IOStreams) *cobra.Command
+type NewCmd func(cmdutil.Factory, genericclioptions.IOStreams) *cobra.Command
 
-// setupKubectlCmd takes care of setting up the flags and PreRunE func on the given Kubectl command
-func setupKubectlCmd(newCmd newCmd) *cobra.Command {
+// SetupKubectlCmd takes care of setting up the flags and PreRunE func on the given Kubectl command
+func SetUpKubectlCmd(newCmd NewCmd) *cobra.Command {
 	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
 	factory := cmdutil.NewFactory(cmdutil.NewMatchVersionFlags(kubeConfigFlags))
 	ioStreams := genericclioptions.IOStreams{

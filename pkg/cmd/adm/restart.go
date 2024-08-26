@@ -5,63 +5,25 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kubesaw/ksctl/pkg/client"
-	"github.com/kubesaw/ksctl/pkg/cmd/flags"
-	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
+	"github.com/kubesaw/ksctl/pkg/kubectl"
 
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	kubectlrollout "k8s.io/kubectl/pkg/cmd/rollout"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func NewRestartCmd() *cobra.Command {
-	var targetCluster string
-	command := &cobra.Command{
-		Use:   "restart -t <cluster-name> <deployment-name>",
-		Short: "Restarts a deployment",
-		Long: `Restarts the deployment with the given name in the operator namespace. 
-If no deployment name is provided, then it lists all existing deployments in the namespace.`,
-		Args: cobra.RangeArgs(0, 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
-			return restart(ctx, targetCluster, args...)
-		},
-	}
-	command.Flags().StringVarP(&targetCluster, "target-cluster", "t", "", "The target cluster")
-	flags.MustMarkRequired(command, "target-cluster")
-	return command
-}
-
-func restart(ctx *clicontext.CommandContext, clusterName string, deployments ...string) error {
-	cfg, err := configuration.LoadClusterConfig(ctx, clusterName)
-	if err != nil {
-		return err
-	}
-	cl, err := ctx.NewClient(cfg.Token, cfg.ServerAPI)
-	if err != nil {
-		return err
-	}
-
-	if len(deployments) == 0 {
-		err := printExistingDeployments(ctx.Terminal, cl, cfg.OperatorNamespace)
-		if err != nil {
-			ctx.Terminal.Printlnf("\nERROR: Failed to list existing deployments\n :%s", err.Error())
-		}
-		return fmt.Errorf("at least one deployment name is required, include one or more of the above deployments to restart")
-	}
-	deploymentName := deployments[0]
-
-	if !ctx.AskForConfirmation(
-		ioutils.WithMessagef("restart the deployment '%s' in namespace '%s'", deploymentName, cfg.OperatorNamespace)) {
-		return nil
-	}
-	return restartDeployment(ctx, cl, cfg.OperatorNamespace, deploymentName)
+	return kubectl.SetUpKubectlCmd(func(factory cmdutil.Factory, ioStreams genericclioptions.IOStreams) *cobra.Command {
+		return kubectlrollout.NewCmdRolloutRestart(factory, ioStreams)
+	})
 }
 
 func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string, deploymentName string) error {
