@@ -80,8 +80,8 @@ func newFakeClusterContext(adminManifestsContext *adminManifestsContext, cluster
 
 type fakeClusterContextOption func(ctx *clusterContext)
 
-func withSpecialKMemberName(specialKMemberName string) fakeClusterContextOption {
+func withSpecificKMemberName(specificKMemberName string) fakeClusterContextOption {
 	return func(ctx *clusterContext) {
-		ctx.specificKMemberName = specialKMemberName
+		ctx.specificKMemberName = specificKMemberName
 	}
 }

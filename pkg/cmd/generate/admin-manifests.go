@@ -107,7 +107,7 @@ func ensureCluster(ctx *adminManifestsContext, clusterType configuration.Cluster
 	if specificKMemberName == "" {
 		ctx.PrintContextSeparatorf("Generating manifests for %s cluster type", clusterType)
 	} else {
-		ctx.PrintContextSeparatorf("Generating manifests for %s cluster type in the special Kustomize component: %s", clusterType, specificKMemberName)
+		ctx.PrintContextSeparatorf("Generating manifests for %s cluster type in the separate Kustomize component: %s", clusterType, specificKMemberName)
 	}
 
 	clusterCtx := &clusterContext{

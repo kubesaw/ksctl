@@ -23,20 +23,20 @@ func TestEnsureObject(t *testing.T) {
 			testEnsureObject(t, clusterType, "")
 		})
 	}
-	t.Run("when using specialKMemberName", func(t *testing.T) {
+	t.Run("when using specificKMemberName", func(t *testing.T) {
 		testEnsureObject(t, configuration.Member, "member-1")
 	})
 }
 
-func testEnsureObject(t *testing.T, clusterType configuration.ClusterType, specialKMemberName string) {
+func testEnsureObject(t *testing.T, clusterType configuration.ClusterType, specificKMemberName string) {
 	t.Helper()
 
 	t.Run("for User object", func(t *testing.T) {
-		verifyEnsureManifest(t, clusterType, &userv1.User{}, specialKMemberName)
+		verifyEnsureManifest(t, clusterType, &userv1.User{}, specificKMemberName)
 	})
 
 	t.Run("for ServiceAccount object", func(t *testing.T) {
-		verifyEnsureManifest(t, clusterType, &corev1.ServiceAccount{}, specialKMemberName)
+		verifyEnsureManifest(t, clusterType, &corev1.ServiceAccount{}, specificKMemberName)
 	})
 }
 
@@ -57,17 +57,17 @@ func prepareObjects(t *testing.T, name string, namespace string, object runtimec
 	return toBeStored, expectedWithTypeMeta
 }
 
-func verifyEnsureManifest(t *testing.T, clusterType configuration.ClusterType, object runtimeclient.Object, specialKMemberName string) {
+func verifyEnsureManifest(t *testing.T, clusterType configuration.ClusterType, object runtimeclient.Object, specificKMemberName string) {
 	for _, namespace := range []string{"johnspace", "second-namespace", ""} {
 		t.Run("for namespace "+namespace, func(t *testing.T) {
 			// given
 			ctx := newAdminManifestsContextWithDefaultFiles(t, nil)
 			cache := objectsCache{}
 			toBeStored, expected := prepareObjects(t, "john", namespace, object)
-			clusterCtx := newFakeClusterContext(ctx, clusterType, withSpecialKMemberName(specialKMemberName))
+			clusterCtx := newFakeClusterContext(ctx, clusterType, withSpecificKMemberName(specificKMemberName))
 			rootKDir := clusterType.String()
-			if specialKMemberName != "" {
-				rootKDir = specialKMemberName
+			if specificKMemberName != "" {
+				rootKDir = specificKMemberName
 			}
 
 			// when
@@ -153,7 +153,7 @@ func verifyEnsureManifest(t *testing.T, clusterType configuration.ClusterType, o
 						assertObjectDoesNotExist(toBeStored.GetNamespace(), "john", object)
 				})
 
-				if specialKMemberName == "" {
+				if specificKMemberName == "" {
 					rootKDir := clusterType.String()
 					t.Run("single-cluster mode enabled", func(t *testing.T) {
 						// given

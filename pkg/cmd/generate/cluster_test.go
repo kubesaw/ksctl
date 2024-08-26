@@ -104,7 +104,7 @@ func TestEnsureServiceAccounts(t *testing.T) {
 					WithSkippedMembers("wrong-member")), // doesn't have any effect on filtering
 			[]assets.User{})
 		ctx := newAdminManifestsContextWithDefaultFiles(t, kubeSawAdmins)
-		clusterCtx := newFakeClusterContext(ctx, configuration.Member, withSpecialKMemberName("member-1"))
+		clusterCtx := newFakeClusterContext(ctx, configuration.Member, withSpecificKMemberName("member-1"))
 		t.Cleanup(gock.OffAll)
 		cache := objectsCache{}
 
@@ -207,7 +207,7 @@ func TestUsers(t *testing.T) {
 					WithSkippedMembers("wrong-member")), // doesn't have any effect on filtering
 		)
 		ctx := newAdminManifestsContextWithDefaultFiles(t, kubeSawAdmins)
-		clusterCtx := newFakeClusterContext(ctx, configuration.Member, withSpecialKMemberName("member-1"))
+		clusterCtx := newFakeClusterContext(ctx, configuration.Member, withSpecificKMemberName("member-1"))
 		t.Cleanup(gock.OffAll)
 		cache := objectsCache{}
 
