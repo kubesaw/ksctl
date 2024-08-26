@@ -3,6 +3,7 @@ package adm
 import (
 	"context"
 	"fmt"
+	"os"
 
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/kubesaw/ksctl/pkg/client"
@@ -12,6 +13,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	kubectlrollout "k8s.io/kubectl/pkg/cmd/rollout"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
 func NewUnregisterMemberCmd() *cobra.Command {
@@ -62,5 +66,31 @@ func UnregisterMemberCluster(ctx *clicontext.CommandContext, clusterName string)
 	}
 	ctx.Printlnf("\nThe deletion of the Toolchain member cluster from the Host cluster has been triggered")
 
-	return restartHostOperator(ctx, hostClusterClient, hostClusterConfig.OperatorNamespace)
+	return restartHostOperator(hostClusterConfig)
+}
+
+func restartHostOperator(hostConfig configuration.ClusterConfig) error {
+	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
+	hFactory := cmdutil.NewFactory(cmdutil.NewMatchVersionFlags(kubeConfigFlags))
+	ioStreams := genericclioptions.IOStreams{
+		In:     nil, // Not to forward the Standard Input
+		Out:    os.Stdout,
+		ErrOut: os.Stderr,
+	}
+
+	hArgs := []string{"", "deployments",
+		"--namespace", hostConfig.OperatorNamespace,
+		"--server", hostConfig.ServerAPI,
+		"--token", hostConfig.Token}
+
+	o := kubectlrollout.NewRolloutRestartOptions(ioStreams)
+
+	if err := o.Complete(hFactory, nil, hArgs); err != nil {
+		panic(err)
+	}
+	o.LabelSelector = "olm.owner.namespace=toolchain-host-operator"
+	if err := o.Validate(); err != nil {
+		panic(err)
+	}
+	return o.RunRestart()
 }
