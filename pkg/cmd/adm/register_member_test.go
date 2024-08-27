@@ -469,7 +469,6 @@ func TestRegisterMember(t *testing.T) {
 func mockCreateToolchainClusterInNamespaceWithReadyCondition(fakeClient *test.FakeClient, namespace string) {
 	fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 		if obj, ok := obj.(*toolchainv1alpha1.ToolchainCluster); ok {
-			// force the ready condition on the member toolchaincluster in host cluster only
 			if obj.GetNamespace() == namespace {
 				obj.Status = toolchainv1alpha1.ToolchainClusterStatus{
 					Conditions: []toolchainv1alpha1.Condition{
