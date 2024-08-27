@@ -236,7 +236,7 @@ func TestGetServiceAccountToken(t *testing.T) {
 	cl, err := newGockRESTClient("secret_token", "https://api.example.com")
 	require.NoError(t, err)
 	// when
-	actualToken, err := getServiceAccountToken(cl, types.NamespacedName{
+	actualToken, err := GetServiceAccountToken(cl, types.NamespacedName{
 		Namespace: "openshift-customer-monitoring",
 		Name:      "loki",
 	}, 365)
