@@ -123,6 +123,9 @@ func filePaths(ctx *clusterContext, obj runtimeclient.Object) (string, string, s
 		memberRootDir: ctx.memberRootDir,
 		hostRootDir:   ctx.hostRootDir,
 	}
+	if ctx.specificKMemberName != "" {
+		storeCtx.memberRootDir = ctx.specificKMemberName
+	}
 
 	defaultPath := filePath(rootDir(storeCtx, ctx.clusterType), obj, plural.Resource)
 	theOtherTypePath := filePath(rootDir(storeCtx, ctx.clusterType.TheOtherType()), obj, plural.Resource)
