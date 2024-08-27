@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const K8sLabelWithoutSuffixMaxLength = 62
+
 // Contains checks if the given slice of strings contains the given string
 func Contains(slice []string, value string) bool {
 	for _, role := range slice {
@@ -37,8 +39,17 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint, suffix string) (str
 	// in the original script.
 	fixedLength := len(clusterType) + len(suffix) + 1
 
-	maxAllowedClusterHostNameLen := 62 - fixedLength // I think 62 is here, because we might default the suffix to "1" later on
+	maxAllowedClusterHostNameLen := K8sLabelWithoutSuffixMaxLength - fixedLength // I think 62 is here, because we might default the suffix to "1" later on
 
+	clusterHostName, err := getClusterHostName(serverAPIEndpoint, maxAllowedClusterHostNameLen, suffix)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%s-%s", clusterType, clusterHostName), nil
+}
+
+func getClusterHostName(serverAPIEndpoint string, maxAllowedClusterHostNameLen int, suffix string) (string, error) {
 	clusterHostName, err := sanitizeEndpointForUsageAsName(serverAPIEndpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to sanitize the endpoint for naming purposes: %w", err)
@@ -51,8 +62,7 @@ func GetToolchainClusterName(clusterType, serverAPIEndpoint, suffix string) (str
 			suffix = "1"
 		}
 	}
-
-	return fmt.Sprintf("%s-%s%s", clusterType, clusterHostName, suffix), nil
+	return fmt.Sprintf("%s%s", clusterHostName, suffix), nil
 }
 
 func sanitizeEndpointForUsageAsName(apiEndpoint string) (string, error) {
