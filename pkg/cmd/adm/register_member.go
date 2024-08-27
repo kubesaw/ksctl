@@ -497,10 +497,6 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 	}
 
 	// add the member entry in the host cluster
-	memberToolchainClusterKey := runtimeclient.ObjectKey{
-		Name:      v.memberClusterData.toolchainClusterName,
-		Namespace: v.hostClusterData.namespace,
-	}
 	if err := v.addCluster(ctx, configuration.Member); err != nil {
 		return err
 	}
@@ -511,11 +507,11 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 			APIVersion: toolchainv1alpha1.GroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      memberToolchainClusterKey.Name,
-			Namespace: memberToolchainClusterKey.Namespace,
+			Name:      v.memberClusterData.toolchainClusterName,
+			Namespace: v.hostClusterData.namespace,
 		},
 		Spec: toolchainv1alpha1.SpaceProvisionerConfigSpec{
-			ToolchainCluster: memberToolchainClusterKey.Name,
+			ToolchainCluster: v.memberClusterData.toolchainClusterName,
 			Enabled:          false,
 			PlacementRoles: []string{
 				cluster.RoleLabel(cluster.Tenant),
