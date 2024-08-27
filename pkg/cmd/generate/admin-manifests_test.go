@@ -26,18 +26,20 @@ func TestAdminManifests(t *testing.T) {
 	kubeSawAdmins := NewKubeSawAdmins(
 		Clusters(HostServerAPI).
 			AddMember("member1", Member1ServerAPI).
-			AddMember("member2", Member2ServerAPI),
+			AddMember("member2", Member2ServerAPI, WithSeparateKustomizeComponent()),
 		ServiceAccounts(
 			Sa("john", "",
 				HostRoleBindings("toolchain-host-operator", Role("install-operator"), ClusterRole("admin")),
-				MemberRoleBindings("toolchain-member-operator", Role("install-operator"), ClusterRole("admin"))),
+				MemberRoleBindings("toolchain-member-operator", Role("install-operator"), ClusterRole("admin"))).
+				WithSkippedMembers("member2"),
 			Sa("bob", "",
 				HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("edit")),
 				MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("edit")))),
 		Users(
 			User("john-user", []string{"12345"}, false, "crtadmins-view",
 				HostRoleBindings("toolchain-host-operator", Role("register-cluster"), ClusterRole("edit")),
-				MemberRoleBindings("toolchain-member-operator", Role("register-cluster"), ClusterRole("edit"))),
+				MemberRoleBindings("toolchain-member-operator", Role("register-cluster"), ClusterRole("edit"))).
+				WithSkippedMembers("member2"),
 			User("bob-crtadmin", []string{"67890"}, false, "crtadmins-exec",
 				HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("admin")),
 				MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("admin")))))
@@ -65,19 +67,43 @@ func TestAdminManifests(t *testing.T) {
 	})
 
 	t.Run("in single-cluster mode", func(t *testing.T) {
-		// given
-		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
-		require.NoError(t, err)
-		term := NewFakeTerminalWithResponse("Y")
-		term.Tee(os.Stdout)
-		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), singleCluster())
+		t.Run("fails with separateKustomizeComponent set for member2", func(t *testing.T) {
+			// given
+			outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
+			require.NoError(t, err)
+			term := NewFakeTerminalWithResponse("Y")
+			term.Tee(os.Stdout)
+			flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), singleCluster())
 
-		// when
-		err = adminManifests(term, files, flags)
+			// when
+			err = adminManifests(term, files, flags)
 
-		// then
-		require.NoError(t, err)
-		verifyFiles(t, flags)
+			// then
+			require.EqualError(t, err, "--single-cluster flag cannot be used with separateKustomizeComponent set in one of the members (member2)")
+		})
+
+		t.Run("without separateKustomizeComponent set for member2", func(t *testing.T) {
+			// given
+			kubeSawAdmins.Clusters.Members[1].SeparateKustomizeComponent = false
+			kubeSawAdminsContent, err := yaml.Marshal(kubeSawAdmins)
+			require.NoError(t, err)
+
+			configFile := createKubeSawAdminsFile(t, "kubesaw.host.openshiftapps.com", kubeSawAdminsContent)
+			files := newDefaultFiles(t)
+
+			outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
+			require.NoError(t, err)
+			term := NewFakeTerminalWithResponse("Y")
+			term.Tee(os.Stdout)
+			flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), singleCluster())
+
+			// when
+			err = adminManifests(term, files, flags)
+
+			// then
+			require.NoError(t, err)
+			verifyFiles(t, flags)
+		})
 	})
 
 	t.Run("in custom host root directory", func(t *testing.T) {
@@ -183,14 +209,8 @@ func storeDummySA(t *testing.T, outDir string) {
 func verifyFiles(t *testing.T, flags adminManifestsFlags) {
 	dirEntries, err := os.ReadDir(flags.outDir)
 	require.NoError(t, err)
-	var dirNames []string
-	if !flags.singleCluster {
-		assert.Len(t, dirEntries, 2)
-		dirNames = []string{dirEntries[0].Name(), dirEntries[1].Name()}
-	} else {
-		assert.Len(t, dirEntries, 3)
-		dirNames = []string{dirEntries[0].Name(), dirEntries[1].Name(), dirEntries[2].Name()}
-	}
+	assert.Len(t, dirEntries, 3)
+	dirNames := []string{dirEntries[0].Name(), dirEntries[1].Name(), dirEntries[2].Name()}
 
 	for _, clusterType := range configuration.ClusterTypes {
 		ns := commontest.HostOperatorNs
@@ -203,16 +223,24 @@ func verifyFiles(t *testing.T, flags adminManifestsFlags) {
 		verifyServiceAccounts(t, flags.outDir, expectedRootDir, clusterType, ns)
 		verifyUsers(t, flags.outDir, expectedRootDir, clusterType, ns, flags.singleCluster)
 	}
+
+	if !flags.singleCluster {
+		// if singleCluster is not used then let's verify that member2 was generated in a separate kustomize component
+		verifyServiceAccounts(t, flags.outDir, "member2", configuration.Member, commontest.MemberOperatorNs)
+		verifyUsers(t, flags.outDir, "member2", configuration.Member, commontest.MemberOperatorNs, flags.singleCluster)
+	}
 }
 
 func verifyServiceAccounts(t *testing.T, outDir, expectedRootDir string, clusterType configuration.ClusterType, roleNs string) {
 	saNs := fmt.Sprintf("sandbox-sre-%s", clusterType)
 
-	inKStructure(t, outDir, expectedRootDir).
-		assertSa(saNs, "john").
-		hasRole(roleNs, clusterType.AsSuffix("install-operator"), clusterType.AsSuffix("install-operator-john")).
-		hasNsClusterRole(roleNs, "admin", clusterType.AsSuffix("clusterrole-admin-john"))
-
+	if expectedRootDir != "member2" {
+		// john is skipped for member2 (when generated as a separate kustomize component)
+		inKStructure(t, outDir, expectedRootDir).
+			assertSa(saNs, "john").
+			hasRole(roleNs, clusterType.AsSuffix("install-operator"), clusterType.AsSuffix("install-operator-john")).
+			hasNsClusterRole(roleNs, "admin", clusterType.AsSuffix("clusterrole-admin-john"))
+	}
 	inKStructure(t, outDir, expectedRootDir).
 		assertSa(saNs, "bob").
 		hasRole(roleNs, clusterType.AsSuffix("restart-deployment"), clusterType.AsSuffix("restart-deployment-bob")).
@@ -225,20 +253,27 @@ func verifyUsers(t *testing.T, outDir, expectedRootDir string, clusterType confi
 		rootDir = "base"
 	}
 
-	inKStructure(t, outDir, rootDir).
-		assertUser("john-user").
-		hasIdentity("12345").
-		belongsToGroups(groups("crtadmins-view"), extraGroupsUserIsNotPartOf("crtadmins-exec"))
-
 	storageAssertion := inKStructure(t, outDir, expectedRootDir).storageAssertionImpl
-	newPermissionAssertion(storageAssertion, "", "john-user", "User").
-		hasRole(ns, clusterType.AsSuffix("register-cluster"), clusterType.AsSuffix("register-cluster-john-user")).
-		hasNsClusterRole(ns, "edit", clusterType.AsSuffix("clusterrole-edit-john-user"))
+	bobsExtraGroupsUserIsNotPartOf := extraGroupsUserIsNotPartOf()
+	if expectedRootDir != "member2" {
+		// john is skipped for member2 (when generated as a separate kustomize component)
+		inKStructure(t, outDir, rootDir).
+			assertUser("john-user").
+			hasIdentity("12345").
+			belongsToGroups(groups("crtadmins-view"), extraGroupsUserIsNotPartOf("crtadmins-exec"))
+
+		newPermissionAssertion(storageAssertion, "", "john-user", "User").
+			hasRole(ns, clusterType.AsSuffix("register-cluster"), clusterType.AsSuffix("register-cluster-john-user")).
+			hasNsClusterRole(ns, "edit", clusterType.AsSuffix("clusterrole-edit-john-user"))
+
+		// crtadmins-view group is not generated for member2 at all
+		bobsExtraGroupsUserIsNotPartOf = extraGroupsUserIsNotPartOf("crtadmins-view")
+	}
 
 	inKStructure(t, outDir, rootDir).
 		assertUser("bob-crtadmin").
 		hasIdentity("67890").
-		belongsToGroups(groups("crtadmins-exec"), extraGroupsUserIsNotPartOf("crtadmins-view"))
+		belongsToGroups(groups("crtadmins-exec"), bobsExtraGroupsUserIsNotPartOf)
 
 	newPermissionAssertion(storageAssertion, "", "bob-crtadmin", "User").
 		hasRole(ns, clusterType.AsSuffix("restart-deployment"), clusterType.AsSuffix("restart-deployment-bob-crtadmin")).
