@@ -197,7 +197,7 @@ func generateForCluster(ctx *generateContext, clusterType configuration.ClusterT
 				saNamespace = sa.Namespace
 			}
 			ctx.Printlnf("Getting token for SA '%s' in namespace '%s'", sa.Name, saNamespace)
-			token, err := getServiceAccountToken(externalClient, types.NamespacedName{
+			token, err := GetServiceAccountToken(externalClient, types.NamespacedName{
 				Namespace: saNamespace,
 				Name:      sa.Name}, ctx.tokenExpirationDays)
 			if token == "" || err != nil {
@@ -242,11 +242,11 @@ func buildClientFromKubeconfigFiles(ctx *generateContext, API string, kubeconfig
 	return nil, fmt.Errorf("could not setup client from any of the provided kubeconfig files for the '%s' cluster", API)
 }
 
-// getServiceAccountToken returns the SA's token or returns an error if none was found.
+// GetServiceAccountToken returns the SA's token or returns an error if none was found.
 // NOTE: due to a changes in OpenShift 4.11, tokens are not listed as `secrets` in ServiceAccounts.
 // The recommended solution is to use the TokenRequest API when server version >= 4.11
 // (see https://docs.openshift.com/container-platform/4.11/release_notes/ocp-4-11-release-notes.html#ocp-4-11-notable-technical-changes)
-func getServiceAccountToken(cl *rest.RESTClient, namespacedName types.NamespacedName, tokenExpirationDays uint) (string, error) {
+func GetServiceAccountToken(cl *rest.RESTClient, namespacedName runtimeclient.ObjectKey, tokenExpirationDays uint) (string, error) {
 	tokenRequest := &authv1.TokenRequest{
 		Spec: authv1.TokenRequestSpec{
 			ExpirationSeconds: pointer.Int64(int64(tokenExpirationDays * 24 * 60 * 60)),
