@@ -24,15 +24,27 @@ func Clusters(hostURL string) ClustersCreator {
 	}
 }
 
-func (m ClustersCreator) AddMember(name, URL string) ClustersCreator {
+func (m ClustersCreator) AddMember(name, URL string, options ...MemberClusterOption) ClustersCreator {
+	memberCluster := assets.MemberCluster{
+		Name: name,
+		ClusterConfig: assets.ClusterConfig{
+			API: URL,
+		},
+	}
+	for _, modify := range options {
+		modify(&memberCluster)
+	}
 	return func(clusters *assets.Clusters) {
 		m(clusters)
-		clusters.Members = append(clusters.Members, assets.MemberCluster{
-			Name: name,
-			ClusterConfig: assets.ClusterConfig{
-				API: URL,
-			},
-		})
+		clusters.Members = append(clusters.Members, memberCluster)
+	}
+}
+
+type MemberClusterOption func(*assets.MemberCluster)
+
+func WithSeparateKustomizeComponent() MemberClusterOption {
+	return func(memberCluster *assets.MemberCluster) {
+		memberCluster.SeparateKustomizeComponent = true
 	}
 }
 
@@ -54,6 +66,14 @@ func Sa(baseName, namespace string, permissions ...PermissionsPerClusterTypeModi
 			PermissionsPerClusterType: NewPermissionsPerClusterType(permissions...),
 		}
 		return sa
+	}
+}
+
+func (c ServiceAccountCreator) WithSkippedMembers(members ...string) ServiceAccountCreator {
+	return func() assets.ServiceAccount {
+		serviceAccount := c()
+		serviceAccount.Selector.SkipMembers = members
+		return serviceAccount
 	}
 }
 
@@ -148,6 +168,14 @@ func User(name string, IDs []string, allCluster bool, group string, permissions 
 		for _, addPermissions := range permissions {
 			addPermissions(user.PermissionsPerClusterType)
 		}
+		return user
+	}
+}
+
+func (c UserCreator) WithSkippedMembers(members ...string) UserCreator {
+	return func() assets.User {
+		user := c()
+		user.Selector.SkipMembers = members
 		return user
 	}
 }

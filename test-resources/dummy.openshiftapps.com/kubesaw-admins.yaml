@@ -8,6 +8,7 @@ clusters:
     name: member-2
   - api: https://api.dummy-m3.openshiftapps.com:6443
     name: member-3
+    separateKustomizeComponent: true
 
 serviceAccounts:
 
@@ -214,6 +215,21 @@ users:
     - namespace: second-component
       clusterRoles:
       - view
+
+- name: editor-not-included-in-member-3
+  id:
+  - 5412345
+  selector:
+    skipMembers:
+    - member-3
+  member:
+    roleBindings:
+    - namespace: first-component
+      clusterRoles:
+      - edit
+    - namespace: second-component
+      clusterRoles:
+      - edit
 
 - name: my-clusteradmin
   id:
