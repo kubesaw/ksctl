@@ -17,7 +17,6 @@ serviceAccounts:
     roleBindings:
     - namespace: toolchain-host-operator
       roles:
-      - install-operator
       - restart-deployment
       - approve-user
       - view-secrets
@@ -30,50 +29,15 @@ serviceAccounts:
       - create-social-event
       - add-space-users
       clusterRoles:
-      - edit
       - view
-    - namespace: openshift-customer-monitoring
-      roles:
-      - install-operator
-      - view-secrets
-      - configure-monitoring
-      clusterRoles:
-      - edit
-    - namespace: openshift-logging
-      roles:
-      - install-operator
-      clusterRoles:
-      - edit
   member:
     roleBindings:
     - namespace: toolchain-member-operator
       roles:
-      - install-operator
       - restart-deployment
       - view-secrets
       clusterRoles:
-      - edit
       - view
-    - namespace: openshift-customer-monitoring
-      roles:
-      - install-operator
-      - view-secrets
-      - configure-monitoring
-      clusterRoles:
-      - edit
-    - namespace: openshift-logging
-      roles:
-      - install-operator
-      clusterRoles:
-      - edit
-    - namespace: openshift-config-managed
-      roles:
-      - configure-monitoring
-      clusterRoles:
-      - edit
-    clusterRoleBindings:
-      clusterRoles:
-      - manage-console-resources
 
 - name: second-admin
   host:
@@ -131,17 +95,10 @@ users:
       - view
     - namespace: openshift-customer-monitoring
       roles:
-      - install-operator
       - view-secrets
-      - configure-monitoring
       clusterRoles:
       - edit
     - namespace: openshift-logging
-      clusterRoles:
-      - view
-    - namespace: sandbox-sre-host
-      roles:
-      - view-secrets
       clusterRoles:
       - view
   member:
@@ -158,17 +115,10 @@ users:
       - view
     - namespace: openshift-customer-monitoring
       roles:
-      - install-operator
       - view-secrets
-      - configure-monitoring
       clusterRoles:
       - edit
     - namespace: openshift-logging
-      clusterRoles:
-      - view
-    - namespace: sandbox-sre-member
-      roles:
-      - view-secrets
       clusterRoles:
       - view
 
