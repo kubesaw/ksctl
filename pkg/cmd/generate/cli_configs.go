@@ -171,7 +171,7 @@ func generateForCluster(ctx *generateContext, clusterType configuration.ClusterT
 	ctx.PrintContextSeparatorf("Generating the content of the ksctl.yaml files for %s cluster running at %s", clusterName, clusterSpec.API)
 
 	// find config we can build client for the cluster from
-	externalClient, err := buildClientFromKubeconfigFiles(ctx, clusterSpec.API, ctx.kubeconfigPaths, sandboxSRENamespace(clusterType))
+	externalClient, err := buildClientFromKubeconfigFiles(ctx, clusterSpec.API, ctx.kubeconfigPaths, defaultSAsNamespace(ctx.kubeSawAdmins, clusterType))
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func generateForCluster(ctx *generateContext, clusterType configuration.ClusterT
 			if saClusterType != clusterType.String() {
 				continue
 			}
-			saNamespace := sandboxSRENamespace(clusterType)
+			saNamespace := defaultSAsNamespace(ctx.kubeSawAdmins, clusterType)
 			if sa.Namespace != "" {
 				saNamespace = sa.Namespace
 			}

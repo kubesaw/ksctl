@@ -68,6 +68,10 @@ func adminManifests(term ioutils.Terminal, files assets.FS, flags adminManifests
 			}
 		}
 	}
+
+	if defaultSAsNamespace(kubeSawAdmins, configuration.Host) == defaultSAsNamespace(kubeSawAdmins, configuration.Member) {
+		return fmt.Errorf("the default ServiceAccounts namespace has the same name for host cluster as for the member clusters (%s), they have to be different", defaultSAsNamespace(kubeSawAdmins, configuration.Host))
+	}
 	err = os.RemoveAll(flags.outDir)
 	if err != nil {
 		return err

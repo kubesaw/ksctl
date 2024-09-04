@@ -39,7 +39,7 @@ func TestEnsurePermissionsInNamespaces(t *testing.T) {
 				// then
 				require.NoError(t, err)
 				roleNs := fmt.Sprintf("toolchain-%s-operator", clusterType)
-				saNs := fmt.Sprintf("sandbox-sre-%s", clusterType)
+				saNs := fmt.Sprintf("ksctl-%s", clusterType)
 
 				inObjectCache(t, ctx.outDir, clusterType.String(), permManager.objectsCache).
 					assertSa(saNs, "john").
@@ -91,15 +91,15 @@ func TestEnsureServiceAccount(t *testing.T) {
 
 		// when
 		subject, err := ensureServiceAccount("")(
-			ctx, cache, "john", "sandbox-sre-host", labels)
+			ctx, cache, "john", "ksctl-host", labels)
 
 		// then
 		require.NoError(t, err)
 		inObjectCache(t, ctx.outDir, "host", cache).
-			assertSa("sandbox-sre-host", "john")
+			assertSa("ksctl-host", "john")
 		assert.Equal(t, "ServiceAccount", subject.Kind)
 		assert.Equal(t, "john", subject.Name)
-		assert.Equal(t, "sandbox-sre-host", subject.Namespace)
+		assert.Equal(t, "ksctl-host", subject.Namespace)
 	})
 
 	t.Run("create SA in the given namespace", func(t *testing.T) {

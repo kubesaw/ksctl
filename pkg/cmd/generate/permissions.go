@@ -81,7 +81,7 @@ func (m *permissionsManager) ensurePermission(ctx *clusterContext, roleName, tar
 	}
 
 	// ensure that the subject exists
-	subject, err := m.createSubject(ctx, m.objectsCache, m.subjectBaseName, sandboxSRENamespace(ctx.clusterType), sreLabelsWithUsername(m.subjectBaseName))
+	subject, err := m.createSubject(ctx, m.objectsCache, m.subjectBaseName, defaultSAsNamespace(ctx.kubeSawAdmins, ctx.clusterType), sreLabelsWithUsername(m.subjectBaseName))
 	if err != nil {
 		return err
 	}

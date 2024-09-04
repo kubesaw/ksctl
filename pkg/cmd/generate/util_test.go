@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kubesaw/ksctl/pkg/configuration"
+	"github.com/kubesaw/ksctl/pkg/test"
 	userv1 "github.com/openshift/api/user/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -379,4 +380,51 @@ func TestFilePath(t *testing.T) {
 		})
 	})
 
+}
+
+func TestDefaultSAsNamespace(t *testing.T) {
+	var testData = map[string]struct {
+		hostSAsNs, expectedHostSAsNs     string
+		memberSAsNs, expectedMemberSAsNs string
+	}{
+		"custom host and member SAs namespaces": {
+			hostSAsNs:           "kubesaw-host-sre",
+			expectedHostSAsNs:   "kubesaw-host-sre",
+			memberSAsNs:         "kubesaw-member-sre",
+			expectedMemberSAsNs: "kubesaw-member-sre",
+		},
+		"custom host SAs namespace": {
+			hostSAsNs:           "kubesaw-host-sre",
+			expectedHostSAsNs:   "kubesaw-host-sre",
+			expectedMemberSAsNs: "ksctl-member",
+		},
+		"custom member SAs namespace": {
+			expectedHostSAsNs:   "ksctl-host",
+			memberSAsNs:         "kubesaw-member-sre",
+			expectedMemberSAsNs: "kubesaw-member-sre",
+		},
+		"no custom SAs namespace": {
+			expectedHostSAsNs:   "ksctl-host",
+			expectedMemberSAsNs: "ksctl-member",
+		},
+	}
+
+	for testName, data := range testData {
+		t.Run(testName, func(t *testing.T) {
+			// given
+			kubeSawAdmins := test.NewKubeSawAdmins(test.Clusters(""),
+				test.ServiceAccounts(),
+				test.Users())
+			kubeSawAdmins.DefaultServiceAccountsNamespace.Host = data.hostSAsNs
+			kubeSawAdmins.DefaultServiceAccountsNamespace.Member = data.memberSAsNs
+
+			// when
+			defaultHostSAsNs := defaultSAsNamespace(kubeSawAdmins, configuration.Host)
+			defaultMemberSAsNs := defaultSAsNamespace(kubeSawAdmins, configuration.Member)
+
+			// then
+			assert.Equal(t, data.expectedHostSAsNs, defaultHostSAsNs)
+			assert.Equal(t, data.expectedMemberSAsNs, defaultMemberSAsNs)
+		})
+	}
 }
