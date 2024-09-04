@@ -20,16 +20,24 @@ func TestEnsureObject(t *testing.T) {
 	// given
 	for _, clusterType := range configuration.ClusterTypes {
 		t.Run("for cluster type "+clusterType.String(), func(t *testing.T) {
-
-			t.Run("for User object", func(t *testing.T) {
-				verifyEnsureManifest(t, clusterType, &userv1.User{})
-			})
-
-			t.Run("for ServiceAccount object", func(t *testing.T) {
-				verifyEnsureManifest(t, clusterType, &corev1.ServiceAccount{})
-			})
+			testEnsureObject(t, clusterType, "")
 		})
 	}
+	t.Run("when using specificKMemberName", func(t *testing.T) {
+		testEnsureObject(t, configuration.Member, "member-1")
+	})
+}
+
+func testEnsureObject(t *testing.T, clusterType configuration.ClusterType, specificKMemberName string) {
+	t.Helper()
+
+	t.Run("for User object", func(t *testing.T) {
+		verifyEnsureManifest(t, clusterType, &userv1.User{}, specificKMemberName)
+	})
+
+	t.Run("for ServiceAccount object", func(t *testing.T) {
+		verifyEnsureManifest(t, clusterType, &corev1.ServiceAccount{}, specificKMemberName)
+	})
 }
 
 func prepareObjects(t *testing.T, name string, namespace string, object runtimeclient.Object) (runtimeclient.Object, runtimeclient.Object) {
@@ -49,45 +57,50 @@ func prepareObjects(t *testing.T, name string, namespace string, object runtimec
 	return toBeStored, expectedWithTypeMeta
 }
 
-func verifyEnsureManifest(t *testing.T, clusterType configuration.ClusterType, object runtimeclient.Object) {
+func verifyEnsureManifest(t *testing.T, clusterType configuration.ClusterType, object runtimeclient.Object, specificKMemberName string) {
 	for _, namespace := range []string{"johnspace", "second-namespace", ""} {
 		t.Run("for namespace "+namespace, func(t *testing.T) {
 			// given
 			ctx := newAdminManifestsContextWithDefaultFiles(t, nil)
 			cache := objectsCache{}
 			toBeStored, expected := prepareObjects(t, "john", namespace, object)
+			clusterCtx := newFakeClusterContext(ctx, clusterType, withSpecificKMemberName(specificKMemberName))
+			rootKDir := clusterType.String()
+			if specificKMemberName != "" {
+				rootKDir = specificKMemberName
+			}
 
 			// when
-			err := cache.ensureObject(newFakeClusterContext(ctx, clusterType), toBeStored, nil)
+			err := cache.ensureObject(clusterCtx, toBeStored, nil)
 
 			// then
 			require.NoError(t, err)
 			actual := object.DeepCopyObject().(runtimeclient.Object)
-			inObjectCache(t, ctx.outDir, clusterType.String(), cache).
+			inObjectCache(t, ctx.outDir, rootKDir, cache).
 				assertObject(toBeStored.GetNamespace(), "john", actual, func() {
 					assert.Equal(t, expected, actual)
 				})
 
-			verifyUpdates(t, newFakeClusterContext(ctx, clusterType), cache, object, toBeStored, expected, clusterType.String())
+			verifyUpdates(t, clusterCtx, cache, object, toBeStored, expected, rootKDir)
 
 			t.Run("second resource", func(t *testing.T) {
 				// given
 				toBeStored2, expected2 := prepareObjects(t, "second", namespace, object)
 
 				// when
-				err := cache.ensureObject(newFakeClusterContext(ctx, clusterType), toBeStored2, nil)
+				err := cache.ensureObject(clusterCtx, toBeStored2, nil)
 
 				// then
 				require.NoError(t, err)
 				actual := object.DeepCopyObject().(runtimeclient.Object)
-				inObjectCache(t, ctx.outDir, clusterType.String(), cache).
+				inObjectCache(t, ctx.outDir, rootKDir, cache).
 					assertObject(toBeStored.GetNamespace(), "second", actual, func() {
 						assert.Equal(t, expected2, actual)
 					})
 
 				t.Run("no change when update function fails", func(t *testing.T) {
 					// when
-					err := cache.ensureObject(newFakeClusterContext(ctx, clusterType), toBeStored2, func(object runtimeclient.Object) (bool, error) {
+					err := cache.ensureObject(clusterCtx, toBeStored2, func(object runtimeclient.Object) (bool, error) {
 						object.SetLabels(map[string]string{"dummy-key": "dummy-value"})
 						return true, fmt.Errorf("some errror")
 					})
@@ -95,7 +108,7 @@ func verifyEnsureManifest(t *testing.T, clusterType configuration.ClusterType, o
 					// then
 					require.Error(t, err)
 					actual := object.DeepCopyObject().(runtimeclient.Object)
-					inObjectCache(t, ctx.outDir, clusterType.String(), cache).
+					inObjectCache(t, ctx.outDir, rootKDir, cache).
 						assertObject(toBeStored.GetNamespace(), "second", actual, func() {
 							assert.Equal(t, expected2, actual)
 						})
@@ -108,7 +121,7 @@ func verifyEnsureManifest(t *testing.T, clusterType configuration.ClusterType, o
 				invalid.SetName("")
 
 				// when
-				err := cache.ensureObject(newFakeClusterContext(ctx, clusterType), invalid.DeepCopyObject().(runtimeclient.Object), nil)
+				err := cache.ensureObject(clusterCtx, invalid.DeepCopyObject().(runtimeclient.Object), nil)
 
 				// then
 				require.Error(t, err)
@@ -119,7 +132,7 @@ func verifyEnsureManifest(t *testing.T, clusterType configuration.ClusterType, o
 					// given
 					toBeStored, expected := prepareObjects(t, "john", namespace, object)
 					cache := objectsCache{}
-					require.NoError(t, cache.ensureObject(newFakeClusterContext(ctx, clusterType), toBeStored, nil))
+					require.NoError(t, cache.ensureObject(clusterCtx, toBeStored, nil))
 
 					// when
 					err := cache.ensureObject(newFakeClusterContext(ctx, clusterType.TheOtherType()), toBeStored, nil)
@@ -127,7 +140,7 @@ func verifyEnsureManifest(t *testing.T, clusterType configuration.ClusterType, o
 					// then
 					require.NoError(t, err)
 					actual := object.DeepCopyObject().(runtimeclient.Object)
-					inObjectCache(t, ctx.outDir, clusterType.String(), cache).
+					inObjectCache(t, ctx.outDir, rootKDir, cache).
 						assertObject(toBeStored.GetNamespace(), "john", actual, func() {
 							assert.Equal(t, expected, actual)
 						})
@@ -140,62 +153,65 @@ func verifyEnsureManifest(t *testing.T, clusterType configuration.ClusterType, o
 						assertObjectDoesNotExist(toBeStored.GetNamespace(), "john", object)
 				})
 
-				t.Run("single-cluster mode enabled", func(t *testing.T) {
-					// given
-					ctx := newAdminManifestsContextWithDefaultFiles(t, nil)
-					ctx.adminManifestsFlags.singleCluster = true
-
-					t.Run("update after move to base", func(t *testing.T) {
+				if specificKMemberName == "" {
+					rootKDir := clusterType.String()
+					t.Run("single-cluster mode enabled", func(t *testing.T) {
 						// given
-						toBeStored, expected := prepareObjects(t, "john", namespace, object)
-						cache := objectsCache{}
-						require.NoError(t, cache.ensureObject(newFakeClusterContext(ctx, clusterType), toBeStored, nil))
+						ctx := newAdminManifestsContextWithDefaultFiles(t, nil)
+						ctx.adminManifestsFlags.singleCluster = true
 
-						// when
-						err := cache.ensureObject(newFakeClusterContext(ctx, clusterType.TheOtherType()), toBeStored, nil)
+						t.Run("update after move to base", func(t *testing.T) {
+							// given
+							toBeStored, expected := prepareObjects(t, "john", namespace, object)
+							cache := objectsCache{}
+							require.NoError(t, cache.ensureObject(newFakeClusterContext(ctx, clusterType), toBeStored, nil))
 
-						// then
-						require.NoError(t, err)
-						inObjectCache(t, ctx.outDir, clusterType.String(), cache).
-							assertObjectDoesNotExist(toBeStored.GetNamespace(), "john", object)
-						inObjectCache(t, ctx.outDir, clusterType.TheOtherType().String(), cache).
-							assertObjectDoesNotExist(toBeStored.GetNamespace(), "john", object)
-						baseActual := object.DeepCopyObject().(runtimeclient.Object)
-						inObjectCache(t, ctx.outDir, "base", cache).
-							assertObject(toBeStored.GetNamespace(), "john", baseActual, func() {
-								assert.Equal(t, expected, baseActual)
-							})
+							// when
+							err := cache.ensureObject(newFakeClusterContext(ctx, clusterType.TheOtherType()), toBeStored, nil)
 
-						verifyUpdates(t, newFakeClusterContext(ctx, clusterType), cache, object, toBeStored, expected, "base")
-					})
+							// then
+							require.NoError(t, err)
+							inObjectCache(t, ctx.outDir, rootKDir, cache).
+								assertObjectDoesNotExist(toBeStored.GetNamespace(), "john", object)
+							inObjectCache(t, ctx.outDir, clusterType.TheOtherType().String(), cache).
+								assertObjectDoesNotExist(toBeStored.GetNamespace(), "john", object)
+							baseActual := object.DeepCopyObject().(runtimeclient.Object)
+							inObjectCache(t, ctx.outDir, "base", cache).
+								assertObject(toBeStored.GetNamespace(), "john", baseActual, func() {
+									assert.Equal(t, expected, baseActual)
+								})
 
-					t.Run("update while moving to base", func(t *testing.T) {
-						// given
-						toBeStored, expected := prepareObjects(t, "john", namespace, object)
-						modifiedSA := expected.DeepCopyObject().(runtimeclient.Object)
-						modifiedSA.SetLabels(map[string]string{"dummy-key": "dummy-value"})
-						cache := objectsCache{}
-						require.NoError(t, cache.ensureObject(newFakeClusterContext(ctx, clusterType), toBeStored, nil))
-
-						// when
-						err := cache.ensureObject(newFakeClusterContext(ctx, clusterType.TheOtherType()), toBeStored, func(object runtimeclient.Object) (bool, error) {
-							object.SetLabels(map[string]string{"dummy-key": "dummy-value"})
-							return true, nil
+							verifyUpdates(t, newFakeClusterContext(ctx, clusterType), cache, object, toBeStored, expected, "base")
 						})
 
-						// then
-						require.NoError(t, err)
-						inObjectCache(t, ctx.outDir, clusterType.String(), cache).
-							assertObjectDoesNotExist(toBeStored.GetNamespace(), "john", object)
-						inObjectCache(t, ctx.outDir, clusterType.TheOtherType().String(), cache).
-							assertObjectDoesNotExist(toBeStored.GetNamespace(), "john", object)
-						baseActual := object.DeepCopyObject().(runtimeclient.Object)
-						inObjectCache(t, ctx.outDir, "base", cache).
-							assertObject(toBeStored.GetNamespace(), "john", baseActual, func() {
-								assert.Equal(t, modifiedSA, baseActual)
+						t.Run("update while moving to base", func(t *testing.T) {
+							// given
+							toBeStored, expected := prepareObjects(t, "john", namespace, object)
+							modifiedSA := expected.DeepCopyObject().(runtimeclient.Object)
+							modifiedSA.SetLabels(map[string]string{"dummy-key": "dummy-value"})
+							cache := objectsCache{}
+							require.NoError(t, cache.ensureObject(newFakeClusterContext(ctx, clusterType), toBeStored, nil))
+
+							// when
+							err := cache.ensureObject(newFakeClusterContext(ctx, clusterType.TheOtherType()), toBeStored, func(object runtimeclient.Object) (bool, error) {
+								object.SetLabels(map[string]string{"dummy-key": "dummy-value"})
+								return true, nil
 							})
+
+							// then
+							require.NoError(t, err)
+							inObjectCache(t, ctx.outDir, rootKDir, cache).
+								assertObjectDoesNotExist(toBeStored.GetNamespace(), "john", object)
+							inObjectCache(t, ctx.outDir, clusterType.TheOtherType().String(), cache).
+								assertObjectDoesNotExist(toBeStored.GetNamespace(), "john", object)
+							baseActual := object.DeepCopyObject().(runtimeclient.Object)
+							inObjectCache(t, ctx.outDir, "base", cache).
+								assertObject(toBeStored.GetNamespace(), "john", baseActual, func() {
+									assert.Equal(t, modifiedSA, baseActual)
+								})
+						})
 					})
-				})
+				}
 			})
 		})
 	}

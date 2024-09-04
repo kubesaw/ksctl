@@ -2,11 +2,13 @@ package generate
 
 import (
 	"github.com/kubesaw/ksctl/pkg/configuration"
+	"k8s.io/utils/strings/slices"
 )
 
 type clusterContext struct {
 	*adminManifestsContext
-	clusterType configuration.ClusterType
+	clusterType         configuration.ClusterType
+	specificKMemberName string
 }
 
 // ensureServiceAccounts reads the list of service accounts definitions and it's permissions.
@@ -14,6 +16,9 @@ type clusterContext struct {
 func ensureServiceAccounts(ctx *clusterContext, objsCache objectsCache) error {
 	ctx.Printlnf("-> Ensuring ServiceAccounts and its RoleBindings...")
 	for _, sa := range ctx.kubeSawAdmins.ServiceAccounts {
+		if ctx.specificKMemberName != "" && slices.Contains(sa.Selector.SkipMembers, ctx.specificKMemberName) {
+			continue
+		}
 
 		// by default, it should use the sandbox sre namespace. let's keep this empty (if the target namespace is not defined) so it is recognized in the ensureServiceAccount method based on the cluster type it is being applied in
 		saNamespace := ""
@@ -42,6 +47,9 @@ func ensureUsers(ctx *clusterContext, objsCache objectsCache) error {
 	ctx.Printlnf("-> Ensuring Users and its RoleBindings...")
 
 	for _, user := range ctx.kubeSawAdmins.Users {
+		if ctx.specificKMemberName != "" && slices.Contains(user.Selector.SkipMembers, ctx.specificKMemberName) {
+			continue
+		}
 		m := &permissionsManager{
 			objectsCache:    objsCache,
 			createSubject:   ensureUserIdentityAndGroups(user.ID, user.Groups),

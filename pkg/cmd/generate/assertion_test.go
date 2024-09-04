@@ -443,3 +443,17 @@ func (a *objectsCacheAssertion) assertNumberOfRoles(expectedNumber int) *objects
 	assert.Len(a.t, roles, expectedNumber)
 	return a
 }
+
+func (a *objectsCacheAssertion) assertNumberOfSAs(expectedNumber int) *objectsCacheAssertion {
+	roles, err := a.listObjects("serviceaccounts", "ServiceAccount", &corev1.ServiceAccount{})
+	require.NoError(a.t, err)
+	assert.Len(a.t, roles, expectedNumber)
+	return a
+}
+
+func (a *objectsCacheAssertion) assertNumberOfUsers(expectedNumber int) *objectsCacheAssertion {
+	roles, err := a.listObjects("users", "User", &userv1.User{})
+	require.NoError(a.t, err)
+	assert.Len(a.t, roles, expectedNumber)
+	return a
+}

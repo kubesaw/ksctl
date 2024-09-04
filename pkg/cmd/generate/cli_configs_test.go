@@ -34,7 +34,8 @@ func TestGenerateCliConfigs(t *testing.T) {
 		ServiceAccounts(
 			Sa("john", "",
 				HostRoleBindings("toolchain-host-operator", Role("install-operator"), ClusterRole("admin")),
-				MemberRoleBindings("toolchain-member-operator", Role("install-operator"), ClusterRole("admin"))),
+				MemberRoleBindings("toolchain-member-operator", Role("install-operator"), ClusterRole("admin"))).
+				WithSkippedMembers("member2"),
 			Sa("bob", "",
 				HostRoleBindings("toolchain-host-operator", Role("restart=restart-deployment"), ClusterRole("restart=edit")),
 				MemberRoleBindings("toolchain-member-operator", Role("restart=restart-deployment"), ClusterRole("restart=edit")))),
@@ -57,7 +58,6 @@ func TestGenerateCliConfigs(t *testing.T) {
 		newServiceAccount("sandbox-sre-member", "bob"),
 	)
 	setupGockForServiceAccounts(t, Member2ServerAPI, 50,
-		newServiceAccount("sandbox-sre-member", "john"),
 		newServiceAccount("sandbox-sre-member", "bob"),
 	)
 	t.Cleanup(gock.OffAll)
@@ -83,7 +83,9 @@ func TestGenerateCliConfigs(t *testing.T) {
 			// then
 			require.NoError(t, err)
 
-			verifyKsctlConfigFiles(t, tempDir, hasHost(), hasMember("member1", "member1"), hasMember("member2", "member2"))
+			verifyKsctlConfigFiles(t, tempDir,
+				cliConfigForUser("john", hasHost(), hasMember("member1", "member1")),
+				cliConfigForUser("bob", hasHost(), hasMember("member1", "member1"), hasMember("member2", "member2")))
 		})
 
 		t.Run("when there SAs are defined for host cluster only", func(t *testing.T) {
@@ -111,7 +113,9 @@ func TestGenerateCliConfigs(t *testing.T) {
 			// then
 			require.NoError(t, err)
 
-			verifyKsctlConfigFiles(t, tempDir, hasHost())
+			verifyKsctlConfigFiles(t, tempDir,
+				cliConfigForUser("john", hasHost()),
+				cliConfigForUser("bob", hasHost()))
 		})
 
 		t.Run("in dev mode", func(t *testing.T) {
@@ -132,7 +136,9 @@ func TestGenerateCliConfigs(t *testing.T) {
 			// then
 			require.NoError(t, err)
 
-			verifyKsctlConfigFiles(t, tempDir, hasHost(), hasMember("member1", "host"), hasMember("member2", "host"))
+			verifyKsctlConfigFiles(t, tempDir,
+				cliConfigForUser("john", hasHost(), hasMember("member1", "host")),
+				cliConfigForUser("bob", hasHost(), hasMember("member1", "host"), hasMember("member2", "host")))
 		})
 	})
 
@@ -259,28 +265,36 @@ func newGockRESTClient(token, apiEndpoint string) (*rest.RESTClient, error) {
 	return rest.RESTClientFor(config)
 }
 
-func verifyKsctlConfigFiles(t *testing.T, tempDir string, clusterAssertions ...userConfigClusterAssertions) {
+type userAndClusterAssertions func() (string, []userConfigClusterAssertions)
+
+func cliConfigForUser(name string, clusterAssertions ...userConfigClusterAssertions) userAndClusterAssertions {
+	return func() (string, []userConfigClusterAssertions) {
+		return name, clusterAssertions
+	}
+}
+
+func verifyKsctlConfigFiles(t *testing.T, tempDir string, userAndClusterAssertionsPairs ...userAndClusterAssertions) {
 	tempDirInfo, err := os.ReadDir(tempDir)
 	require.NoError(t, err)
-	assert.Len(t, tempDirInfo, 2)
-	for _, userDir := range tempDirInfo {
-		require.True(t, userDir.IsDir())
-		userDirInfo, err := os.ReadDir(path.Join(tempDir, userDir.Name()))
+	assert.Len(t, tempDirInfo, len(userAndClusterAssertionsPairs))
+	for _, userAndClusterAssertions := range userAndClusterAssertionsPairs {
+		userName, configClusterAssertions := userAndClusterAssertions()
+		userDirInfo, err := os.ReadDir(path.Join(tempDir, userName))
 		require.NoError(t, err)
 
 		assert.Len(t, userDirInfo, 1)
 		assert.Equal(t, "ksctl.yaml", userDirInfo[0].Name())
-		content, err := os.ReadFile(path.Join(tempDir, userDir.Name(), userDirInfo[0].Name()))
+		content, err := os.ReadFile(path.Join(tempDir, userName, userDirInfo[0].Name()))
 		require.NoError(t, err)
 
 		ksctlConfig := configuration.KsctlConfig{}
 		err = yaml.Unmarshal(content, &ksctlConfig)
 		require.NoError(t, err)
 
-		userConfig := assertKsctlConfig(t, ksctlConfig, userDir.Name()).
-			hasNumberOfClusters(len(clusterAssertions))
-		for _, applyAssertion := range clusterAssertions {
-			applyAssertion(t, userDir.Name(), userConfig)
+		userConfig := assertKsctlConfig(t, ksctlConfig, userName).
+			hasNumberOfClusters(len(configClusterAssertions))
+		for _, applyAssertion := range configClusterAssertions {
+			applyAssertion(t, userName, userConfig)
 		}
 	}
 }

@@ -90,6 +90,39 @@ func TestEnsureServiceAccounts(t *testing.T) {
 			hasNsClusterRole(commontest.HostOperatorNs, "view", "clusterrole-view-john-host").
 			hasClusterRoleBinding("cluster-monitoring-view", "clusterrole-cluster-monitoring-view-john-host")
 	})
+
+	t.Run("skip SA in a member with separateKustomizeComponent set", func(t *testing.T) {
+		// given
+		kubeSawAdmins := NewKubeSawAdmins(
+			Clusters(HostServerAPI).AddMember("member-1", Member1ServerAPI, WithSeparateKustomizeComponent()),
+			ServiceAccounts(
+				Sa("john", "",
+					permissionsForAllNamespaces...).WithSkippedMembers("member-1"), // will be skipped for the member
+				Sa("bob", "",
+					HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("view")),
+					MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("view"))).
+					WithSkippedMembers("wrong-member")), // doesn't have any effect on filtering
+			[]assets.User{})
+		ctx := newAdminManifestsContextWithDefaultFiles(t, kubeSawAdmins)
+		clusterCtx := newFakeClusterContext(ctx, configuration.Member, withSpecificKMemberName("member-1"))
+		t.Cleanup(gock.OffAll)
+		cache := objectsCache{}
+
+		// when
+		err := ensureServiceAccounts(clusterCtx, cache)
+
+		// then
+		require.NoError(t, err)
+
+		inObjectCache(t, ctx.outDir, "member-1", cache).
+			assertNumberOfSAs(1).
+			assertNumberOfRoles(1)
+
+		inObjectCache(t, ctx.outDir, "member-1", cache).
+			assertSa("sandbox-sre-member", "bob").
+			hasRole("toolchain-member-operator", configuration.Member.AsSuffix("restart-deployment"), configuration.Member.AsSuffix("restart-deployment-bob")).
+			hasNsClusterRole("toolchain-member-operator", "view", configuration.Member.AsSuffix("clusterrole-view-bob"))
+	})
 }
 
 func TestUsers(t *testing.T) {
@@ -157,6 +190,45 @@ func TestUsers(t *testing.T) {
 					hasIdentity("12340")
 			})
 		}
+	})
+
+	t.Run("skip User in a member with separateKustomizeComponent set", func(t *testing.T) {
+		// given
+		kubeSawAdmins := NewKubeSawAdmins(
+			Clusters(HostServerAPI).AddMember("member-1", Member1ServerAPI, WithSeparateKustomizeComponent()),
+			ServiceAccounts(),
+			Users(
+				User("john-user", []string{"12345"}, false, "crtadmins",
+					permissionsForAllNamespaces...).WithSkippedMembers("member-1"), // will be skipped for the member
+				User("bob-crtadmin", []string{"67890"}, false, "crtadmins",
+					HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("view")),
+					MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("view")),
+					MemberClusterRoleBindings("cluster-monitoring-view")).
+					WithSkippedMembers("wrong-member")), // doesn't have any effect on filtering
+		)
+		ctx := newAdminManifestsContextWithDefaultFiles(t, kubeSawAdmins)
+		clusterCtx := newFakeClusterContext(ctx, configuration.Member, withSpecificKMemberName("member-1"))
+		t.Cleanup(gock.OffAll)
+		cache := objectsCache{}
+
+		// when
+		err := ensureUsers(clusterCtx, cache)
+
+		// then
+		require.NoError(t, err)
+
+		inObjectCache(t, ctx.outDir, "member-1", cache).
+			assertNumberOfUsers(1).
+			assertNumberOfRoles(1).
+			assertThatGroupHasUsers("crtadmins", "bob-crtadmin")
+
+		inObjectCache(t, ctx.outDir, "member-1", cache).
+			assertUser("bob-crtadmin").
+			hasIdentity("67890").
+			belongsToGroups(groups("crtadmins"), extraGroupsUserIsNotPartOf()).
+			hasRole("toolchain-member-operator", configuration.Member.AsSuffix("restart-deployment"), configuration.Member.AsSuffix("restart-deployment-bob-crtadmin")).
+			hasNsClusterRole("toolchain-member-operator", "view", configuration.Member.AsSuffix("clusterrole-view-bob-crtadmin")).
+			hasClusterRoleBinding("cluster-monitoring-view", configuration.Member.AsSuffix("clusterrole-cluster-monitoring-view-bob-crtadmin"))
 	})
 }
 
