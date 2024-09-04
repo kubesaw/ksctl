@@ -94,7 +94,7 @@ func TestMustGatherNamespaceCmd(t *testing.T) {
 func assertFileContents(t *testing.T, destDir string, fileContents map[string]string) {
 	for filename, expectedContents := range fileContents {
 		actualContents, err := os.ReadFile(filepath.Join(destDir, filename))
-		require.NoError(t, err, fmt.Sprintf("'%s' is missing", filename))
+		require.NoError(t, err, "'%s' is missing", filename)
 		assert.Equal(t, expectedContents, string(actualContents))
 	}
 }

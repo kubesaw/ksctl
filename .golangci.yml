@@ -10,18 +10,17 @@ run:
 
 linters:
   enable:
-  - megacheck
   - gocyclo
   - gofmt
   - revive
   - misspell
   - gosec
+  - gosimple
+  - staticcheck
   presets: # groups of linters. See https://golangci-lint.run/usage/linters/
   - bugs
   - unused
   disable:
-  - golint # deprecated, use 'revive'
-  - scopelint # deprecated, use 'exportloopref'
   - contextcheck # too many false-positives
   - noctx # not needed
 

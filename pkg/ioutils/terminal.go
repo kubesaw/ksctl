@@ -104,7 +104,7 @@ func (t *DefaultTerminal) PrintObject(object runtime.Object, title string) error
 	if err != nil {
 		return errs.Wrapf(err, "unable to unmarshal %+v", object)
 	}
-	t.PrintContextSeparatorWithBodyf(string(result), title)
+	t.PrintContextSeparatorWithBodyf(string(result), "%s", title)
 	return nil
 }
 
