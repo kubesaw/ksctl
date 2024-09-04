@@ -30,7 +30,7 @@ type generateFlags struct {
 	kubeSawAdminsFile, outDir string
 	dev                       bool
 	kubeconfigs               []string
-	tokenExpirationDays       uint
+	tokenExpirationDays       int64
 }
 
 func NewCliConfigsCmd() *cobra.Command {
@@ -51,7 +51,7 @@ func NewCliConfigsCmd() *cobra.Command {
 
 	configDirPath := fmt.Sprintf("%s/src/github.com/kubesaw/ksctl/out/config", os.Getenv("GOPATH"))
 	command.Flags().StringVarP(&f.outDir, "out-dir", "o", configDirPath, "Directory where generated ksctl.yaml files should be stored")
-	command.Flags().UintVarP(&f.tokenExpirationDays, "token-expiration-days", "e", 365, "Expiration time of the ServiceAccount tokens in days")
+	command.Flags().Int64VarP(&f.tokenExpirationDays, "token-expiration-days", "e", 365, "Expiration time of the ServiceAccount tokens in days")
 
 	command.Flags().StringSliceVarP(&f.kubeconfigs, "kubeconfig", "k", nil, "Kubeconfig(s) for managing multiple clusters and the access to them - paths should be comma separated when using multiple of them. "+
 		"In dev mode, the first one has to represent the host cluster.")
@@ -161,7 +161,7 @@ type generateContext struct {
 	newRESTClient       NewRESTClientFromConfigFunc
 	kubeSawAdmins       *assets.KubeSawAdmins
 	kubeconfigPaths     []string
-	tokenExpirationDays uint
+	tokenExpirationDays int64
 }
 
 // contains tokens mapped by SA name
@@ -246,7 +246,7 @@ func buildClientFromKubeconfigFiles(ctx *generateContext, API string, kubeconfig
 // NOTE: due to a changes in OpenShift 4.11, tokens are not listed as `secrets` in ServiceAccounts.
 // The recommended solution is to use the TokenRequest API when server version >= 4.11
 // (see https://docs.openshift.com/container-platform/4.11/release_notes/ocp-4-11-release-notes.html#ocp-4-11-notable-technical-changes)
-func GetServiceAccountToken(cl *rest.RESTClient, namespacedName runtimeclient.ObjectKey, tokenExpirationDays uint) (string, error) {
+func GetServiceAccountToken(cl *rest.RESTClient, namespacedName runtimeclient.ObjectKey, tokenExpirationDays int64) (string, error) {
 	tokenRequest := &authv1.TokenRequest{
 		Spec: authv1.TokenRequestSpec{
 			ExpirationSeconds: pointer.Int64(int64(tokenExpirationDays * 24 * 60 * 60)),
