@@ -237,10 +237,10 @@ func defaultSAsNamespace(kubeSawAdmins *assets.KubeSawAdmins, clusterType config
 		if kubeSawAdmins.DefaultServiceAccountsNamespace.Member != "" {
 			return kubeSawAdmins.DefaultServiceAccountsNamespace.Member
 		}
-		return "ksctl-member"
+		return "kubesaw-admins-member"
 	}
 	if kubeSawAdmins.DefaultServiceAccountsNamespace.Host != "" {
 		return kubeSawAdmins.DefaultServiceAccountsNamespace.Host
 	}
-	return "ksctl-host"
+	return "kubesaw-admins-host"
 }

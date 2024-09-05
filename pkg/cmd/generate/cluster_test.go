@@ -39,7 +39,7 @@ func TestEnsureServiceAccounts(t *testing.T) {
 				require.NoError(t, err)
 
 				roleNs := fmt.Sprintf("toolchain-%s-operator", clusterType)
-				saNs := fmt.Sprintf("ksctl-%s", clusterType)
+				saNs := fmt.Sprintf("kubesaw-admins-%s", clusterType)
 
 				inObjectCache(t, ctx.outDir, clusterType.String(), cache).
 					assertSa(saNs, "john").
@@ -119,7 +119,7 @@ func TestEnsureServiceAccounts(t *testing.T) {
 			assertNumberOfRoles(1)
 
 		inObjectCache(t, ctx.outDir, "member-1", cache).
-			assertSa("ksctl-member", "bob").
+			assertSa("kubesaw-admins-member", "bob").
 			hasRole("toolchain-member-operator", configuration.Member.AsSuffix("restart-deployment"), configuration.Member.AsSuffix("restart-deployment-bob")).
 			hasNsClusterRole("toolchain-member-operator", "view", configuration.Member.AsSuffix("clusterrole-view-bob"))
 	})

@@ -56,11 +56,11 @@ func TestGenerateCliConfigs(t *testing.T) {
 		newServiceAccount("kubesaw-sre-host", "bob"),
 	)
 	setupGockForServiceAccounts(t, Member1ServerAPI, 50,
-		newServiceAccount("ksctl-member", "john"),
-		newServiceAccount("ksctl-member", "bob"),
+		newServiceAccount("kubesaw-admins-member", "john"),
+		newServiceAccount("kubesaw-admins-member", "bob"),
 	)
 	setupGockForServiceAccounts(t, Member2ServerAPI, 50,
-		newServiceAccount("ksctl-member", "bob"),
+		newServiceAccount("kubesaw-admins-member", "bob"),
 	)
 	t.Cleanup(gock.OffAll)
 
@@ -125,8 +125,8 @@ func TestGenerateCliConfigs(t *testing.T) {
 			// given
 			setupGockForListServiceAccounts(t, kubeSawAdmins, HostServerAPI, configuration.Member)
 			setupGockForServiceAccounts(t, HostServerAPI, 50,
-				newServiceAccount("ksctl-member", "john"),
-				newServiceAccount("ksctl-member", "bob"),
+				newServiceAccount("kubesaw-admins-member", "john"),
+				newServiceAccount("kubesaw-admins-member", "bob"),
 			)
 			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
 			require.NoError(t, err)

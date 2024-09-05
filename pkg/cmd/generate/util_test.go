@@ -396,16 +396,16 @@ func TestDefaultSAsNamespace(t *testing.T) {
 		"custom host SAs namespace": {
 			hostSAsNs:           "kubesaw-host-sre",
 			expectedHostSAsNs:   "kubesaw-host-sre",
-			expectedMemberSAsNs: "ksctl-member",
+			expectedMemberSAsNs: "kubesaw-admins-member",
 		},
 		"custom member SAs namespace": {
-			expectedHostSAsNs:   "ksctl-host",
+			expectedHostSAsNs:   "kubesaw-admins-host",
 			memberSAsNs:         "kubesaw-member-sre",
 			expectedMemberSAsNs: "kubesaw-member-sre",
 		},
 		"no custom SAs namespace": {
-			expectedHostSAsNs:   "ksctl-host",
-			expectedMemberSAsNs: "ksctl-member",
+			expectedHostSAsNs:   "kubesaw-admins-host",
+			expectedMemberSAsNs: "kubesaw-admins-member",
 		},
 	}
 

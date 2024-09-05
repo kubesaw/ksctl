@@ -265,7 +265,7 @@ func verifyFiles(t *testing.T, flags adminManifestsFlags) {
 func verifyServiceAccounts(t *testing.T, outDir, expectedRootDir string, clusterType configuration.ClusterType, roleNs string) {
 	saNs := "kubesaw-sre-host"
 	if clusterType == configuration.Member {
-		saNs = "ksctl-member"
+		saNs = "kubesaw-admins-member"
 	}
 
 	if expectedRootDir != "member2" {

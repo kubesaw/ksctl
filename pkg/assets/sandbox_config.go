@@ -26,7 +26,7 @@ type ClusterConfig struct {
 }
 
 // DefaultServiceAccountsNamespace defines the names of the default namespaces where the ksctl SAs should be created.
-// If not specified, then the names ksctl-host and ksctl-member are used.
+// If not specified, then the names kubesaw-admins-host and kubesaw-admins-member are used.
 type DefaultServiceAccountsNamespace struct {
 	Host   string `yaml:"host"`
 	Member string `yaml:"member"`
