@@ -3,7 +3,7 @@ module github.com/kubesaw/ksctl
 go 1.20
 
 require (
-	github.com/codeready-toolchain/api v0.0.0-20240815232340-d0c164a83d27
+	github.com/codeready-toolchain/api v0.0.0-20240909145803-3b27dcfb3ded
 	github.com/codeready-toolchain/toolchain-common v0.0.0-20240816011540-2184e6268b4a
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -140,3 +140,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+replace github.com/codeready-toolchain/toolchain-common => github.com/rsoaresd/toolchain-common v0.0.0-20240909173619-d5b079cfe2a0
