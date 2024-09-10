@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -217,7 +216,7 @@ func TestCreateBannedUser(t *testing.T) {
 		term := NewFakeTerminal()
 		ctx := clicontext.NewCommandContext(term, newClient)
 
-		fakeClient.MockList = func(ctx context.Context, list runtimeclient.ObjectList, opts ...client.ListOption) error {
+		fakeClient.MockList = func(ctx context.Context, list runtimeclient.ObjectList, opts ...runtimeclient.ListOption) error {
 			return errors.New("something went wrong listing the banned users")
 		}
 
