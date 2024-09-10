@@ -18,7 +18,7 @@ func NewBanCmd() *cobra.Command {
 		Use:   "ban <usersignup-name> <ban-reason>",
 		Short: "Ban a user for the given UserSignup resource and reason of the ban",
 		Long: `Ban the given UserSignup resource. There is expected 
-only two parameters which the first one is the name of the UserSignup to be used for banning
+only two parameters which the first one is the name of the UserSignup to be used for banning 
 and the second one the reason of the ban`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
