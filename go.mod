@@ -3,8 +3,8 @@ module github.com/kubesaw/ksctl
 go 1.20
 
 require (
-	github.com/codeready-toolchain/api v0.0.0-20240815232340-d0c164a83d27
-	github.com/codeready-toolchain/toolchain-common v0.0.0-20240816011540-2184e6268b4a
+	github.com/codeready-toolchain/api v0.0.0-20240909145803-3b27dcfb3ded
+	github.com/codeready-toolchain/toolchain-common v0.0.0-20240911094752-38ba816bff59
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	// using latest commit from 'github.com/openshift/api branch release-4.12'
