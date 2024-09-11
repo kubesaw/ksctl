@@ -14,9 +14,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const banReason = "ban reason"
 
 func TestBanCmdWhenAnswerIsY(t *testing.T) {
 	// given
@@ -27,11 +28,11 @@ func TestBanCmdWhenAnswerIsY(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := cmd.Ban(ctx, userSignup.Name)
+	err := cmd.Ban(ctx, userSignup.Name, banReason)
 
 	// then
 	require.NoError(t, err)
-	AssertBannedUser(t, fakeClient, userSignup)
+	AssertBannedUser(t, fakeClient, userSignup, banReason)
 	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
 	assert.Contains(t, term.Output(), "Are you sure that you want to ban the user with the UserSignup by creating BannedUser resource that are both above?")
 	assert.Contains(t, term.Output(), "UserSignup has been banned")
@@ -43,11 +44,11 @@ func TestBanCmdWhenAnswerIsY(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.Ban(ctx, userSignup.Name)
+		err := cmd.Ban(ctx, userSignup.Name, banReason)
 
 		// then
 		require.NoError(t, err)
-		AssertBannedUser(t, fakeClient, userSignup)
+		AssertBannedUser(t, fakeClient, userSignup, banReason)
 		assert.NotContains(t, term.Output(), "!!!  DANGER ZONE  !!!")
 		assert.Contains(t, term.Output(), "The user was already banned - there is a BannedUser resource with the same labels already present")
 	})
@@ -62,7 +63,7 @@ func TestBanCmdWhenAnswerIsN(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := cmd.Ban(ctx, userSignup.Name)
+	err := cmd.Ban(ctx, userSignup.Name, banReason)
 
 	// then
 	require.NoError(t, err)
@@ -82,7 +83,7 @@ func TestBanCmdWhenNotFound(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := cmd.Ban(ctx, "some")
+	err := cmd.Ban(ctx, "some", banReason)
 
 	// then
 	require.EqualError(t, err, "usersignups.toolchain.dev.openshift.com \"some\" not found")
@@ -105,13 +106,13 @@ func TestCreateBannedUser(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return true, nil
 		})
 
 		// then
 		require.NoError(t, err)
-		AssertBannedUser(t, fakeClient, userSignup)
+		AssertBannedUser(t, fakeClient, userSignup, banReason)
 	})
 
 	t.Run("BannedUser should not be created", func(t *testing.T) {
@@ -122,7 +123,7 @@ func TestCreateBannedUser(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return false, nil
 		})
 
@@ -139,7 +140,7 @@ func TestCreateBannedUser(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return false, fmt.Errorf("some error")
 		})
 
@@ -159,7 +160,7 @@ func TestCreateBannedUser(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return true, nil
 		})
 
@@ -179,7 +180,7 @@ func TestCreateBannedUser(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return true, nil
 		})
 
@@ -199,7 +200,7 @@ func TestCreateBannedUser(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return true, nil
 		})
 
@@ -215,12 +216,12 @@ func TestCreateBannedUser(t *testing.T) {
 		term := NewFakeTerminal()
 		ctx := clicontext.NewCommandContext(term, newClient)
 
-		fakeClient.MockList = func(ctx context.Context, list runtimeclient.ObjectList, opts ...client.ListOption) error {
+		fakeClient.MockList = func(ctx context.Context, list runtimeclient.ObjectList, opts ...runtimeclient.ListOption) error {
 			return errors.New("something went wrong listing the banned users")
 		}
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return true, nil
 		})
 
@@ -236,7 +237,7 @@ func TestCreateBannedUser(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return true, nil
 		})
 
@@ -256,7 +257,7 @@ func TestCreateBannedUserLacksPermissions(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := cmd.CreateBannedUser(ctx, userSignup.Name, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+	err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 		return true, nil
 	})
 
