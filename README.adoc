@@ -58,7 +58,7 @@ NAME                 USERNAME     COMPLETE   REASON            COMPLIANTUSERNAME
 ```
 The first column is the name of the `UserSignup` resource.
 
-To look-up a UserSignup resource from the user's email address, run:
+To look up a UserSignup resource from the user's email address, run:
 in Linux:
 ```
 ksctl get -t host usersignups -l toolchain.dev.openshift.com/email-hash=`echo -n <email_address> | md5sum | cut -d ' ' -f 1`
@@ -71,7 +71,7 @@ ksctl get -t host usersignups -l toolchain.dev.openshift.com/email-hash=`echo -n
 
 === Approving a user
 
-To approve user, either use the user's email:
+To approve a user, either use the user's email:
 ```
 $ ksctl approve --email <user_email>
 ```
@@ -81,7 +81,7 @@ or <<find_usersignup_name,get the UserSignup name>>, and then run:
 $ ksctl approve --name <usersignup_name>
 ```
 
-WARNING: By default, the `approve` command checks if the user already initiated the phone verification process. To skip this check for the users or environments where the a phone verification is not required, use the `--skip-phone-check` flag.
+WARNING: By default, the `approve` command checks if the user has already initiated the phone verification process. To skip this check for the users or environments where the phone verification is not required, use the `--skip-phone-check` flag.
 
 The command will print out additional information about the `UserSignup` resource to be approved and it will also ask for a confirmation.
 
@@ -110,17 +110,17 @@ The command will print out additional information about the `UserSignup` resourc
 
 === Banning a user
 
-To ban a user so the account is deprovisioned and the user is not able to sign up again, use the `ban` command. First <<find_usersignup_name,get the UserSignup name>>, then run:
+To ban a user which in turn de-provisions the account and doesn't allow the user to sign up again, use the `ban` command. First <<find_usersignup_name,get the UserSignup name>>, second <<reason of the ban>>, then run:
 
 ```
-$ ksctl ban <usersignup_name>
+$ ksctl ban <usersignup_name> <ban_reason>
 ```
 
 The command will print out additional information about the `UserSignup` resource to be banned and it will also ask for a confirmation.
 
 === Creating an Event
 
-Social Events are a feature allowing users to sign up without having to go through the phone verification process. This is useful when running labs or workshops, as it lets attendees get up and running quickly without having to fulfil all the requirements of the standard signup process.
+Social Events are a feature allowing users to sign up without having to go through the phone verification process. This is useful when running labs or workshops, as it lets attendees to get up and run it quickly without having to fulfill all the requirements of the standard sign up process.
 
 Social Events are temporary in nature; creating an event will produce a unique activation code that may be used for a predefined period of time, after which the code will no longer work.
 
