@@ -123,7 +123,7 @@ func TestCreateBannedUser(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, "ban reason", func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return false, nil
 		})
 
@@ -140,7 +140,7 @@ func TestCreateBannedUser(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, "ban reason", func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return false, fmt.Errorf("some error")
 		})
 
@@ -160,7 +160,7 @@ func TestCreateBannedUser(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, "ban reason", func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return true, nil
 		})
 
@@ -180,7 +180,7 @@ func TestCreateBannedUser(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, "ban reason", func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return true, nil
 		})
 
@@ -200,7 +200,7 @@ func TestCreateBannedUser(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, "ban reason", func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return true, nil
 		})
 
@@ -221,7 +221,7 @@ func TestCreateBannedUser(t *testing.T) {
 		}
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, "ban reason", func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return true, nil
 		})
 
@@ -237,7 +237,7 @@ func TestCreateBannedUser(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := cmd.CreateBannedUser(ctx, userSignup.Name, "ban reason", func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+		err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 			return true, nil
 		})
 
@@ -257,7 +257,7 @@ func TestCreateBannedUserLacksPermissions(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := cmd.CreateBannedUser(ctx, userSignup.Name, "ban reason", func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+	err := cmd.CreateBannedUser(ctx, userSignup.Name, banReason, func(signup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 		return true, nil
 	})
 
