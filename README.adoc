@@ -81,7 +81,7 @@ or <<find_usersignup_name,get the UserSignup name>>, and then run:
 $ ksctl approve --name <usersignup_name>
 ```
 
-WARNING: By default, the `approve` command checks if the user already initiated the phone verification process. To skip this check for the users or environments where the phone verification is not required, use the `--skip-phone-check` flag.
+WARNING: By default, the `approve` command checks if the user has already initiated the phone verification process. To skip this check for the users or environments where the phone verification is not required, use the `--skip-phone-check` flag.
 
 The command will print out additional information about the `UserSignup` resource to be approved and it will also ask for a confirmation.
 
@@ -110,7 +110,7 @@ The command will print out additional information about the `UserSignup` resourc
 
 === Banning a user
 
-To ban a user so the account is deprovisioned and the user is not able to sign up again, use the `ban` command. First <<find_usersignup_name,get the UserSignup name>>, second <<reason of the ban>>, then run:
+To ban a user which in turn de-provisions the account and doesn't allow the user to sign up again, use the `ban` command. First <<find_usersignup_name,get the UserSignup name>>, second <<reason of the ban>>, then run:
 
 ```
 $ ksctl ban <usersignup_name> <ban_reason>
@@ -120,7 +120,7 @@ The command will print out additional information about the `UserSignup` resourc
 
 === Creating an Event
 
-Social Events are a feature allowing users to sign up without having to go through the phone verification process. This is useful when running labs or workshops, as it lets attendees get up and running quickly without having to fulfill all the requirements of the standard signup process.
+Social Events are a feature allowing users to sign up without having to go through the phone verification process. This is useful when running labs or workshops, as it lets attendees to get up and run it quickly without having to fulfill all the requirements of the standard sign up process.
 
 Social Events are temporary in nature; creating an event will produce a unique activation code that may be used for a predefined period of time, after which the code will no longer work.
 
@@ -200,7 +200,7 @@ For each ServiceAccount defined in this section, the `ksctl generate cli-configs
 ==== Users
 
 The `ksctl` command can generate  The `users` section contains definition for users, identities, and the permissions granted to them.
-KubeSaw uses a suffix `-crtadmin` for the admin usernames which are blocked from signing-up as a regular users via registration service. This ensures that provisioning admin users are fully isolated from the process of the regular ones.
+KubeSaw uses a suffix `-crtadmin` for the admin usernames which are blocked from signing-up as a regular users via registration service. This ensures that provisioning admin users is fully isolated from the process of the regular ones.
 To add a -crtadmin user for a particular component in member cluster, update the corresponding `kubesaw-admins.yaml` file by adding the following code under the `users` section:
 
 For an admin of the component that needs to manually approve operator updates:
