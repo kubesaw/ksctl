@@ -217,24 +217,26 @@ To add a -crtadmin user for a particular component in member cluster, update the
 For an admin of the component that needs to manually approve operator updates:
 ```yaml
 users:
-- name: <your-name>-crtadmin
+- name: <your-name>-maintainer
   id:
   - <sso-identities>
   member:
     roleBindings:
     - namespace: <namespace-name>
       roles:
-      - approve-operator-update
+      - view-secrets
       clusterRoles:
-      - admin
+      - <edit/admin>
+      - some-extra-permissions
     clusterRoleBindings:
       clusterRoles:
-      - list-operators-group
+      - some-extra-cluster-scope-permissions
 ```
+NOTE: The creation of the ClusterRoles is not managed via ksctl, you need to make sure that they are created in the cluster.
 
 For a maintainer of the component with limited permissions:
 ```yaml
-- name: <your-name>-crtadmin
+- name: <your-name>-maintainer
   id:
   - <sso-identities>
   member:
@@ -246,7 +248,7 @@ For a maintainer of the component with limited permissions:
 
 If you need any permissions also in a namespace in host cluster (to be used mainly by KubeSaw maintainers), then include the host section in the user's definition as well:
 ```yaml
-- name: <your-name>-crtadmin
+- name: <your-name>-maintainer
   id:
   - <sso-identities>
   host:
