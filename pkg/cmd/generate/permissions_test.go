@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	commonidentity "github.com/codeready-toolchain/toolchain-common/pkg/identity"
 	commontest "github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/assets"
 	"github.com/kubesaw/ksctl/pkg/client"
@@ -143,6 +144,26 @@ func TestEnsureUserAndIdentity(t *testing.T) {
 			hasIdentity("12345").
 			hasIdentity("abc:19944:FZZ").
 			belongsToGroups(groups("crtadmins", "cooladmins"), extraGroupsUserIsNotPartOf())
+		assert.Equal(t, "User", subject.Kind)
+		assert.Equal(t, "john-crtadmin", subject.Name)
+		assert.Empty(t, subject.Namespace)
+	})
+
+	t.Run("create user & identity with custom IdP", func(t *testing.T) {
+		// given
+		ctx := newFakeClusterContext(newAdminManifestsContextWithDefaultFiles(t, nil), configuration.Host)
+		ctx.idpName = "MyIdP"
+		cache := objectsCache{}
+
+		// when
+		subject, err := ensureUserIdentityAndGroups([]string{"12345", "abc:19944:FZZ"}, []string{})(ctx, cache, "john-crtadmin", commontest.HostOperatorNs, labels)
+
+		// then
+		require.NoError(t, err)
+		inObjectCache(t, ctx.outDir, "host", cache).
+			assertUser("john-crtadmin").
+			hasIdentityWithIdentityStandard(commonidentity.NewIdentityNamingStandard("12345", "MyIdP")).
+			hasIdentityWithIdentityStandard(commonidentity.NewIdentityNamingStandard("abc:19944:FZZ", "MyIdP"))
 		assert.Equal(t, "User", subject.Kind)
 		assert.Equal(t, "john-crtadmin", subject.Name)
 		assert.Empty(t, subject.Namespace)
