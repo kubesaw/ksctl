@@ -350,14 +350,14 @@ func TestCreate(t *testing.T) {
 			namespacedName := commontest.NamespacedName("openshift-customer-monitoring", "openshift-customer-monitoring")
 			fakeClient := commontest.NewFakeClient(t)
 			term := NewFakeTerminalWithResponse("Y")
-			operatorGroup := newOperatorGroup(namespacedName, map[string]string{"provider": "sandbox-sre"})
+			operatorGroup := newOperatorGroup(namespacedName, map[string]string{"provider": "ksctl"})
 
 			// when
 			err := client.Create(term, fakeClient, operatorGroup)
 
 			// then
 			require.NoError(t, err)
-			AssertOperatorGroupHasLabels(t, fakeClient, namespacedName, map[string]string{"provider": "sandbox-sre"})
+			AssertOperatorGroupHasLabels(t, fakeClient, namespacedName, map[string]string{"provider": "ksctl"})
 			output := term.Output()
 			assert.Contains(t, output, "The 'openshift-customer-monitoring/openshift-customer-monitoring' OperatorGroup has been created")
 		})
@@ -370,7 +370,7 @@ func TestCreate(t *testing.T) {
 			namespacedName := commontest.NamespacedName("openshift-customer-monitoring", "openshift-customer-monitoring")
 			fakeClient := commontest.NewFakeClient(t, newOperatorGroup(namespacedName, map[string]string{"provider": "osd"}))
 			term := NewFakeTerminalWithResponse("Y")
-			operatorGroup := newOperatorGroup(namespacedName, map[string]string{"provider": "sandbox-sre"})
+			operatorGroup := newOperatorGroup(namespacedName, map[string]string{"provider": "ksctl"})
 
 			// when
 			err := client.Create(term, fakeClient, operatorGroup)
@@ -390,7 +390,7 @@ func TestCreate(t *testing.T) {
 			}
 			term := NewFakeTerminalWithResponse("Y")
 			namespacedName := commontest.NamespacedName("openshift-customer-monitoring", "openshift-customer-monitoring")
-			operatorGroup := newOperatorGroup(namespacedName, map[string]string{"provider": "sandbox-sre"})
+			operatorGroup := newOperatorGroup(namespacedName, map[string]string{"provider": "ksctl"})
 
 			// when
 			err := client.Create(term, fakeClient, operatorGroup)
@@ -408,7 +408,7 @@ func TestCreate(t *testing.T) {
 			}
 			term := NewFakeTerminalWithResponse("Y")
 			namespacedName := commontest.NamespacedName("openshift-customer-monitoring", "openshift-customer-monitoring")
-			operatorGroup := newOperatorGroup(namespacedName, map[string]string{"provider": "sandbox-sre"})
+			operatorGroup := newOperatorGroup(namespacedName, map[string]string{"provider": "ksctl"})
 
 			// when
 			err := client.Create(term, fakeClient, operatorGroup)

@@ -28,7 +28,7 @@ objects:
   metadata:
     name: get-catalogsources
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - operators.coreos.com
@@ -47,7 +47,7 @@ objects:
   metadata:
     name: get-deployments
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - apps

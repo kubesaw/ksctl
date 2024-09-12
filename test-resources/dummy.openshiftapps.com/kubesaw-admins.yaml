@@ -79,7 +79,7 @@ serviceAccounts:
       - view
 
 users:
-- name: standard-crtadmin
+- name: standard-user-admin
   id:
   - 123456
   - abc1234
@@ -122,7 +122,7 @@ users:
       clusterRoles:
       - view
 
-- name: standard-viewer-crtadmin
+- name: standard-user-viewer
   id:
   - 987654
   groups:
@@ -139,7 +139,7 @@ users:
       clusterRoles:
       - view
 
-- name: other-component-crtadmin
+- name: other-component-admin
   id:
   - 561234287
   - f:528d:some-admin
@@ -154,7 +154,7 @@ users:
       clusterRoles:
       - list-operators-group
 
-- name: other-component-viewer-crtadmin
+- name: other-component-viewer
   id:
   - 5412345
   member:
@@ -165,6 +165,11 @@ users:
     - namespace: second-component
       clusterRoles:
       - view
+
+- name: user-in-all-clusters
+  id:
+  - 1234567890
+  allClusters: true
 
 - name: editor-not-included-in-member-3
   id:
@@ -180,8 +185,3 @@ users:
     - namespace: second-component
       clusterRoles:
       - edit
-
-- name: my-clusteradmin
-  id:
-  - 1234567890
-  allClusters: true

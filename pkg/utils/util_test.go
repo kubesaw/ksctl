@@ -35,13 +35,13 @@ func TestGetToolchainClusterName(t *testing.T) {
 		Suffix      string
 	}
 	for expectedClusterName, params := range map[string]Params{
-		"host-sandbox.x7a5.a2.openshiftapps.com": {
+		"host-kubesaw.x7a5.a2.openshiftapps.com": {
 			ClusterType: "host",
-			ServerAPI:   "https://api.sandbox.x7a5.a2.openshiftapps.com:6443",
+			ServerAPI:   "https://api.kubesaw.x7a5.a2.openshiftapps.com:6443",
 		},
-		"member-sandbox-m2.ab8k.b3.openshiftapps.com": {
+		"member-kubesaw-m2.ab8k.b3.openshiftapps.com": {
 			ClusterType: "member",
-			ServerAPI:   "https://api.sandbox-m2.ab8k.b3.openshiftapps.com:6443",
+			ServerAPI:   "https://api.kubesaw-m2.ab8k.b3.openshiftapps.com:6443",
 		},
 		"member-api-prefix-dropped": {
 			ClusterType: "member",

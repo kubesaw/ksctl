@@ -219,15 +219,15 @@ func ensureKustomization(ctx manifestStoreContext, dirPath, item string) error {
 	return ensureKustomization(ctx, parentDir, filepath.Base(dirPath))
 }
 
-func sreLabelsWithUsername(username string) map[string]string {
-	labels := sreLabels()
+func ksctlLabelsWithUsername(username string) map[string]string {
+	labels := ksctlLabels()
 	labels["username"] = username
 	return labels
 }
 
-func sreLabels() map[string]string {
+func ksctlLabels() map[string]string {
 	return map[string]string{
-		"provider": "sandbox-sre",
+		"provider": "ksctl",
 	}
 }
 

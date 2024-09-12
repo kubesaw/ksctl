@@ -80,7 +80,7 @@ func TestEnsurePermissionsInNamespaces(t *testing.T) {
 func TestEnsureServiceAccount(t *testing.T) {
 
 	labels := map[string]string{
-		"provider": "sandbox-sre",
+		"provider": "ksctl",
 		"username": "john",
 	}
 
@@ -123,7 +123,7 @@ func TestEnsureServiceAccount(t *testing.T) {
 
 func TestEnsureUserAndIdentity(t *testing.T) {
 	labels := map[string]string{
-		"provider": "sandbox-sre",
+		"provider": "ksctl",
 		"username": "john-crtadmin",
 	}
 	require.NoError(t, client.AddToScheme())
