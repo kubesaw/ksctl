@@ -133,7 +133,7 @@ func serverName(API string) string {
 	return strings.Split(strings.Split(API, "api.")[1], ":")[0]
 }
 
-// writeKsctlConfigs marshals the given KsctlConfig objects and stored them in sandbox-sre/out/config/<name>/ directories
+// writeKsctlConfigs marshals the given KsctlConfig objects and stored them in ksctl/out/config/<name>/ directories
 func writeKsctlConfigs(term ioutils.Terminal, configDirPath string, ksctlConfigsPerName map[string]configuration.KsctlConfig) error {
 	if err := os.RemoveAll(configDirPath); err != nil {
 		return err

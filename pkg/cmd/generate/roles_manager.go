@@ -48,6 +48,6 @@ func ensureRole(ctx *clusterContext, cache objectsCache, roleName, namespace str
 	roleToBeCreated := role.DeepCopy()
 	roleToBeCreated.SetNamespace(namespace)
 	roleToBeCreated.SetName(roleNameToBeCreated)
-	roleToBeCreated.SetLabels(sreLabels())
+	roleToBeCreated.SetLabels(ksctlLabels())
 	return true, roleNameToBeCreated, cache.storeObject(ctx, roleToBeCreated)
 }

@@ -57,7 +57,7 @@ func ensureUsers(ctx *clusterContext, objsCache objectsCache) error {
 		}
 		// create the subject if explicitly requested (even if there is no specific permissions)
 		if user.AllClusters {
-			if _, err := m.createSubject(ctx, m.objectsCache, m.subjectBaseName, defaultSAsNamespace(ctx.kubeSawAdmins, ctx.clusterType), sreLabelsWithUsername(m.subjectBaseName)); err != nil {
+			if _, err := m.createSubject(ctx, m.objectsCache, m.subjectBaseName, defaultSAsNamespace(ctx.kubeSawAdmins, ctx.clusterType), ksctlLabelsWithUsername(m.subjectBaseName)); err != nil {
 				return err
 			}
 		}

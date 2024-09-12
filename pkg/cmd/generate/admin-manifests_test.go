@@ -317,7 +317,7 @@ func verifyUsers(t *testing.T, outDir, expectedRootDir string, clusterType confi
 func createKubeconfigFiles(t *testing.T, contents ...string) []string {
 	var fileNames []string
 	for _, content := range contents {
-		tempFile, err := os.CreateTemp("", "sandbox-sre-kubeconfig-")
+		tempFile, err := os.CreateTemp("", "ksctl-kubeconfig-")
 		require.NoError(t, err)
 
 		err = os.WriteFile(tempFile.Name(), []byte(content), os.FileMode(0755))
@@ -333,19 +333,19 @@ const ksctlKubeconfigContent = `
 apiVersion: v1
 clusters:
 - cluster:
-    server: https://api.sandbox.host.openshiftapps.com:6443
-  name: api-sandbox-host-openshiftapps-com:6443
+    server: https://api.kubesaw.host.openshiftapps.com:6443
+  name: api-kubesaw-host-openshiftapps-com:6443
 - cluster:
-    server: https://api.sandbox.member1.openshiftapps.com:6443
-  name: api-sandbox-member1-openshiftapps-com:6443
+    server: https://api.kubesaw.member1.openshiftapps.com:6443
+  name: api-kubesaw-member1-openshiftapps-com:6443
 contexts:
 - context:
-    cluster: api-sandbox-host-openshiftapps-com:6443
+    cluster: api-kubesaw-host-openshiftapps-com:6443
     namespace: toolchain-host-operator
     user: dedicatedadmin
   name: host
 - context:
-    cluster: api-sandbox-member1-openshiftapps-com:6443
+    cluster: api-kubesaw-member1-openshiftapps-com:6443
     namespace: toolchain-member-operator
     user: dedicatedadmin
   name: member1
@@ -362,11 +362,11 @@ const ksctlKubeconfigContentMember2 = `
 apiVersion: v1
 clusters:
 - cluster:
-    server: https://api.sandbox.member2.openshiftapps.com:6443
-  name: api-sandbox-member2-openshiftapps-com:6443
+    server: https://api.kubesaw.member2.openshiftapps.com:6443
+  name: api-kubesaw-member2-openshiftapps-com:6443
 contexts:
 - context:
-    cluster: api-sandbox-member2-openshiftapps-com:6443
+    cluster: api-kubesaw-member2-openshiftapps-com:6443
     namespace: toolchain-member-operator
     user: dedicatedadmin
   name: member2
