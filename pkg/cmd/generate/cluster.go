@@ -20,7 +20,7 @@ func ensureServiceAccounts(ctx *clusterContext, objsCache objectsCache) error {
 			continue
 		}
 
-		// by default, it should use the sandbox sre namespace. let's keep this empty (if the target namespace is not defined) so it is recognized in the ensureServiceAccount method based on the cluster type it is being applied in
+		// let's keep this empty (if the target namespace is not defined) so it is recognized in the ensureServiceAccount method based on the cluster type it is being applied in
 		saNamespace := ""
 		if sa.Namespace != "" {
 			saNamespace = sa.Namespace
