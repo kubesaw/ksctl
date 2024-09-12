@@ -110,6 +110,9 @@ func TestGetKubeSawAdmins(t *testing.T) {
 		assert.NotEmpty(t, member.API)
 	}
 
+	assert.Equal(t, "host-sre-namespace", kubeSawAdmins.DefaultServiceAccountsNamespace.Host)
+	assert.Equal(t, "member-sre-namespace", kubeSawAdmins.DefaultServiceAccountsNamespace.Member)
+
 	assert.NotEmpty(t, kubeSawAdmins.ServiceAccounts)
 	for _, sa := range kubeSawAdmins.ServiceAccounts {
 		assert.NotEmpty(t, sa.Name)

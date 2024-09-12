@@ -43,7 +43,7 @@ func TestAdminManifests(t *testing.T) {
 			User("bob-crtadmin", []string{"67890"}, false, "crtadmins-exec",
 				HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("admin")),
 				MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("admin")))))
-
+	kubeSawAdmins.DefaultServiceAccountsNamespace.Host = "kubesaw-sre-host"
 	kubeSawAdminsContent, err := yaml.Marshal(kubeSawAdmins)
 	require.NoError(t, err)
 
@@ -85,6 +85,9 @@ func TestAdminManifests(t *testing.T) {
 		t.Run("without separateKustomizeComponent set for member2", func(t *testing.T) {
 			// given
 			kubeSawAdmins.Clusters.Members[1].SeparateKustomizeComponent = false
+			t.Cleanup(func() {
+				kubeSawAdmins.Clusters.Members[1].SeparateKustomizeComponent = true
+			})
 			kubeSawAdminsContent, err := yaml.Marshal(kubeSawAdmins)
 			require.NoError(t, err)
 
@@ -184,6 +187,34 @@ func TestAdminManifests(t *testing.T) {
 		// then
 		require.Error(t, err)
 	})
+
+	t.Run("when default SAs namespace names are the same, then fail", func(t *testing.T) {
+		// given
+		kubeSawAdmins.DefaultServiceAccountsNamespace.Host = "kubesaw-sre"
+		kubeSawAdmins.DefaultServiceAccountsNamespace.Member = "kubesaw-sre"
+		t.Cleanup(func() {
+			kubeSawAdmins.DefaultServiceAccountsNamespace.Host = "kubesaw-sre-host"
+			kubeSawAdmins.DefaultServiceAccountsNamespace.Member = ""
+		})
+		kubeSawAdminsContent, err := yaml.Marshal(kubeSawAdmins)
+		require.NoError(t, err)
+
+		configFile := createKubeSawAdminsFile(t, "kubesaw.host.openshiftapps.com", kubeSawAdminsContent)
+		files := newDefaultFiles(t)
+
+		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
+		require.NoError(t, err)
+		term := NewFakeTerminalWithResponse("Y")
+		term.Tee(os.Stdout)
+		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
+
+		// when
+		err = adminManifests(term, files, flags)
+
+		// then
+		require.EqualError(t, err, "the default ServiceAccounts namespace has the same name for host cluster as for the member clusters (kubesaw-sre), they have to be different")
+	})
+
 }
 
 func storeDummySA(t *testing.T, outDir string) {
@@ -232,7 +263,10 @@ func verifyFiles(t *testing.T, flags adminManifestsFlags) {
 }
 
 func verifyServiceAccounts(t *testing.T, outDir, expectedRootDir string, clusterType configuration.ClusterType, roleNs string) {
-	saNs := fmt.Sprintf("sandbox-sre-%s", clusterType)
+	saNs := "kubesaw-sre-host"
+	if clusterType == configuration.Member {
+		saNs = "kubesaw-admins-member"
+	}
 
 	if expectedRootDir != "member2" {
 		// john is skipped for member2 (when generated as a separate kustomize component)

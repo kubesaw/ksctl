@@ -10,6 +10,10 @@ clusters:
     name: member-3
     separateKustomizeComponent: true
 
+defaultServiceAccountsNamespace:
+  host: host-sre-namespace
+  member: member-sre-namespace
+
 serviceAccounts:
 
 - name: first-admin
@@ -94,10 +98,8 @@ users:
       clusterRoles:
       - view
     - namespace: openshift-customer-monitoring
-      roles:
-      - view-secrets
       clusterRoles:
-      - edit
+      - view
     - namespace: openshift-logging
       clusterRoles:
       - view
@@ -113,11 +115,6 @@ users:
       - view-secrets
       clusterRoles:
       - view
-    - namespace: openshift-customer-monitoring
-      roles:
-      - view-secrets
-      clusterRoles:
-      - edit
     - namespace: openshift-logging
       clusterRoles:
       - view

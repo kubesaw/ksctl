@@ -21,14 +21,12 @@ const (
 
 // files part
 
-func newDefaultFiles(t *testing.T, fakeFiles ...test.FakeFileCreator) assets.FS {
+func newDefaultFiles(t *testing.T) assets.FS {
 	roles := []runtime.Object{installOperatorRole, restartDeploymentRole, editDeploymentRole, registerClusterRole}
 
 	files := test.NewFakeFiles(t,
-		append(fakeFiles,
-			test.FakeTemplate("roles/host.yaml", roles...),
-			test.FakeTemplate("roles/member.yaml", roles...))...,
-	)
+		test.FakeTemplate("roles/host.yaml", roles...),
+		test.FakeTemplate("roles/member.yaml", roles...))
 	return files
 }
 

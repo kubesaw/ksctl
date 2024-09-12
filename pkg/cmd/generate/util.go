@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/kubesaw/ksctl/pkg/assets"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	"github.com/kubesaw/ksctl/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -231,10 +232,15 @@ func ksctlLabels() map[string]string {
 	}
 }
 
-func sandboxSRENamespace(clusterType configuration.ClusterType) string {
-	sandboxSRENamespace := "sandbox-sre-host"
+func defaultSAsNamespace(kubeSawAdmins *assets.KubeSawAdmins, clusterType configuration.ClusterType) string {
 	if clusterType == configuration.Member {
-		sandboxSRENamespace = "sandbox-sre-member"
+		if kubeSawAdmins.DefaultServiceAccountsNamespace.Member != "" {
+			return kubeSawAdmins.DefaultServiceAccountsNamespace.Member
+		}
+		return "kubesaw-admins-member"
 	}
-	return sandboxSRENamespace
+	if kubeSawAdmins.DefaultServiceAccountsNamespace.Host != "" {
+		return kubeSawAdmins.DefaultServiceAccountsNamespace.Host
+	}
+	return "kubesaw-admins-host"
 }
