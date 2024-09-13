@@ -15,11 +15,12 @@ import (
 
 func NewBanCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "ban <usersignup-name>",
-		Short: "Ban a user for the given UserSignup resource",
+		Use:   "ban <usersignup-name> <ban-reason>",
+		Short: "Ban a user for the given UserSignup resource and reason of the ban",
 		Long: `Ban the given UserSignup resource. There is expected 
-only one parameter which is the name of the UserSignup to be used for banning`,
-		Args: cobra.ExactArgs(1),
+only two parameters which the first one is the name of the UserSignup to be used for banning 
+and the second one the reason of the ban`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
@@ -29,7 +30,7 @@ only one parameter which is the name of the UserSignup to be used for banning`,
 }
 
 func Ban(ctx *clicontext.CommandContext, args ...string) error {
-	return CreateBannedUser(ctx, args[0], func(userSignup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
+	return CreateBannedUser(ctx, args[0], args[1], func(userSignup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 		if _, exists := bannedUser.Labels[toolchainv1alpha1.BannedUserPhoneNumberHashLabelKey]; !exists {
 			ctx.Printlnf("\nINFO: The UserSignup doesn't have the label '%s' set, so the resulting BannedUser resource won't have this label either.\n",
 				toolchainv1alpha1.BannedUserPhoneNumberHashLabelKey)
@@ -46,7 +47,7 @@ func Ban(ctx *clicontext.CommandContext, args ...string) error {
 	})
 }
 
-func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName string, confirm func(*toolchainv1alpha1.UserSignup, *toolchainv1alpha1.BannedUser) (bool, error)) error {
+func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName, banReason string, confirm func(*toolchainv1alpha1.UserSignup, *toolchainv1alpha1.BannedUser) (bool, error)) error {
 	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
 	if err != nil {
 		return err
@@ -66,7 +67,7 @@ func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName string, con
 		return err
 	}
 
-	bannedUser, err := banneduser.NewBannedUser(userSignup, ksctlConfig.Name)
+	bannedUser, err := banneduser.NewBannedUser(userSignup, ksctlConfig.Name, banReason)
 	if err != nil {
 		return err
 	}

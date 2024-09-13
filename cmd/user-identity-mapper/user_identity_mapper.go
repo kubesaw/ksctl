@@ -16,7 +16,7 @@ func CreateUserIdentityMappings(ctx context.Context, logger *log.Logger, cl runt
 	logger.Info("listing users...")
 	users := &userv1.UserList{}
 	if err := cl.List(ctx, users, runtimeclient.MatchingLabels{
-		"provider": "sandbox-sre",
+		"provider": "ksctl",
 	}); err != nil {
 		return fmt.Errorf("unable to list users: %w", err)
 	}
@@ -24,7 +24,7 @@ func CreateUserIdentityMappings(ctx context.Context, logger *log.Logger, cl runt
 		logger.Info("listing identities", "username", user.Name)
 		identities := userv1.IdentityList{}
 		if err := cl.List(ctx, &identities, runtimeclient.MatchingLabels{
-			"provider": "sandbox-sre",
+			"provider": "ksctl",
 			"username": user.Name,
 		}); err != nil {
 			return fmt.Errorf("unable to list identities: %w", err)

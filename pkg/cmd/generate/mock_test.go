@@ -14,21 +14,19 @@ import (
 )
 
 const (
-	HostServerAPI    = "https://api.sandbox.host.openshiftapps.com:6443"
-	Member1ServerAPI = "https://api.sandbox.member1.openshiftapps.com:6443"
-	Member2ServerAPI = "https://api.sandbox.member2.openshiftapps.com:6443"
+	HostServerAPI    = "https://api.kubesaw.host.openshiftapps.com:6443"
+	Member1ServerAPI = "https://api.kubesaw.member1.openshiftapps.com:6443"
+	Member2ServerAPI = "https://api.kubesaw.member2.openshiftapps.com:6443"
 )
 
 // files part
 
-func newDefaultFiles(t *testing.T, fakeFiles ...test.FakeFileCreator) assets.FS {
+func newDefaultFiles(t *testing.T) assets.FS {
 	roles := []runtime.Object{installOperatorRole, restartDeploymentRole, editDeploymentRole, registerClusterRole}
 
 	files := test.NewFakeFiles(t,
-		append(fakeFiles,
-			test.FakeTemplate("roles/host.yaml", roles...),
-			test.FakeTemplate("roles/member.yaml", roles...))...,
-	)
+		test.FakeTemplate("roles/host.yaml", roles...),
+		test.FakeTemplate("roles/member.yaml", roles...))
 	return files
 }
 

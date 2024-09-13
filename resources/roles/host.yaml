@@ -7,29 +7,9 @@ objects:
 - kind: Role
   apiVersion: rbac.authorization.k8s.io/v1
   metadata:
-    name: install-operator
-    labels:
-      provider: sandbox-sre
-  rules:
-  - apiGroups:
-    - operators.coreos.com
-    resources:
-    - "catalogsources"
-    - "operatorgroups"
-    - "subscriptions"
-    verbs:
-    - "get"
-    - "list"
-    - "create"
-    - "patch"
-    - "update"
-
-- kind: Role
-  apiVersion: rbac.authorization.k8s.io/v1
-  metadata:
     name: restart-deployment
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - apps
@@ -46,7 +26,7 @@ objects:
   metadata:
     name: view-secrets
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - ""
@@ -61,7 +41,7 @@ objects:
   metadata:
     name: edit-secrets
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - ""
@@ -78,65 +58,9 @@ objects:
 - kind: Role
   apiVersion: rbac.authorization.k8s.io/v1
   metadata:
-    name: configure-monitoring
-    labels:
-      provider: sandbox-sre
-  rules:
-  - apiGroups:
-    - ""
-    resources:
-    - "configmaps"
-    - "secrets"
-    - "serviceaccounts"
-    - "services"
-    verbs:
-    - "create"
-    - "update"
-    - "get"
-    - "list"
-  - apiGroups:
-    - ""
-    resources:
-    - "serviceaccounts/token"
-    verbs:
-    - "create"
-  - apiGroups:
-    - "apps"
-    resources:
-    - "deployments"
-    - "statefulsets"
-    verbs:
-    - "create"
-    - "update"
-    - "get"
-    - "list"
-  - apiGroups:
-    - "route.openshift.io"
-    resources:
-    - "routes"
-    verbs:
-    - "create"
-    - "update"
-    - "get"
-    - "list"
-  - apiGroups:
-    - "monitoring.coreos.com"
-    resources:
-    - "prometheuses"
-    - "prometheusrules"
-    - "servicemonitors"
-    verbs:
-    - "create"
-    - "update"
-    - "get"
-    - "list"
-
-- kind: Role
-  apiVersion: rbac.authorization.k8s.io/v1
-  metadata:
     name: add-space-users
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - toolchain.dev.openshift.com
@@ -162,7 +86,7 @@ objects:
   metadata:
     name: approve-user
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - toolchain.dev.openshift.com
@@ -179,7 +103,7 @@ objects:
   metadata:
     name: ban-user
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - toolchain.dev.openshift.com
@@ -202,7 +126,7 @@ objects:
   metadata:
     name: deactivate-user
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - toolchain.dev.openshift.com
@@ -219,7 +143,7 @@ objects:
   metadata:
     name: promote-user
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - toolchain.dev.openshift.com
@@ -245,7 +169,7 @@ objects:
   metadata:
     name: disable-user
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - toolchain.dev.openshift.com
@@ -262,7 +186,7 @@ objects:
   metadata:
     name: gdpr-delete
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - toolchain.dev.openshift.com
@@ -278,7 +202,7 @@ objects:
   metadata:
     name: retarget-user
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - toolchain.dev.openshift.com
@@ -302,7 +226,7 @@ objects:
   metadata:
     name: create-social-event
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - toolchain.dev.openshift.com
@@ -319,7 +243,7 @@ objects:
   metadata:
     name: enable-feature
     labels:
-      provider: sandbox-sre
+      provider: ksctl
   rules:
   - apiGroups:
     - toolchain.dev.openshift.com

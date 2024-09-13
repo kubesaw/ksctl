@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/h2non/gock"
+	"github.com/kubesaw/ksctl/pkg/assets"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	. "github.com/kubesaw/ksctl/pkg/test"
@@ -40,25 +41,26 @@ func TestGenerateCliConfigs(t *testing.T) {
 				HostRoleBindings("toolchain-host-operator", Role("restart=restart-deployment"), ClusterRole("restart=edit")),
 				MemberRoleBindings("toolchain-member-operator", Role("restart=restart-deployment"), ClusterRole("restart=edit")))),
 		Users())
+	kubeSawAdmins.DefaultServiceAccountsNamespace.Host = "kubesaw-sre-host"
 
 	kubeSawAdminsContent, err := yaml.Marshal(kubeSawAdmins)
 	require.NoError(t, err)
 	kubeconfigFiles := createKubeconfigFiles(t, ksctlKubeconfigContent, ksctlKubeconfigContentMember2)
 
-	setupGockForListServiceAccounts(t, HostServerAPI, configuration.Host)
-	setupGockForListServiceAccounts(t, Member1ServerAPI, configuration.Member)
-	setupGockForListServiceAccounts(t, Member2ServerAPI, configuration.Member)
+	setupGockForListServiceAccounts(t, kubeSawAdmins, HostServerAPI, configuration.Host)
+	setupGockForListServiceAccounts(t, kubeSawAdmins, Member1ServerAPI, configuration.Member)
+	setupGockForListServiceAccounts(t, kubeSawAdmins, Member2ServerAPI, configuration.Member)
 
 	setupGockForServiceAccounts(t, HostServerAPI, 50,
-		newServiceAccount("sandbox-sre-host", "john"),
-		newServiceAccount("sandbox-sre-host", "bob"),
+		newServiceAccount("kubesaw-sre-host", "john"),
+		newServiceAccount("kubesaw-sre-host", "bob"),
 	)
 	setupGockForServiceAccounts(t, Member1ServerAPI, 50,
-		newServiceAccount("sandbox-sre-member", "john"),
-		newServiceAccount("sandbox-sre-member", "bob"),
+		newServiceAccount("kubesaw-admins-member", "john"),
+		newServiceAccount("kubesaw-admins-member", "bob"),
 	)
 	setupGockForServiceAccounts(t, Member2ServerAPI, 50,
-		newServiceAccount("sandbox-sre-member", "bob"),
+		newServiceAccount("kubesaw-admins-member", "bob"),
 	)
 	t.Cleanup(gock.OffAll)
 
@@ -73,7 +75,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 	t.Run("successful", func(t *testing.T) {
 		t.Run("when there is host and two members", func(t *testing.T) {
 			// given
-			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			tempDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir, tokenExpirationDays: 50}
 
@@ -100,10 +102,11 @@ func TestGenerateCliConfigs(t *testing.T) {
 					Sa("bob", "",
 						HostRoleBindings("toolchain-host-operator", Role("restart=restart-deployment"), ClusterRole("restart=edit")))),
 				Users())
+			saInHostOnly.DefaultServiceAccountsNamespace.Host = "kubesaw-sre-host"
 			kubeSawAdminsContent, err := yaml.Marshal(saInHostOnly)
 			require.NoError(t, err)
 			configFile := createKubeSawAdminsFile(t, "kubesaw.host.openshiftapps.com", kubeSawAdminsContent)
-			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			tempDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir, tokenExpirationDays: 50}
 
@@ -120,12 +123,12 @@ func TestGenerateCliConfigs(t *testing.T) {
 
 		t.Run("in dev mode", func(t *testing.T) {
 			// given
-			setupGockForListServiceAccounts(t, HostServerAPI, configuration.Member)
+			setupGockForListServiceAccounts(t, kubeSawAdmins, HostServerAPI, configuration.Member)
 			setupGockForServiceAccounts(t, HostServerAPI, 50,
-				newServiceAccount("sandbox-sre-member", "john"),
-				newServiceAccount("sandbox-sre-member", "bob"),
+				newServiceAccount("kubesaw-admins-member", "john"),
+				newServiceAccount("kubesaw-admins-member", "bob"),
 			)
-			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			tempDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			kubeconfigFiles := createKubeconfigFiles(t, ksctlKubeconfigContent)
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir, dev: true, tokenExpirationDays: 50}
@@ -153,7 +156,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			}
 
 			// when
-			_, err := buildClientFromKubeconfigFiles(ctx, "https://dummy.openshift.com", kubeconfigFiles, sandboxSRENamespace(configuration.Host))
+			_, err := buildClientFromKubeconfigFiles(ctx, "https://dummy.openshift.com", kubeconfigFiles, defaultSAsNamespace(kubeSawAdmins, configuration.Host))
 
 			// then
 			require.Error(t, err)
@@ -162,7 +165,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 
 		t.Run("test buildClientFromKubeconfigFiles cannot list service accounts", func(t *testing.T) {
 			// given
-			path := fmt.Sprintf("api/v1/namespaces/%s/serviceaccounts/", sandboxSRENamespace(configuration.Host))
+			path := fmt.Sprintf("api/v1/namespaces/%s/serviceaccounts/", defaultSAsNamespace(kubeSawAdmins, configuration.Host))
 			gock.New("https://dummy.openshift.com").Get(path).Persist().Reply(403)
 			ctx := &generateContext{
 				Terminal:            term,
@@ -173,7 +176,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			}
 
 			// when
-			_, err := buildClientFromKubeconfigFiles(ctx, "https://dummy.openshift.com", kubeconfigFiles, sandboxSRENamespace(configuration.Host))
+			_, err := buildClientFromKubeconfigFiles(ctx, "https://dummy.openshift.com", kubeconfigFiles, defaultSAsNamespace(kubeSawAdmins, configuration.Host))
 
 			// then
 			require.Error(t, err)
@@ -182,7 +185,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 
 		t.Run("wrong kubesaw-admins.yaml file path", func(t *testing.T) {
 			// given
-			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			tempDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: "does/not/exist", outDir: tempDir}
 
@@ -196,7 +199,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 
 		t.Run("wrong kubeconfig file path", func(t *testing.T) {
 			// given
-			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			tempDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			flags := generateFlags{kubeconfigs: []string{"does/not/exist"}, kubeSawAdminsFile: configFile, outDir: tempDir}
 
@@ -216,10 +219,11 @@ func TestGenerateCliConfigs(t *testing.T) {
 					Sa("notmocked", "",
 						HostRoleBindings("toolchain-host-operator", Role("install-operator"), ClusterRole("admin")))),
 				Users())
+			saInHostOnly.DefaultServiceAccountsNamespace.Host = "kubesaw-sre-host"
 			kubeSawAdminsContent, err := yaml.Marshal(saInHostOnly)
 			require.NoError(t, err)
-			configFile := createKubeSawAdminsFile(t, "sandbox.host.openshiftapps.com", kubeSawAdminsContent)
-			tempDir, err := os.MkdirTemp("", "sandbox-sre-out-")
+			configFile := createKubeSawAdminsFile(t, "kubesaw.host.openshiftapps.com", kubeSawAdminsContent)
+			tempDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			flags := generateFlags{kubeconfigs: kubeconfigFiles, kubeSawAdminsFile: configFile, outDir: tempDir}
 
@@ -341,20 +345,20 @@ func (a *ksctlConfigAssertion) hasCluster(clusterName, subDomain string, cluster
 
 	assert.NotNil(a.t, a.ksctlConfig.ClusterAccessDefinitions[clusterName])
 	assert.Equal(a.t, clusterType, a.ksctlConfig.ClusterAccessDefinitions[clusterName].ClusterType)
-	assert.Equal(a.t, fmt.Sprintf("sandbox.%s.openshiftapps.com", subDomain), a.ksctlConfig.ClusterAccessDefinitions[clusterName].ServerName)
-	assert.Equal(a.t, fmt.Sprintf("https://api.sandbox.%s.openshiftapps.com:6443", subDomain), a.ksctlConfig.ClusterAccessDefinitions[clusterName].ServerAPI)
+	assert.Equal(a.t, fmt.Sprintf("kubesaw.%s.openshiftapps.com", subDomain), a.ksctlConfig.ClusterAccessDefinitions[clusterName].ServerName)
+	assert.Equal(a.t, fmt.Sprintf("https://api.kubesaw.%s.openshiftapps.com:6443", subDomain), a.ksctlConfig.ClusterAccessDefinitions[clusterName].ServerAPI)
 
 	assert.Equal(a.t, fmt.Sprintf("token-secret-for-%s", a.saBaseName), a.ksctlConfig.ClusterAccessDefinitions[clusterName].Token)
 }
 
-func setupGockForListServiceAccounts(t *testing.T, apiEndpoint string, clusterType configuration.ClusterType) {
+func setupGockForListServiceAccounts(t *testing.T, kubeSawAdmins *assets.KubeSawAdmins, apiEndpoint string, clusterType configuration.ClusterType) {
 	resultServiceAccounts := &corev1.ServiceAccountList{
 		TypeMeta: metav1.TypeMeta{},
 		ListMeta: metav1.ListMeta{},
 		Items: []corev1.ServiceAccount{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: sandboxSRENamespace(clusterType),
+					Namespace: defaultSAsNamespace(kubeSawAdmins, clusterType),
 					Name:      clusterType.String(),
 				},
 			},
@@ -362,7 +366,7 @@ func setupGockForListServiceAccounts(t *testing.T, apiEndpoint string, clusterTy
 	}
 	resultServiceAccountsStr, err := json.Marshal(resultServiceAccounts)
 	require.NoError(t, err)
-	path := fmt.Sprintf("api/v1/namespaces/%s/serviceaccounts/", sandboxSRENamespace(clusterType))
+	path := fmt.Sprintf("api/v1/namespaces/%s/serviceaccounts/", defaultSAsNamespace(kubeSawAdmins, clusterType))
 	t.Logf("mocking access to List %s/%s", apiEndpoint, path)
 	gock.New(apiEndpoint).
 		Get(path).

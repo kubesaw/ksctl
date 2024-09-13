@@ -10,6 +10,10 @@ clusters:
     name: member-3
     separateKustomizeComponent: true
 
+defaultServiceAccountsNamespace:
+  host: host-sre-namespace
+  member: member-sre-namespace
+
 serviceAccounts:
 
 - name: first-admin
@@ -17,7 +21,6 @@ serviceAccounts:
     roleBindings:
     - namespace: toolchain-host-operator
       roles:
-      - install-operator
       - restart-deployment
       - approve-user
       - view-secrets
@@ -30,50 +33,15 @@ serviceAccounts:
       - create-social-event
       - add-space-users
       clusterRoles:
-      - edit
       - view
-    - namespace: openshift-customer-monitoring
-      roles:
-      - install-operator
-      - view-secrets
-      - configure-monitoring
-      clusterRoles:
-      - edit
-    - namespace: openshift-logging
-      roles:
-      - install-operator
-      clusterRoles:
-      - edit
   member:
     roleBindings:
     - namespace: toolchain-member-operator
       roles:
-      - install-operator
       - restart-deployment
       - view-secrets
       clusterRoles:
-      - edit
       - view
-    - namespace: openshift-customer-monitoring
-      roles:
-      - install-operator
-      - view-secrets
-      - configure-monitoring
-      clusterRoles:
-      - edit
-    - namespace: openshift-logging
-      roles:
-      - install-operator
-      clusterRoles:
-      - edit
-    - namespace: openshift-config-managed
-      roles:
-      - configure-monitoring
-      clusterRoles:
-      - edit
-    clusterRoleBindings:
-      clusterRoles:
-      - manage-console-resources
 
 - name: second-admin
   host:
@@ -115,7 +83,7 @@ serviceAccounts:
       - view
 
 users:
-- name: standard-crtadmin
+- name: standard-user-admin
   id:
   - 123456
   - abc1234
@@ -130,18 +98,9 @@ users:
       clusterRoles:
       - view
     - namespace: openshift-customer-monitoring
-      roles:
-      - install-operator
-      - view-secrets
-      - configure-monitoring
-      clusterRoles:
-      - edit
-    - namespace: openshift-logging
       clusterRoles:
       - view
-    - namespace: sandbox-sre-host
-      roles:
-      - view-secrets
+    - namespace: openshift-logging
       clusterRoles:
       - view
   member:
@@ -156,23 +115,11 @@ users:
       - view-secrets
       clusterRoles:
       - view
-    - namespace: openshift-customer-monitoring
-      roles:
-      - install-operator
-      - view-secrets
-      - configure-monitoring
-      clusterRoles:
-      - edit
     - namespace: openshift-logging
       clusterRoles:
       - view
-    - namespace: sandbox-sre-member
-      roles:
-      - view-secrets
-      clusterRoles:
-      - view
 
-- name: standard-viewer-crtadmin
+- name: standard-user-viewer
   id:
   - 987654
   groups:
@@ -189,7 +136,7 @@ users:
       clusterRoles:
       - view
 
-- name: other-component-crtadmin
+- name: other-component-admin
   id:
   - 561234287
   - f:528d:some-admin
@@ -204,7 +151,7 @@ users:
       clusterRoles:
       - list-operators-group
 
-- name: other-component-viewer-crtadmin
+- name: other-component-viewer
   id:
   - 5412345
   member:
@@ -215,6 +162,11 @@ users:
     - namespace: second-component
       clusterRoles:
       - view
+
+- name: user-in-all-clusters
+  id:
+  - 1234567890
+  allClusters: true
 
 - name: editor-not-included-in-member-3
   id:
@@ -230,8 +182,3 @@ users:
     - namespace: second-component
       clusterRoles:
       - edit
-
-- name: my-clusteradmin
-  id:
-  - 1234567890
-  allClusters: true

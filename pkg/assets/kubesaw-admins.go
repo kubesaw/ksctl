@@ -1,9 +1,10 @@
 package assets
 
 type KubeSawAdmins struct {
-	Clusters        Clusters         `yaml:"clusters"`
-	ServiceAccounts []ServiceAccount `yaml:"serviceAccounts"`
-	Users           []User           `yaml:"users"`
+	Clusters                        Clusters                        `yaml:"clusters"`
+	ServiceAccounts                 []ServiceAccount                `yaml:"serviceAccounts"`
+	Users                           []User                          `yaml:"users"`
+	DefaultServiceAccountsNamespace DefaultServiceAccountsNamespace `yaml:"defaultServiceAccountsNamespace"`
 }
 
 type Clusters struct {
@@ -22,6 +23,13 @@ type MemberCluster struct {
 
 type ClusterConfig struct {
 	API string `yaml:"api"`
+}
+
+// DefaultServiceAccountsNamespace defines the names of the default namespaces where the ksctl SAs should be created.
+// If not specified, then the names kubesaw-admins-host and kubesaw-admins-member are used.
+type DefaultServiceAccountsNamespace struct {
+	Host   string `yaml:"host"`
+	Member string `yaml:"member"`
 }
 
 type ServiceAccount struct {

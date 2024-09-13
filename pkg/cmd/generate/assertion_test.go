@@ -258,7 +258,7 @@ func newPermissionAssertion(storageAssertion *storageAssertionImpl, subjNamespac
 			Namespace: subjNamespace,
 		},
 		expLabels: map[string]string{
-			"provider": "sandbox-sre",
+			"provider": "ksctl",
 		},
 	}
 }
@@ -269,7 +269,7 @@ func (a *storageAssertionImpl) assertSa(namespace, name string) permissionAssert
 	sa := &corev1.ServiceAccount{}
 	a.assertObject(namespace, name, sa, func() {
 		expLabels := map[string]string{
-			"provider": "sandbox-sre",
+			"provider": "ksctl",
 			"username": splitName[len(splitName)-1],
 		}
 		assert.Equal(a.t, expLabels, sa.Labels)
@@ -287,7 +287,7 @@ type userAssertion struct {
 
 func (a *storageAssertionImpl) assertUser(name string) userAssertion {
 	expLabels := map[string]string{
-		"provider": "sandbox-sre",
+		"provider": "ksctl",
 		"username": name,
 	}
 
@@ -343,7 +343,7 @@ func (a userAssertion) belongsToGroups(groups groupsUserBelongsTo, extraGroups e
 
 	for _, groupObj := range presentGroups {
 		expLabels := map[string]string{
-			"provider": "sandbox-sre",
+			"provider": "ksctl",
 		}
 		assert.Equal(a.t, expLabels, groupObj.GetLabels())
 		group := groupObj.(*userv1.Group)
@@ -360,7 +360,7 @@ func (a *storageAssertionImpl) assertThatGroupHasUsers(name string, usernames ..
 	group := &userv1.Group{}
 	a.assertObject("", name, group, func() {
 		expLabels := map[string]string{
-			"provider": "sandbox-sre",
+			"provider": "ksctl",
 		}
 		assert.Equal(a.t, expLabels, group.Labels)
 		sort.Strings(group.Users)
@@ -427,7 +427,7 @@ func (a *storageAssertionImpl) assertRole(namespace, roleName string, contentAss
 	role := &rbacv1.Role{}
 	a.assertObject(namespace, roleName, role, func() {
 		expLabels := map[string]string{
-			"provider": "sandbox-sre",
+			"provider": "ksctl",
 		}
 		assert.Equal(a.t, expLabels, role.Labels)
 		for _, assertContent := range contentAssertion {

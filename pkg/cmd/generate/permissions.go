@@ -74,20 +74,20 @@ func (m *permissionsManager) ensurePermission(ctx *clusterContext, roleName, tar
 
 		roleBindingName = fmt.Sprintf("%s-%s-%s", roleName, m.subjectBaseName, ctx.clusterType)
 	} else {
-		// ClusterRole is not managed by sandbox-sre and should already exist in the cluster
+		// ClusterRole is not managed by ksctl and should already exist in the cluster
 
 		// create RoleBinding name with the prefix clusterrole- so we can avoid conflicts with RoleBindings created for Roles
 		roleBindingName = fmt.Sprintf("clusterrole-%s-%s-%s", roleName, m.subjectBaseName, ctx.clusterType)
 	}
 
 	// ensure that the subject exists
-	subject, err := m.createSubject(ctx, m.objectsCache, m.subjectBaseName, sandboxSRENamespace(ctx.clusterType), sreLabelsWithUsername(m.subjectBaseName))
+	subject, err := m.createSubject(ctx, m.objectsCache, m.subjectBaseName, defaultSAsNamespace(ctx.kubeSawAdmins, ctx.clusterType), ksctlLabelsWithUsername(m.subjectBaseName))
 	if err != nil {
 		return err
 	}
 
 	// ensure the (Cluster)RoleBinding
-	binding := newBinding(targetNamespace, roleBindingName, subject, grantedRoleName, roleKind, sreLabels())
+	binding := newBinding(targetNamespace, roleBindingName, subject, grantedRoleName, roleKind, ksctlLabels())
 	return m.storeObject(ctx, binding)
 }
 
@@ -219,7 +219,7 @@ func ensureGroupsForUser(ctx *clusterContext, cache objectsCache, user string, g
 		group := &userv1.Group{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   groupName,
-				Labels: sreLabels(),
+				Labels: ksctlLabels(),
 			},
 			Users: []string{user},
 		}

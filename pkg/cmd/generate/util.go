@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/kubesaw/ksctl/pkg/assets"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	"github.com/kubesaw/ksctl/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -219,22 +220,27 @@ func ensureKustomization(ctx manifestStoreContext, dirPath, item string) error {
 	return ensureKustomization(ctx, parentDir, filepath.Base(dirPath))
 }
 
-func sreLabelsWithUsername(username string) map[string]string {
-	labels := sreLabels()
+func ksctlLabelsWithUsername(username string) map[string]string {
+	labels := ksctlLabels()
 	labels["username"] = username
 	return labels
 }
 
-func sreLabels() map[string]string {
+func ksctlLabels() map[string]string {
 	return map[string]string{
-		"provider": "sandbox-sre",
+		"provider": "ksctl",
 	}
 }
 
-func sandboxSRENamespace(clusterType configuration.ClusterType) string {
-	sandboxSRENamespace := "sandbox-sre-host"
+func defaultSAsNamespace(kubeSawAdmins *assets.KubeSawAdmins, clusterType configuration.ClusterType) string {
 	if clusterType == configuration.Member {
-		sandboxSRENamespace = "sandbox-sre-member"
+		if kubeSawAdmins.DefaultServiceAccountsNamespace.Member != "" {
+			return kubeSawAdmins.DefaultServiceAccountsNamespace.Member
+		}
+		return "kubesaw-admins-member"
 	}
-	return sandboxSRENamespace
+	if kubeSawAdmins.DefaultServiceAccountsNamespace.Host != "" {
+		return kubeSawAdmins.DefaultServiceAccountsNamespace.Host
+	}
+	return "kubesaw-admins-host"
 }

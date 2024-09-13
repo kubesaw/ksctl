@@ -12,7 +12,7 @@ import (
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func AssertBannedUser(t *testing.T, fakeClient *test.FakeClient, userSignup *toolchainv1alpha1.UserSignup) {
+func AssertBannedUser(t *testing.T, fakeClient *test.FakeClient, userSignup *toolchainv1alpha1.UserSignup, banReason string) {
 	bannedUsers := &toolchainv1alpha1.BannedUserList{}
 	err := fakeClient.List(context.TODO(), bannedUsers, runtimeclient.InNamespace(userSignup.Namespace))
 	require.NoError(t, err)
@@ -22,6 +22,8 @@ func AssertBannedUser(t *testing.T, fakeClient *test.FakeClient, userSignup *too
 	assert.Equal(t, userSignup.Labels[toolchainv1alpha1.UserSignupUserEmailHashLabelKey], bannedUser.Labels[toolchainv1alpha1.BannedUserEmailHashLabelKey])
 	assert.Equal(t, userSignup.Labels[toolchainv1alpha1.UserSignupUserPhoneHashLabelKey], bannedUser.Labels[toolchainv1alpha1.BannedUserPhoneNumberHashLabelKey])
 	assert.Equal(t, "john", bannedUser.Labels[toolchainv1alpha1.LabelKeyPrefix+"banned-by"])
+	assert.Equal(t, banReason, bannedUser.Spec.Reason)
+
 }
 
 func AssertNoBannedUser(t *testing.T, fakeClient *test.FakeClient, userSignup *toolchainv1alpha1.UserSignup) {
