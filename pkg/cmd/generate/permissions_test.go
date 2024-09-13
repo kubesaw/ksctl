@@ -109,7 +109,7 @@ func TestEnsureServiceAccount(t *testing.T) {
 
 		// when
 		subject, err := ensureServiceAccount("openshift-customer-monitoring")(
-			ctx, cache, "john", "sandbox-sre-host", labels)
+			ctx, cache, "john", "default-ns-is-ignored", labels)
 
 		// then
 		require.NoError(t, err)

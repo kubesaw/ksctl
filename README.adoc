@@ -193,6 +193,35 @@ serviceAccounts:
       - ...
 ```
 
+===== ServiceAccount namespace location
+
+By default, all `ServiceAccounts` are created in default namespaces:
+
+* `kubesaw-admins-host` for the host cluster
+* `kubesaw-admins-meber` for the member cluster
+
+The default location can be changed in `kubesaw-admin.yaml` file:
+
+```yaml
+defaultServiceAccountsNamespace:
+  host: your-host-namespace
+  member: your-member-namespace
+```
+
+These two namespaces has to have different names.
+
+It's also possible to override the namespace location for a given `ServiceAccount`:
+
+```yaml
+serviceAccounts:
+- name: in-namespace-sa
+  namespace: specific-sa-namespace
+  host:
+    ...
+  member:
+    ...
+```
+
 ===== Generate ksctl.yaml files
 
 For each ServiceAccount defined in this section, the `ksctl generate cli-configs` generates a separate `ksctl.yaml` file with the corresponding cluster configuration and tokens. As an administrator of the clusters, run this command and distribute securely the generated `ksctl.yaml` files to other team members.
@@ -201,7 +230,7 @@ For each ServiceAccount defined in this section, the `ksctl generate cli-configs
 1. Run `make install`
 2. Create `kubesaw-admins.yaml` (as an example, check link:test-resources/dummy.openshiftapps.com/kubesaw-admins.yaml[kubesaw-admins.yaml])
 3. Run `ksctl generate admin-manifests --kubesaw-admins <path>/kubesaw-admins.yaml --out-dir <admin-manifests-out-dir-path>`
-4. Create resources from the `<admin-manifests-out-dir-path>` of the previous command. Please, note that you will need to create some namespaces manually (`oc create ns <namespace-name>`), such as `sandbox-sre-host`, `first-component`, `second-component`, `some-component`, `sandbox-sre-member`, and `crw`, for example.
+4. Create resources from the `<admin-manifests-out-dir-path>` of the previous command. Please, note that you will need to create some namespaces manually (`oc create ns <namespace-name>`), such as `host-sre-namespace`, `first-component`, `second-component`, `some-component`, `member-sre-namespace`, and `crw`, for example.
 - Run `oc apply -k <admin-manifests-out-dir-path>/host`
 - Run `oc apply -k <admin-manifests-out-dir-path>/member`
 - Run `oc apply -k <admin-manifests-out-dir-path>/member-3`
