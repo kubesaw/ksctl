@@ -155,7 +155,7 @@ func TestRestartHostOperator(t *testing.T) {
 	t.Run("host deployment is present and restart successful", func(t *testing.T) {
 		// given
 		deployment := newDeployment(namespacedName, 1)
-		deployment.Labels = map[string]string{"olm.owner.kind": "ClusterServiceVersion"}
+		deployment.Labels = map[string]string{"provider": "codeready-toolchain"}
 		newClient, fakeClient := NewFakeClients(t, deployment)
 		numberOfUpdateCalls := 0
 		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
