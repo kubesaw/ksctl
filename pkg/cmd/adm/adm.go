@@ -10,7 +10,7 @@ func NewAdmCmd() *cobra.Command {
 	admCommand := &cobra.Command{
 		Use:   "adm",
 		Short: "Administrative Commands",
-		Long:  `Actions for administering Dev Sandbox instance.`,
+		Long:  `Actions for administering a KubeSaw instance.`,
 	}
 	registerCommands(admCommand)
 
