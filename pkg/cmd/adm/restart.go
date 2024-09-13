@@ -103,6 +103,7 @@ func deletePods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deploym
 	if err := cl.List(ctx, &pods, runtimeclient.MatchingLabelsSelector{Selector: selector}); err != nil {
 		return err
 	}
+
 	//delete pods
 	for _, pod := range pods.Items {
 		if err := cl.Delete(ctx, &pod); err != nil {

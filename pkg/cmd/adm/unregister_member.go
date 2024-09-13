@@ -62,6 +62,5 @@ func UnregisterMemberCluster(ctx *clicontext.CommandContext, clusterName string)
 	}
 	ctx.Printlnf("\nThe deletion of the Toolchain member cluster from the Host cluster has been triggered")
 
-	//return restartHostOperator(ctx, hostClusterClient, hostClusterConfig.OperatorNamespace)
-	return nil
+	return restartDeployment(ctx, hostClusterClient, hostClusterConfig.OperatorNamespace)
 }

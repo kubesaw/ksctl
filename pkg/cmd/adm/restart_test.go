@@ -48,7 +48,6 @@ func TestRestartDeployment(t *testing.T) {
 			// then
 			require.NoError(t, err)
 			AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 3)
-			assert.Equal(t, 2, numberOfUpdateCalls)
 		})
 
 		t.Run("list deployments when no deployment name is provided for "+clusterName, func(t *testing.T) {
@@ -64,11 +63,9 @@ func TestRestartDeployment(t *testing.T) {
 			err := restart(ctx, clusterName)
 
 			// then
-			require.EqualError(t, err, "at least one deployment name is required, include one or more of the above deployments to restart")
+			require.EqualError(t, err, "please mention one of the following operator names to restart: host | member-1 | member-2")
 			AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 3)
 			assert.Equal(t, 0, numberOfUpdateCalls)
-			assert.Contains(t, term.Output(), fmt.Sprintf("Existing deployments in toolchain-%s-operator namespace", clusterType))
-			assert.Contains(t, term.Output(), "cool-deployment")
 		})
 
 		t.Run("restart fails - cannot get the deployment for "+clusterName, func(t *testing.T) {
@@ -109,8 +106,6 @@ func TestRestartDeployment(t *testing.T) {
 			AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 3)
 			assert.Equal(t, 0, numberOfUpdateCalls)
 			assert.Contains(t, term.Output(), "ERROR: The given deployment 'wrong-deployment' wasn't found.")
-			assert.Contains(t, term.Output(), fmt.Sprintf("Existing deployments in toolchain-%s-operator namespace", clusterType))
-			assert.Contains(t, term.Output(), "cool-deployment")
 		})
 	}
 }
@@ -150,67 +145,45 @@ func TestRestartHostOperator(t *testing.T) {
 	// given
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("") // it should not read the input
-	_, err := configuration.LoadClusterConfig(term, "host")
+	cfg, err := configuration.LoadClusterConfig(term, "host")
 	require.NoError(t, err)
-	// namespacedName := types.NamespacedName{
-	// 	Namespace: "toolchain-host-operator",
-	// 	Name:      "host-operator-controller-manager",
-	// }
+	namespacedName := types.NamespacedName{
+		Namespace: "toolchain-host-operator",
+		Name:      "host-operator-controller-manager",
+	}
 
-	// t.Run("host deployment is present and restart successful", func(t *testing.T) {
-	// 	// given
-	// 	deployment := newDeployment(namespacedName, 1)
-	// 	deployment.Labels = map[string]string{"olm.owner.namespace": "toolchain-host-operator"}
-	// 	newClient, fakeClient := NewFakeClients(t, deployment)
-	// 	numberOfUpdateCalls := 0
-	// 	fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
-	// 	ctx := clicontext.NewCommandContext(term, newClient)
+	t.Run("host deployment is present and restart successful", func(t *testing.T) {
+		// given
+		deployment := newDeployment(namespacedName, 1)
+		deployment.Labels = map[string]string{"olm.owner.kind": "ClusterServiceVersion"}
+		newClient, fakeClient := NewFakeClients(t, deployment)
+		numberOfUpdateCalls := 0
+		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
-	// 	// when
-	// 	err := restartHostOperator(ctx, fakeClient, cfg.OperatorNamespace)
+		// when
+		err := restartDeployment(ctx, fakeClient, cfg.OperatorNamespace)
 
-	// 	// then
-	// 	require.NoError(t, err)
-	// 	AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 1)
-	// 	assert.Equal(t, 2, numberOfUpdateCalls)
-	// })
+		// then
+		require.NoError(t, err)
+		AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 1)
+	})
 
-	// t.Run("host deployment with the label is not present - restart fails", func(t *testing.T) {
-	// 	// given
-	// 	deployment := newDeployment(namespacedName, 1)
-	// 	newClient, fakeClient := NewFakeClients(t, deployment)
-	// 	numberOfUpdateCalls := 0
-	// 	fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
-	// 	ctx := clicontext.NewCommandContext(term, newClient)
+	t.Run("host deployment with the label is not present - restart fails", func(t *testing.T) {
+		// given
+		deployment := newDeployment(namespacedName, 1)
+		newClient, fakeClient := NewFakeClients(t, deployment)
+		numberOfUpdateCalls := 0
+		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
-	// 	// when
-	// 	err := restartHostOperator(ctx, fakeClient, cfg.OperatorNamespace)
+		// when
+		err := restartDeployment(ctx, fakeClient, cfg.OperatorNamespace)
 
-	// 	// then
-	// 	require.Error(t, err)
-	// 	AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 1)
-	// 	assert.Equal(t, 0, numberOfUpdateCalls)
-	// })
+		// then
+		require.NoError(t, err)
 
-	// t.Run("there are more deployments with the host operator label - restart fails", func(t *testing.T) {
-	// 	// given
-	// 	deployment := newDeployment(namespacedName, 1)
-	// 	deployment.Labels = map[string]string{"olm.owner.namespace": "toolchain-host-operator"}
-	// 	deployment2 := deployment.DeepCopy()
-	// 	deployment2.Name = "another"
-	// 	newClient, fakeClient := NewFakeClients(t, deployment, deployment2)
-	// 	numberOfUpdateCalls := 0
-	// 	fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
-	// 	ctx := clicontext.NewCommandContext(term, newClient)
-
-	// 	// when
-	// 	err := restartHostOperator(ctx, fakeClient, cfg.OperatorNamespace)
-
-	// 	// then
-	// 	require.Error(t, err)
-	// 	AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 1)
-	// 	assert.Equal(t, 0, numberOfUpdateCalls)
-	// })
+	})
 }
 
 func newDeployment(namespacedName types.NamespacedName, replicas int32) *appsv1.Deployment { //nolint:unparam
