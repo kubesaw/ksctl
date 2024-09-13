@@ -59,6 +59,7 @@ func newAdminManifestsContext(t *testing.T, config *assets.KubeSawAdmins, files 
 			outDir:        temp,
 			memberRootDir: "member",
 			hostRootDir:   "host",
+			idpName:       "KubeSaw",
 		},
 	}
 }

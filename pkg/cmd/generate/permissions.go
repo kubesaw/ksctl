@@ -190,7 +190,7 @@ func ensureUserIdentityAndGroups(IDs []string, groups []string) newSubjectFunc {
 		// Create identities and identity mappings
 		for _, id := range IDs {
 
-			ins := commonidentity.NewIdentityNamingStandard(id, "DevSandbox")
+			ins := commonidentity.NewIdentityNamingStandard(id, ctx.idpName)
 
 			// create identity
 			identity := &userv1.Identity{
