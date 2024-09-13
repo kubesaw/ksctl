@@ -385,6 +385,7 @@ func newAdminManifestsFlags(adminManifestsFlagsOptions ...adminManifestsFlagsOpt
 	flags := adminManifestsFlags{
 		hostRootDir:   "host",
 		memberRootDir: "member",
+		idpName:       "KubeSaw",
 	}
 	for _, applyOption := range adminManifestsFlagsOptions {
 		applyOption(&flags)

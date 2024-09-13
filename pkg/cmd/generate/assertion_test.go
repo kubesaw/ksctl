@@ -306,7 +306,10 @@ func (a *storageAssertionImpl) assertUser(name string) userAssertion {
 }
 
 func (a userAssertion) hasIdentity(ID string) userAssertion {
-	ins := commonidentity.NewIdentityNamingStandard(ID, "DevSandbox")
+	return a.hasIdentityWithIdentityStandard(commonidentity.NewIdentityNamingStandard(ID, "KubeSaw"))
+}
+
+func (a userAssertion) hasIdentityWithIdentityStandard(ins commonidentity.NamingStandard) userAssertion {
 	src := &userv1.Identity{}
 	ins.ApplyToIdentity(src)
 

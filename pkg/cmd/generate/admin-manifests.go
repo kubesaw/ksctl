@@ -16,8 +16,8 @@ import (
 )
 
 type adminManifestsFlags struct {
-	kubeSawAdminsFile, outDir, hostRootDir, memberRootDir string
-	singleCluster                                         bool
+	kubeSawAdminsFile, outDir, hostRootDir, memberRootDir, idpName string
+	singleCluster                                                  bool
 }
 
 func NewAdminManifestsCmd() *cobra.Command {
@@ -39,6 +39,7 @@ ksctl generate admin-manifests ./path/to/kubesaw-stage.openshiftapps.com/kubesaw
 	command.Flags().BoolVarP(&f.singleCluster, "single-cluster", "s", false, "If host and member are deployed to the same cluster. Cannot be used with separateKustomizeComponent set in one of the members.")
 	command.Flags().StringVar(&f.hostRootDir, "host-root-dir", "host", "The root directory name for host manifests")
 	command.Flags().StringVar(&f.memberRootDir, "member-root-dir", "member", "The root directory name for member manifests")
+	command.Flags().StringVar(&f.idpName, "idp-name", "KubeSaw", "Identity provider name to be used in Identity CRs")
 
 	flags.MustMarkRequired(command, "kubesaw-admins")
 	flags.MustMarkRequired(command, "out-dir")
