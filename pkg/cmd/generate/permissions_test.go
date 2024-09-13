@@ -135,7 +135,7 @@ func TestEnsureUserAndIdentity(t *testing.T) {
 		cache := objectsCache{}
 
 		// when
-		subject, err := ensureUserIdentityAndGroups([]string{"12345", "abc:19944:FZZ"}, []string{"crtadmins", "cooladmins"})(ctx, cache, "john-crtadmin", commontest.HostOperatorNs, labels)
+		subject, err := ensureUserIdentityAndGroups([]string{"12345", "abc:19944:FZZ"}, []string{"crtadmins", "cooladmins"})(ctx, cache, "john-crtadmin", "not-used", labels)
 
 		// then
 		require.NoError(t, err)
@@ -156,7 +156,7 @@ func TestEnsureUserAndIdentity(t *testing.T) {
 		cache := objectsCache{}
 
 		// when
-		subject, err := ensureUserIdentityAndGroups([]string{"12345", "abc:19944:FZZ"}, []string{})(ctx, cache, "john-crtadmin", commontest.HostOperatorNs, labels)
+		subject, err := ensureUserIdentityAndGroups([]string{"12345", "abc:19944:FZZ"}, []string{})(ctx, cache, "john-crtadmin", "not-used", labels)
 
 		// then
 		require.NoError(t, err)
@@ -175,7 +175,7 @@ func TestEnsureUserAndIdentity(t *testing.T) {
 		cache := objectsCache{}
 
 		// when
-		_, err := ensureUserIdentityAndGroups([]string{"12345"}, []string{})(ctx, cache, "john-crtadmin", commontest.HostOperatorNs, labels)
+		_, err := ensureUserIdentityAndGroups([]string{"12345"}, []string{})(ctx, cache, "john-crtadmin", "not-used", labels)
 
 		// then
 		require.NoError(t, err)
