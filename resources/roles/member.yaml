@@ -7,25 +7,6 @@ objects:
 - kind: Role
   apiVersion: rbac.authorization.k8s.io/v1
   metadata:
-    name: approve-operator-update
-    labels:
-      provider: ksctl
-  rules:
-  - apiGroups:
-    - operators.coreos.com
-    resources:
-    - "installplans"
-    verbs:
-    - "get"
-    - "list"
-    - "create"
-    - "patch"
-    - "update"
-    - "delete"
-
-- kind: Role
-  apiVersion: rbac.authorization.k8s.io/v1
-  metadata:
     name: restart-deployment
     labels:
       provider: ksctl
@@ -73,20 +54,3 @@ objects:
     - "create"
     - "update"
     - "patch"
-
-- kind: Role
-  apiVersion: rbac.authorization.k8s.io/v1
-  metadata:
-    name: edit-csv
-    labels:
-      provider: ksctl
-  rules:
-  - apiGroups:
-    - operators.coreos.com
-    resources:
-    - "clusterserviceversions"
-    verbs:
-    - "get"
-    - "list"
-    - "patch"
-    - "update"

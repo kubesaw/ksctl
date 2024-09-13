@@ -143,13 +143,12 @@ users:
   member:
     roleBindings:
     - namespace: some-component
-      roles:
-      - approve-operator-update
       clusterRoles:
       - edit
+      - approve-operator-update # needs to be created separately
     clusterRoleBindings:
       clusterRoles:
-      - list-operators-group
+      - list-operators-group # needs to be created separately
 
 - name: other-component-viewer
   id:
