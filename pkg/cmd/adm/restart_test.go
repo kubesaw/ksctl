@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
+	"github.com/h2non/gock"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
@@ -142,6 +143,12 @@ import (
 
 func TestRestartHostOperator(t *testing.T) {
 	// given
+	defer gock.Off()
+	gock.New("https://cool-server.com").
+		Post("cool-server.com/v1/namespaces/toolchain-host-operator/cool-token").
+		Persist().
+		Reply(200).
+		BodyString("ok")
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("") // it should not read the input
 	_, err := configuration.LoadClusterConfig(term, "host")
@@ -156,8 +163,6 @@ func TestRestartHostOperator(t *testing.T) {
 		deployment := newDeployment(namespacedName, 1)
 		deployment.Labels = map[string]string{"provider": "codeready-toolchain"}
 		newClient, _ := NewFakeClients(t, deployment)
-		//numberOfUpdateCalls := 0
-		//fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -165,7 +170,7 @@ func TestRestartHostOperator(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		//AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 1)
+
 	})
 
 	// t.Run("host deployment with the label is not present - restart fails", func(t *testing.T) {

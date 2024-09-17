@@ -105,7 +105,7 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 			return err
 		}
 		//check the rollout status
-		if err := checkRolloutStatus(f, ioStreams); err != nil {
+		if err := checkRolloutStatus(f, ioStreams, "provider=codeready-toolchain"); err != nil {
 			return err
 		}
 	}
@@ -129,7 +129,7 @@ func deletePods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deploym
 	}
 
 	//check the rollout status
-	if err := checkRolloutStatus(f, ioStreams); err != nil {
+	if err := checkRolloutStatus(f, ioStreams, "olm.owner.kind=ClusterServiceVersion"); err != nil {
 		return err
 	}
 	return nil
@@ -152,13 +152,13 @@ func restartNonOlmDeployments(deployment appsv1.Deployment, f cmdutil.Factory, i
 	return o.RunRestart()
 }
 
-func checkRolloutStatus(f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
+func checkRolloutStatus(f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
 	cmd := kubectlrollout.NewRolloutStatusOptions(ioStreams)
 
 	if err := cmd.Complete(f, []string{"deployment"}); err != nil {
 		panic(err)
 	}
-	cmd.LabelSelector = "provider=codeready-toolchain"
+	cmd.LabelSelector = labelSelector
 	if err := cmd.Validate(); err != nil {
 		panic(err)
 	}
