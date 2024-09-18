@@ -19,10 +19,8 @@ func NewToolchainCluster(modifiers ...ToolchainClusterModifier) *toolchainv1alph
 			Name:      "member1",
 			Namespace: test.HostOperatorNs,
 		},
-		Spec: toolchainv1alpha1.ToolchainClusterSpec{
+		Status: toolchainv1alpha1.ToolchainClusterStatus{
 			APIEndpoint: "https://api.member.com:6443",
-			CABundle:    "somebundle",
-			SecretRef:   toolchainv1alpha1.LocalSecretReference{},
 		},
 	}
 	for _, modify := range modifiers {
