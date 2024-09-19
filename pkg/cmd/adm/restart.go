@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/kubesaw/ksctl/pkg/client"
-	"github.com/kubesaw/ksctl/pkg/cmd/flags"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
@@ -26,9 +25,8 @@ import (
 // 2.  If the command is run for member operator, it restart the whole member operator.(it deletes olm based pods(member-operator pods),
 // waits for the new deployment to come up, then uses rollout-restart command for non-olm based deployments - webhooks)
 func NewRestartCmd() *cobra.Command {
-	var targetCluster string
 	command := &cobra.Command{
-		Use:   "restart -t <cluster-name>",
+		Use:   "restart <cluster-name>",
 		Short: "Restarts a deployment",
 		Long: `Restarts the deployment with the given name in the operator namespace. 
 If no deployment name is provided, then it lists all existing deployments in the namespace.`,
@@ -36,15 +34,14 @@ If no deployment name is provided, then it lists all existing deployments in the
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
-			return restart(ctx, targetCluster)
+			return restart(ctx, args...)
 		},
 	}
-	command.Flags().StringVarP(&targetCluster, "target-cluster", "t", "", "The target cluster")
-	flags.MustMarkRequired(command, "target-cluster")
 	return command
 }
 
-func restart(ctx *clicontext.CommandContext, clusterName string) error {
+func restart(ctx *clicontext.CommandContext, clusterNames ...string) error {
+	clusterName := clusterNames[0]
 	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
 	factory := cmdutil.NewFactory(cmdutil.NewMatchVersionFlags(kubeConfigFlags))
 	ioStreams := genericclioptions.IOStreams{
@@ -75,10 +72,10 @@ func restart(ctx *clicontext.CommandContext, clusterName string) error {
 		return err
 	}
 
-	// if !ctx.AskForConfirmation(
-	// 	ioutils.WithMessagef("restart the '%s' operator in namespace '%s'", clusterName, cfg.OperatorNamespace)) {
-	// 	return nil
-	// }
+	if !ctx.AskForConfirmation(
+		ioutils.WithMessagef("restart the '%s' operator in namespace '%s'", clusterName, cfg.OperatorNamespace)) {
+		return nil
+	}
 
 	return restartDeployment(ctx, cl, cfg.OperatorNamespace, factory, ioStreams)
 }
@@ -90,24 +87,25 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 	}
 
 	if olmDeploymentList == nil {
-		return fmt.Errorf("OLM based deploymont not found in %s", ns)
+		return fmt.Errorf("OLM based deployment not found in %s", ns)
 	}
 	for _, olmDeployment := range olmDeploymentList.Items {
 		if err := deletePods(ctx, cl, olmDeployment, f, ioStreams); err != nil {
 			return err
 		}
 	}
-	if nonOlmDeploymentlist == nil {
-		return fmt.Errorf("non-OLM based deploymont not found in %s", ns)
-	}
-	for _, nonOlmDeployment := range nonOlmDeploymentlist.Items {
-		if err := restartNonOlmDeployments(nonOlmDeployment, f, ioStreams); err != nil {
-			return err
+	if nonOlmDeploymentlist != nil {
+		for _, nonOlmDeployment := range nonOlmDeploymentlist.Items {
+			if err := restartNonOlmDeployments(nonOlmDeployment, f, ioStreams); err != nil {
+				return err
+			}
+			//check the rollout status
+			if err := checkRolloutStatus(f, ioStreams, "provider=codeready-toolchain"); err != nil {
+				return err
+			}
 		}
-		//check the rollout status
-		if err := checkRolloutStatus(f, ioStreams, "provider=codeready-toolchain"); err != nil {
-			return err
-		}
+	} else {
+		fmt.Printf("non-OLM based deployment not found in %s", ns)
 	}
 	return nil
 }
@@ -116,7 +114,9 @@ func deletePods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deploym
 	//get pods by label selector from the deployment
 	pods := corev1.PodList{}
 	selector, _ := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
-	if err := cl.List(ctx, &pods, runtimeclient.MatchingLabelsSelector{Selector: selector}); err != nil {
+	if err := cl.List(ctx, &pods,
+		runtimeclient.MatchingLabelsSelector{Selector: selector},
+		runtimeclient.InNamespace(deployment.Namespace)); err != nil {
 		return err
 	}
 
@@ -170,7 +170,7 @@ func getExistingDeployments(cl runtimeclient.Client, ns string) (*appsv1.Deploym
 	olmDeployments := &appsv1.DeploymentList{}
 	if err := cl.List(context.TODO(), olmDeployments,
 		runtimeclient.InNamespace(ns),
-		runtimeclient.MatchingLabels{"olm.owner.kind": "ClusterServiceVersion"}); err != nil {
+		runtimeclient.MatchingLabels{"control-plane": "kubesaw-controller-manager"}); err != nil {
 		return nil, nil, err
 	}
 

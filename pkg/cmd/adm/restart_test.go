@@ -145,7 +145,7 @@ func TestRestartHostOperator(t *testing.T) {
 	// given
 	defer gock.Off()
 	gock.New("https://cool-server.com").
-		Post("cool-server.com/v1/namespaces/toolchain-host-operator/cool-token").
+		Post("https://cool-server.com/api/v1/namespaces/toolchain-host-operator/cool-token").
 		Persist().
 		Reply(200).
 		BodyString("ok")
@@ -162,7 +162,8 @@ func TestRestartHostOperator(t *testing.T) {
 		// given
 		deployment := newDeployment(namespacedName, 1)
 		deployment.Labels = map[string]string{"provider": "codeready-toolchain"}
-		newClient, _ := NewFakeClients(t, deployment)
+		newClient, fakeClient := NewFakeClients(t, deployment)
+		mockCreateToolchainClusterWithReadyCondition(fakeClient)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
