@@ -171,7 +171,7 @@ func ensureServiceAccount(saNamespace string) newSubjectFunc {
 
 // ensureUserIdentityAndGroups ensures that all - User, Identity, IdentityMapping, and Group manifests - exist
 func ensureUserIdentityAndGroups(IDs []string, groups []string) newSubjectFunc {
-	return func(ctx *clusterContext, cache objectsCache, subjectBaseName, targetNamespace string, labels map[string]string) (rbacv1.Subject, error) {
+	return func(ctx *clusterContext, cache objectsCache, subjectBaseName, _ string, labels map[string]string) (rbacv1.Subject, error) {
 		// create user
 		user := &userv1.User{
 			ObjectMeta: metav1.ObjectMeta{
