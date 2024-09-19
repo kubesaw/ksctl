@@ -41,6 +41,9 @@ func NewRestartCmd() *cobra.Command {
 }
 
 func restart(ctx *clicontext.CommandContext, clusterNames ...string) error {
+	if clusterNames == nil {
+		return fmt.Errorf("please provide a cluster name to restart the operator e.g `ksctl adm restart host`")
+	}
 	clusterName := clusterNames[0]
 	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
 	factory := cmdutil.NewFactory(cmdutil.NewMatchVersionFlags(kubeConfigFlags))
