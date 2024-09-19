@@ -27,9 +27,9 @@ import (
 func NewRestartCmd() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "restart <cluster-name>",
-		Short: "Restarts a deployment",
-		Long: `Restarts the deployment with the given name in the operator namespace. 
-If no deployment name is provided, then it lists all existing deployments in the namespace.`,
+		Short: "Restarts an operator",
+		Long: `Restarts the whole operator in the given cluster name. 
+		It restarts the operator and checks the status of the deployment`,
 		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
@@ -81,6 +81,8 @@ func restart(ctx *clicontext.CommandContext, clusterNames ...string) error {
 }
 
 func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
+	fmt.Printf("Fetching the current OLM and non-OLM deployments of the operator in %s", ns)
+
 	olmDeploymentList, nonOlmDeploymentlist, err := getExistingDeployments(cl, ns)
 	if err != nil {
 		return err
@@ -90,16 +92,22 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 		return fmt.Errorf("OLM based deployment not found in %s", ns)
 	}
 	for _, olmDeployment := range olmDeploymentList.Items {
+		fmt.Printf("Proceeding to delete the Pods of %v", olmDeployment)
+
 		if err := deletePods(ctx, cl, olmDeployment, f, ioStreams); err != nil {
 			return err
 		}
 	}
 	if nonOlmDeploymentlist != nil {
 		for _, nonOlmDeployment := range nonOlmDeploymentlist.Items {
+
+			fmt.Printf("Proceeding to restart the non-OLM deployment %v", nonOlmDeployment)
+
 			if err := restartNonOlmDeployments(nonOlmDeployment, f, ioStreams); err != nil {
 				return err
 			}
 			//check the rollout status
+			fmt.Printf("Checking the status of the rolled out deployment %v", nonOlmDeployment)
 			if err := checkRolloutStatus(f, ioStreams, "provider=codeready-toolchain"); err != nil {
 				return err
 			}
@@ -111,6 +119,7 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 }
 
 func deletePods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
+	fmt.Printf("Listing the pods to be deleted")
 	//get pods by label selector from the deployment
 	pods := corev1.PodList{}
 	selector, _ := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
@@ -119,7 +128,7 @@ func deletePods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deploym
 		runtimeclient.InNamespace(deployment.Namespace)); err != nil {
 		return err
 	}
-
+	fmt.Printf("Starting to delete the pods")
 	//delete pods
 	for _, pod := range pods.Items {
 		pod := pod // TODO We won't need it after upgrading to go 1.22: https://go.dev/blog/loopvar-preview
@@ -128,8 +137,9 @@ func deletePods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deploym
 		}
 	}
 
+	fmt.Printf("Checking the status of the rolled out deployment %v", deployment)
 	//check the rollout status
-	if err := checkRolloutStatus(f, ioStreams, "olm.owner.kind=ClusterServiceVersion"); err != nil {
+	if err := checkRolloutStatus(f, ioStreams, "kubesaw-control-plane=kubesaw-controller-manager"); err != nil {
 		return err
 	}
 	return nil
@@ -140,7 +150,7 @@ func restartNonOlmDeployments(deployment appsv1.Deployment, f cmdutil.Factory, i
 
 	o := kubectlrollout.NewRolloutRestartOptions(ioStreams)
 
-	if err := o.Complete(f, nil, []string{"deployments"}); err != nil {
+	if err := o.Complete(f, nil, []string{"deployment"}); err != nil {
 		panic(err)
 	}
 
@@ -149,6 +159,7 @@ func restartNonOlmDeployments(deployment appsv1.Deployment, f cmdutil.Factory, i
 	if err := o.Validate(); err != nil {
 		panic(err)
 	}
+	fmt.Printf("Running the rollout restart command for non-olm deployment %v", deployment)
 	return o.RunRestart()
 }
 
@@ -162,6 +173,7 @@ func checkRolloutStatus(f cmdutil.Factory, ioStreams genericclioptions.IOStreams
 	if err := cmd.Validate(); err != nil {
 		panic(err)
 	}
+	fmt.Printf("Running the Rollout status to check the status of the deployment")
 	return cmd.Run()
 }
 
@@ -170,7 +182,7 @@ func getExistingDeployments(cl runtimeclient.Client, ns string) (*appsv1.Deploym
 	olmDeployments := &appsv1.DeploymentList{}
 	if err := cl.List(context.TODO(), olmDeployments,
 		runtimeclient.InNamespace(ns),
-		runtimeclient.MatchingLabels{"control-plane": "kubesaw-controller-manager"}); err != nil {
+		runtimeclient.MatchingLabels{"kubesaw-control-plane": "kubesaw-controller-manager"}); err != nil {
 		return nil, nil, err
 	}
 
