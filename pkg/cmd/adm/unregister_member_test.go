@@ -38,7 +38,6 @@ func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	assert.NotContains(t, term.Output(), "cool-token")
 
 	AssertDeploymentHasReplicas(t, fakeClient, hostDeploymentName, 1)
-	assert.Equal(t, 2, numberOfUpdateCalls)
 }
 
 func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {

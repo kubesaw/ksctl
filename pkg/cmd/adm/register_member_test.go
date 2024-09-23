@@ -600,3 +600,20 @@ func defaultRegisterMemberArgs() registerMemberArgs {
 
 	return args
 }
+
+func checkDeploymentBeingUpdated(t *testing.T, fakeClient *test.FakeClient, namespacedName types.NamespacedName, currentReplicas int32, numberOfUpdateCalls *int, deployment *appsv1.Deployment) {
+	// on the first call, we should have a deployment with 3 replicas ("current") and request to scale down to 0 ("requested")
+	// on the other calls, it's the opposite
+	if *numberOfUpdateCalls == 0 {
+		// check the current deployment's replicas field
+		AssertDeploymentHasReplicas(t, fakeClient, namespacedName, currentReplicas)
+		// check the requested deployment's replicas field
+		assert.Equal(t, int32(0), *deployment.Spec.Replicas)
+	} else {
+		// check the current deployment's replicas field
+		AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 0)
+		// check the requested deployment's replicas field
+		assert.Equal(t, currentReplicas, *deployment.Spec.Replicas)
+	}
+	*numberOfUpdateCalls++
+}

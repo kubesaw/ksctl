@@ -138,12 +138,12 @@ func deletePods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deploym
 		if err := cl.Delete(ctx, &pod); err != nil {
 			return err
 		}
-	}
 
-	fmt.Printf("Checking the status of the rolled out deployment %v", deployment)
-	//check the rollout status
-	if err := checkRolloutStatus(f, ioStreams, "kubesaw-control-plane=kubesaw-controller-manager"); err != nil {
-		return err
+		fmt.Printf("Checking the status of the rolled out deployment %v", deployment)
+		//check the rollout status
+		if err := checkRolloutStatus(f, ioStreams, "kubesaw-control-plane=kubesaw-controller-manager"); err != nil {
+			return err
+		}
 	}
 	return nil
 
