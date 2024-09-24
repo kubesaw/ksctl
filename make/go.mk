@@ -31,4 +31,7 @@ tidy:
 .PHONY: vet
 vet:
 	go vet ./...
-	
+
+.PHONY: pre-verify
+pre-verify:
+	echo "No Pre-requisite needed"
