@@ -67,8 +67,8 @@ func NewRegisterMemberCmd() *cobra.Command {
 	commandArgs := registerMemberArgs{}
 	cmd := &cobra.Command{
 		Use:   "register-member",
-		Short: "Executes add-cluster.sh script",
-		Long:  `Downloads the 'add-cluster.sh' script from the 'toolchain-cicd' repo and calls it twice: once to register the Host cluster in the Member cluster and once to register the Member cluster in the host cluster.`,
+		Short: "Registers a member cluster in the host cluster and vice versa.",
+		Long:  `Registers the Host cluster in the Member cluster and then registers the Member cluster in the host cluster by creating toolchaincluster resources in the host and member namespaces.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := newExtendedCommandContext(term, client.DefaultNewClientFromRestConfig)
@@ -408,7 +408,6 @@ func validateArgs(ctx *extendedCommandContext, args registerMemberArgs) (*regist
 	}
 
 	// figure out the name that will be given to our new ToolchainCluster representing the member in the host cluster.
-	// This is the same name that the add-cluster.sh script will deduce and use.
 	membersInHost, err := getToolchainClustersWithHostname(ctx, hostClusterClient, memberApiEndpoint, args.hostNamespace)
 	if err != nil {
 		return nil, err

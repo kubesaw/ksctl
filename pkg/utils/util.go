@@ -22,11 +22,6 @@ func Contains(slice []string, value string) bool {
 // The `suffix` must be non-empty if there are multiple ToolchainCluster objects pointing to the same cluster. This
 // needs to be determined by the caller prior to calling this method.
 func GetToolchainClusterName(clusterType, serverAPIEndpoint, suffix string) (string, error) {
-	// NOTE: this function is ported from the original add-cluster.sh script to produce the same names during the transition
-	// period to the new operator-based approach to the member registration.
-	// Since add-cluster.sh was a bash script with a long history, the logic is a bit convoluted at places (especially in
-	// handling the numerical suffix).
-
 	// we need to make sure that:
 	// 1) the name is at most 63 characters long
 	// 2) the variable part is (a part of) the cluster hostname
