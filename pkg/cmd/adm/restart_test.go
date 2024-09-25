@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
@@ -24,7 +25,7 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 )
 
-func TestRestart(t *testing.T) {
+func TestRestartDeployment(t *testing.T) {
 	// given
 	tests := map[string]struct {
 		namespace      string
@@ -127,10 +128,8 @@ func TestRestart(t *testing.T) {
 			})
 
 			streams, _, buf, _ := genericclioptions.NewTestIOStreams()
-			deployment := newDeployment(namespacedName, 1)
-			deployment.Labels = map[string]string{tc.labelKey: tc.labelValue}
 			term := NewFakeTerminalWithResponse("Y")
-			newClient, fakeClient := NewFakeClients(t, deployment)
+			newClient, fakeClient := NewFakeClients(t, deployment1)
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			//when
@@ -151,6 +150,53 @@ func TestRestart(t *testing.T) {
 
 		})
 	}
+}
+
+func TestRestart(t *testing.T) {
+	t.Run("restart should fail if more than one clustername", func(t *testing.T) {
+		//given
+		toolchainCluster := NewToolchainCluster(ToolchainClusterName("host-cool-server.com"))
+		deployment := newDeployment(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"), 1)
+		term := NewFakeTerminalWithResponse("Y")
+		newClient, _ := NewFakeClients(t, toolchainCluster, deployment)
+		ctx := clicontext.NewCommandContext(term, newClient)
+
+		//when
+		err := restart(ctx, "host-cool-server.com", "member")
+
+		//then
+		require.Error(t, err, "please provide 1 cluster name to restart the operator e.g `ksctl adm restart host`")
+	})
+	t.Run("restart should fail if zero clustername", func(t *testing.T) {
+		//given
+		toolchainCluster := NewToolchainCluster(ToolchainClusterName("host-cool-server.com"))
+		deployment := newDeployment(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"), 1)
+		term := NewFakeTerminalWithResponse("Y")
+		newClient, _ := NewFakeClients(t, toolchainCluster, deployment)
+		ctx := clicontext.NewCommandContext(term, newClient)
+
+		//when
+		err := restart(ctx)
+
+		//then
+		require.Error(t, err, "please provide 1 cluster name to restart the operator e.g `ksctl adm restart host`")
+	})
+	t.Run("restart should succeed with 1 clustername", func(t *testing.T) {
+		//given
+		SetFileConfig(t, Host())
+		toolchainCluster := NewToolchainCluster(ToolchainClusterName("host"))
+		deployment := newDeployment(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"), 1)
+		term := NewFakeTerminalWithResponse("Y")
+		newClient, _ := NewFakeClients(t, toolchainCluster, deployment)
+		ctx := clicontext.NewCommandContext(term, newClient)
+
+		//when
+		err := restart(ctx, "host")
+
+		//then
+		require.NoError(t, err)
+	})
+
 }
 
 func newDeployment(namespacedName types.NamespacedName, replicas int32) *appsv1.Deployment { //nolint:unparam

@@ -70,7 +70,6 @@ func restart(ctx *clicontext.CommandContext, clusterNames ...string) error {
 	kubeConfigFlags.KubeConfig = &kubeconfig
 
 	cl, err := ctx.NewClient(cfg.Token, cfg.ServerAPI)
-
 	if err != nil {
 		return err
 	}
