@@ -136,9 +136,9 @@ func TestRestart(t *testing.T) {
 			//when
 			err := restartDeployment(ctx, fakeClient, namespacedName.Namespace, tf, streams)
 			if tc.labelValue == "kubesaw-controller-manager" {
-				require.NoError(t, err)
+				require.NoError(t, err, "non-OLM based deployment not found in")
 			} else if tc.labelValue == "codeready-toolchain" {
-				require.Error(t, err)
+				require.NoError(t, err, "OLM based deployment not found in")
 				err := restartNonOlmDeployments(*deployment1, tf, streams)
 				require.NoError(t, err)
 				//checking the output from kubectl

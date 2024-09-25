@@ -92,7 +92,7 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 	}
 
 	if len(olmDeploymentList.Items) == 0 {
-		return fmt.Errorf("OLM based deployment not found in %s", ns)
+		fmt.Printf("OLM based deployment not found in %s", ns)
 	} else {
 		for _, olmDeployment := range olmDeploymentList.Items {
 			fmt.Printf("Proceeding to delete the Pods of %v \n", olmDeployment)
