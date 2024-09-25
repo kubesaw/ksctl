@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 
+	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
 	"github.com/stretchr/testify/require"
@@ -25,84 +26,131 @@ import (
 
 func TestRestart(t *testing.T) {
 	// given
-	SetFileConfig(t, Host())
-	namespacedName := types.NamespacedName{
-		Namespace: "toolchain-host-operator",
-		Name:      "host-operator-controller-manager",
-	}
-	var rolloutGroupVersionEncoder = schema.GroupVersion{Group: "apps", Version: "v1"}
-	deployment1 := newDeployment(namespacedName, 1)
-	ns := scheme.Codecs.WithoutConversion()
-	tf := cmdtesting.NewTestFactory().WithNamespace(namespacedName.Namespace)
-	tf.ClientConfigVal = cmdtesting.DefaultClientConfig()
-
-	info, _ := runtime.SerializerInfoForMediaType(ns.SupportedMediaTypes(), runtime.ContentTypeJSON)
-	encoder := ns.EncoderForVersion(info.Serializer, rolloutGroupVersionEncoder)
-	tf.Client = &RolloutRestartRESTClient{
-		RESTClient: &fake.RESTClient{
-			GroupVersion:         rolloutGroupVersionEncoder,
-			NegotiatedSerializer: ns,
-			Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
-				responseDeployment := &appsv1.Deployment{}
-				responseDeployment.Name = deployment1.Name
-				responseDeployment.Labels = make(map[string]string)
-				responseDeployment.Labels["kubesaw-control-plane"] = "kubesaw-controller-manager"
-				body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, responseDeployment))))
-				return &http.Response{StatusCode: http.StatusOK, Header: cmdtesting.DefaultHeader(), Body: body}, nil
-			}),
+	tests := map[string]struct {
+		namespace      string
+		name           string
+		labelKey       string
+		labelValue     string
+		expectedMsg    string
+		labelSelector  string
+		expectedOutput string
+	}{
+		"OlmHostDeployment": {
+			namespace:     "toolchain-host-operator",
+			name:          "host-operator-controller-manager",
+			labelKey:      "kubesaw-control-plane",
+			labelValue:    "kubesaw-controller-manager",
+			expectedMsg:   "deployment \"host-operator-controller-manager\" successfully rolled out\n",
+			labelSelector: "kubesaw-control-plane=kubesaw-controller-manager",
+		},
+		"NonOlmHostDeployment": {
+			namespace:      "toolchain-host-operator",
+			name:           "registration-service",
+			labelKey:       "provider",
+			labelValue:     "codeready-toolchain",
+			expectedMsg:    "deployment \"registration-service\" successfully rolled out\n",
+			labelSelector:  "provider=codeready-toolchain",
+			expectedOutput: "deployment.apps/registration-service restarted\n",
+		},
+		"OlmMemberDeployment": {
+			namespace:     "toolchain-member-operator",
+			name:          "member-operator-controller-manager",
+			labelKey:      "kubesaw-control-plane",
+			labelValue:    "kubesaw-controller-manager",
+			expectedMsg:   "deployment \"member-operator-controller-manager\" successfully rolled out\n",
+			labelSelector: "kubesaw-control-plane=kubesaw-controller-manager",
+		},
+		"NonOlmMemberDeployment": {
+			namespace:      "toolchain-member-operator",
+			name:           "member-webhooks",
+			labelKey:       "provider",
+			labelValue:     "codeready-toolchain",
+			expectedMsg:    "deployment \"member-webhooks\" successfully rolled out\n",
+			labelSelector:  "provider=codeready-toolchain",
+			expectedOutput: "deployment.apps/member-webhooks restarted\n",
 		},
 	}
-	tf.FakeDynamicClient.WatchReactionChain = nil
-	tf.FakeDynamicClient.AddWatchReactor("*", func(action cgtesting.Action) (handled bool, ret watch.Interface, err error) {
-		fw := watch.NewFake()
-		dep := &appsv1.Deployment{}
-		dep.Name = deployment1.Name
-		dep.Status = appsv1.DeploymentStatus{
-			Replicas:            1,
-			UpdatedReplicas:     1,
-			ReadyReplicas:       1,
-			AvailableReplicas:   1,
-			UnavailableReplicas: 0,
-			Conditions: []appsv1.DeploymentCondition{{
-				Type: appsv1.DeploymentAvailable,
-			}},
-		}
-		dep.Labels = make(map[string]string)
-		dep.Labels["kubesaw-control-plane"] = "kubesaw-controller-manager"
-		c, err := runtime.DefaultUnstructuredConverter.ToUnstructured(dep.DeepCopyObject())
-		if err != nil {
-			t.Errorf("unexpected err %s", err)
-		}
-		u := &unstructured.Unstructured{}
-		u.SetUnstructuredContent(c)
-		go fw.Add(u)
-		return true, fw, nil
-	})
+	for k, tc := range tests {
+		t.Run(k, func(t *testing.T) {
+			//given
+			namespacedName := types.NamespacedName{
+				Namespace: tc.namespace,
+				Name:      tc.name,
+			}
+			var rolloutGroupVersionEncoder = schema.GroupVersion{Group: "apps", Version: "v1"}
+			deployment1 := newDeployment(namespacedName, 1)
+			ns := scheme.Codecs.WithoutConversion()
+			tf := cmdtesting.NewTestFactory().WithNamespace(namespacedName.Namespace)
+			tf.ClientConfigVal = cmdtesting.DefaultClientConfig()
 
-	//add comments that it is checking the output from kubectl
-	streams, _, buf, _ := genericclioptions.NewTestIOStreams()
-	t.Run("Rollout restart of non-olm deployments is successful", func(t *testing.T) {
-		// given
+			info, _ := runtime.SerializerInfoForMediaType(ns.SupportedMediaTypes(), runtime.ContentTypeJSON)
+			encoder := ns.EncoderForVersion(info.Serializer, rolloutGroupVersionEncoder)
+			tf.Client = &RolloutRestartRESTClient{
+				RESTClient: &fake.RESTClient{
+					GroupVersion:         rolloutGroupVersionEncoder,
+					NegotiatedSerializer: ns,
+					Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
+						responseDeployment := &appsv1.Deployment{}
+						responseDeployment.Name = deployment1.Name
+						responseDeployment.Labels = make(map[string]string)
+						responseDeployment.Labels[tc.labelKey] = tc.labelValue
+						body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, responseDeployment))))
+						return &http.Response{StatusCode: http.StatusOK, Header: cmdtesting.DefaultHeader(), Body: body}, nil
+					}),
+				},
+			}
+			tf.FakeDynamicClient.WatchReactionChain = nil
+			tf.FakeDynamicClient.AddWatchReactor("*", func(action cgtesting.Action) (handled bool, ret watch.Interface, err error) {
+				fw := watch.NewFake()
+				dep := &appsv1.Deployment{}
+				dep.Name = deployment1.Name
+				dep.Status = appsv1.DeploymentStatus{
+					Replicas:            1,
+					UpdatedReplicas:     1,
+					ReadyReplicas:       1,
+					AvailableReplicas:   1,
+					UnavailableReplicas: 0,
+					Conditions: []appsv1.DeploymentCondition{{
+						Type: appsv1.DeploymentAvailable,
+					}},
+				}
+				dep.Labels = make(map[string]string)
+				dep.Labels[tc.labelKey] = tc.labelValue
+				c, err := runtime.DefaultUnstructuredConverter.ToUnstructured(dep.DeepCopyObject())
+				if err != nil {
+					t.Errorf("unexpected err %s", err)
+				}
+				u := &unstructured.Unstructured{}
+				u.SetUnstructuredContent(c)
+				go fw.Add(u)
+				return true, fw, nil
+			})
 
-		err := restartNonOlmDeployments(*deployment1, tf, streams)
-		expectedOutput := "deployment.apps/" + deployment1.Name + " restarted\n"
-		require.NoError(t, err)
-		require.Contains(t, buf.String(), expectedOutput)
+			streams, _, buf, _ := genericclioptions.NewTestIOStreams()
+			deployment := newDeployment(namespacedName, 1)
+			deployment.Labels = map[string]string{tc.labelKey: tc.labelValue}
+			term := NewFakeTerminalWithResponse("Y")
+			newClient, fakeClient := NewFakeClients(t, deployment)
+			ctx := clicontext.NewCommandContext(term, newClient)
 
-	})
+			//when
+			err := restartDeployment(ctx, fakeClient, namespacedName.Namespace, tf, streams)
+			require.NoError(t, err)
 
-	t.Run("check rollout status of deployments is successful", func(t *testing.T) {
-		//when
-		err := checkRolloutStatus(tf, streams, "kubesaw-control-plane=kubesaw-controller-manager")
+			err1 := checkRolloutStatus(tf, streams, tc.labelSelector)
+			require.NoError(t, err1)
+			//checking the output from kubectl
+			require.Contains(t, buf.String(), tc.expectedMsg)
 
-		//then
-		require.NoError(t, err)
+			if tc.labelValue == "codeready-toolchain" {
+				err := restartNonOlmDeployments(*deployment1, tf, streams)
+				require.NoError(t, err)
+				//checking the output from kubectl
+				require.Contains(t, buf.String(), tc.expectedOutput)
 
-		expectedMsg := "deployment \"host-operator-controller-manager\" successfully rolled out\n"
-		require.Contains(t, buf.String(), expectedMsg)
-
-	})
-
+			}
+		})
+	}
 }
 
 func newDeployment(namespacedName types.NamespacedName, replicas int32) *appsv1.Deployment { //nolint:unparam

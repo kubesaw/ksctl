@@ -41,8 +41,8 @@ func NewRestartCmd() *cobra.Command {
 }
 
 func restart(ctx *clicontext.CommandContext, clusterNames ...string) error {
-	if clusterNames == nil {
-		return fmt.Errorf("please provide a cluster name to restart the operator e.g `ksctl adm restart host`")
+	if clusterNames == nil || len(clusterNames) != 1 {
+		return fmt.Errorf("please provide 1 cluster name to restart the operator e.g `ksctl adm restart host`")
 	}
 	clusterName := clusterNames[0]
 	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
@@ -76,7 +76,7 @@ func restart(ctx *clicontext.CommandContext, clusterNames ...string) error {
 	}
 
 	if !ctx.AskForConfirmation(
-		ioutils.WithMessagef("restart the '%s' operator in namespace '%s'", clusterName, cfg.OperatorNamespace)) {
+		ioutils.WithMessagef("restart all the deployments in the cluster  '%s' and namespace '%s' \n", clusterName, cfg.OperatorNamespace)) {
 		return nil
 	}
 
@@ -84,45 +84,46 @@ func restart(ctx *clicontext.CommandContext, clusterNames ...string) error {
 }
 
 func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
-	fmt.Printf("Fetching the current OLM and non-OLM deployments of the operator in %s", ns)
+	fmt.Printf("Fetching the current OLM and non-OLM deployments of the operator in %s \n", ns)
 
 	olmDeploymentList, nonOlmDeploymentlist, err := getExistingDeployments(cl, ns)
 	if err != nil {
 		return err
 	}
 
-	if olmDeploymentList == nil {
+	if len(olmDeploymentList.Items) == 0 {
 		return fmt.Errorf("OLM based deployment not found in %s", ns)
-	}
-	for _, olmDeployment := range olmDeploymentList.Items {
-		fmt.Printf("Proceeding to delete the Pods of %v", olmDeployment)
+	} else {
+		for _, olmDeployment := range olmDeploymentList.Items {
+			fmt.Printf("Proceeding to delete the Pods of %v \n", olmDeployment)
 
-		if err := deletePods(ctx, cl, olmDeployment, f, ioStreams); err != nil {
-			return err
+			if err := deletePods(ctx, cl, olmDeployment, f, ioStreams); err != nil {
+				return err
+			}
 		}
 	}
-	if nonOlmDeploymentlist != nil {
+	if len(nonOlmDeploymentlist.Items) != 0 {
 		for _, nonOlmDeployment := range nonOlmDeploymentlist.Items {
 
-			fmt.Printf("Proceeding to restart the non-OLM deployment %v", nonOlmDeployment)
+			fmt.Printf("Proceeding to restart the non-OLM deployment %v \n", nonOlmDeployment)
 
 			if err := restartNonOlmDeployments(nonOlmDeployment, f, ioStreams); err != nil {
 				return err
 			}
 			//check the rollout status
-			fmt.Printf("Checking the status of the rolled out deployment %v", nonOlmDeployment)
+			fmt.Printf("Checking the status of the rolled out deployment %v \n", nonOlmDeployment)
 			if err := checkRolloutStatus(f, ioStreams, "provider=codeready-toolchain"); err != nil {
 				return err
 			}
 		}
 	} else {
-		fmt.Printf("non-OLM based deployment not found in %s", ns)
+		fmt.Printf("non-OLM based deployment not found in %s \n", ns)
 	}
 	return nil
 }
 
 func deletePods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
-	fmt.Printf("Listing the pods to be deleted")
+	fmt.Printf("Listing the pods to be deleted \n")
 	//get pods by label selector from the deployment
 	pods := corev1.PodList{}
 	selector, _ := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
@@ -131,7 +132,7 @@ func deletePods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deploym
 		runtimeclient.InNamespace(deployment.Namespace)); err != nil {
 		return err
 	}
-	fmt.Printf("Starting to delete the pods")
+	fmt.Printf("Starting to delete the pods \n")
 	//delete pods
 	for _, pod := range pods.Items {
 		pod := pod // TODO We won't need it after upgrading to go 1.22: https://go.dev/blog/loopvar-preview
