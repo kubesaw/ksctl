@@ -97,7 +97,7 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 		for _, olmDeployment := range olmDeploymentList.Items {
 			fmt.Printf("Proceeding to delete the Pods of %v \n", olmDeployment)
 
-			if err := deletePods(ctx, cl, olmDeployment, f, ioStreams); err != nil {
+			if err := deleteAndWaitForPods(ctx, cl, olmDeployment, f, ioStreams); err != nil {
 				return err
 			}
 		}
@@ -122,7 +122,7 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 	return nil
 }
 
-func deletePods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
+func deleteAndWaitForPods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
 	fmt.Printf("Listing the pods to be deleted \n")
 	//get pods by label selector from the deployment
 	pods := corev1.PodList{}

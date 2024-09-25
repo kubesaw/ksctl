@@ -135,20 +135,20 @@ func TestRestart(t *testing.T) {
 
 			//when
 			err := restartDeployment(ctx, fakeClient, namespacedName.Namespace, tf, streams)
-			require.NoError(t, err)
-
+			if tc.labelValue == "kubesaw-controller-manager" {
+				require.NoError(t, err)
+			} else if tc.labelValue == "codeready-toolchain" {
+				require.Error(t, err)
+				err := restartNonOlmDeployments(*deployment1, tf, streams)
+				require.NoError(t, err)
+				//checking the output from kubectl
+				require.Contains(t, buf.String(), tc.expectedOutput)
+			}
 			err1 := checkRolloutStatus(tf, streams, tc.labelSelector)
 			require.NoError(t, err1)
 			//checking the output from kubectl
 			require.Contains(t, buf.String(), tc.expectedMsg)
 
-			if tc.labelValue == "codeready-toolchain" {
-				err := restartNonOlmDeployments(*deployment1, tf, streams)
-				require.NoError(t, err)
-				//checking the output from kubectl
-				require.Contains(t, buf.String(), tc.expectedOutput)
-
-			}
 		})
 	}
 }
