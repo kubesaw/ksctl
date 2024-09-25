@@ -68,7 +68,7 @@ func NewRegisterMemberCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "register-member",
 		Short: "Registers a member cluster in the host cluster and vice versa.",
-		Long:  `Register the Host cluster in the Member cluster and then registers the Member cluster in the host cluster by creating toolchaincluster resources in the host and member namespaces.`,
+		Long:  `Registers the Host cluster in the Member cluster and then registers the Member cluster in the host cluster by creating toolchaincluster resources in the host and member namespaces.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := newExtendedCommandContext(term, client.DefaultNewClientFromRestConfig)
