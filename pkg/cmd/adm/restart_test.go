@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -129,13 +130,16 @@ func TestRestartDeployment(t *testing.T) {
 
 			streams, _, buf, _ := genericclioptions.NewTestIOStreams()
 			term := NewFakeTerminalWithResponse("Y")
-			newClient, fakeClient := NewFakeClients(t, deployment1)
+			pod := newPod(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"))
+			newClient, fakeClient := NewFakeClients(t, deployment1, pod)
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			//when
 			err := restartDeployment(ctx, fakeClient, namespacedName.Namespace, tf, streams)
 			if tc.labelValue == "kubesaw-controller-manager" {
 				require.NoError(t, err, "non-OLM based deployment not found in")
+				err2 := deleteAndWaitForPods(ctx, fakeClient, *deployment1, tf, streams)
+				require.NoError(t, err2)
 			} else if tc.labelValue == "codeready-toolchain" {
 				require.NoError(t, err, "OLM based deployment not found in")
 				err := restartNonOlmDeployments(*deployment1, tf, streams)
@@ -207,6 +211,25 @@ func newDeployment(namespacedName types.NamespacedName, replicas int32) *appsv1.
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"host": "controller"}},
+		},
+	}
+}
+
+func newPod(namespacedName types.NamespacedName) *corev1.Pod { //nolint:unparam
+	return &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespacedName.Namespace,
+			Name:      namespacedName.Name,
+			Labels:    map[string]string{"host": "controller"},
+		},
+		Spec: corev1.PodSpec{},
+		Status: corev1.PodStatus{
+			Phase: "Running",
 		},
 	}
 }
