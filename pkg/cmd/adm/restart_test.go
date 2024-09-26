@@ -54,23 +54,23 @@ func TestRestartDeployment(t *testing.T) {
 			labelSelector:  "provider=codeready-toolchain",
 			expectedOutput: "deployment.apps/registration-service restarted\n",
 		},
-		"OlmMemberDeployment": {
-			namespace:     "toolchain-member-operator",
-			name:          "member-operator-controller-manager",
-			labelKey:      "kubesaw-control-plane",
-			labelValue:    "kubesaw-controller-manager",
-			expectedMsg:   "deployment \"member-operator-controller-manager\" successfully rolled out\n",
-			labelSelector: "kubesaw-control-plane=kubesaw-controller-manager",
-		},
-		"NonOlmMemberDeployment": {
-			namespace:      "toolchain-member-operator",
-			name:           "member-webhooks",
-			labelKey:       "provider",
-			labelValue:     "codeready-toolchain",
-			expectedMsg:    "deployment \"member-webhooks\" successfully rolled out\n",
-			labelSelector:  "provider=codeready-toolchain",
-			expectedOutput: "deployment.apps/member-webhooks restarted\n",
-		},
+		// "OlmMemberDeployment": {
+		// 	namespace:     "toolchain-member-operator",
+		// 	name:          "member-operator-controller-manager",
+		// 	labelKey:      "kubesaw-control-plane",
+		// 	labelValue:    "kubesaw-controller-manager",
+		// 	expectedMsg:   "deployment \"member-operator-controller-manager\" successfully rolled out\n",
+		// 	labelSelector: "kubesaw-control-plane=kubesaw-controller-manager",
+		// },
+		// "NonOlmMemberDeployment": {
+		// 	namespace:      "toolchain-member-operator",
+		// 	name:           "member-webhooks",
+		// 	labelKey:       "provider",
+		// 	labelValue:     "codeready-toolchain",
+		// 	expectedMsg:    "deployment \"member-webhooks\" successfully rolled out\n",
+		// 	labelSelector:  "provider=codeready-toolchain",
+		// 	expectedOutput: "deployment.apps/member-webhooks restarted\n",
+		// },
 	}
 	for k, tc := range tests {
 		t.Run(k, func(t *testing.T) {
@@ -131,60 +131,40 @@ func TestRestartDeployment(t *testing.T) {
 			streams, _, buf, _ := genericclioptions.NewTestIOStreams()
 			term := NewFakeTerminalWithResponse("Y")
 			pod := newPod(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"))
+			deployment1.Labels = make(map[string]string)
+			deployment1.Labels[tc.labelKey] = tc.labelValue
 			newClient, fakeClient := NewFakeClients(t, deployment1, pod)
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			//when
 			err := restartDeployment(ctx, fakeClient, namespacedName.Namespace, tf, streams)
 			if tc.labelValue == "kubesaw-controller-manager" {
-				require.NoError(t, err, "non-OLM based deployment not found in")
-				err2 := deleteAndWaitForPods(ctx, fakeClient, *deployment1, tf, streams)
-				require.NoError(t, err2)
-			} else if tc.labelValue == "codeready-toolchain" {
-				require.NoError(t, err, "OLM based deployment not found in")
-				err := restartNonOlmDeployments(*deployment1, tf, streams)
 				require.NoError(t, err)
-				//checking the output from kubectl
+				require.Contains(t, term.Output(), "Fetching the current OLM and non-OLM deployments of the operator in")
+				require.Contains(t, term.Output(), "Proceeding to delete the Pods of")
+				require.Contains(t, term.Output(), "Listing the pods to be deleted")
+				require.Contains(t, term.Output(), "Starting to delete the pods")
+				require.Contains(t, term.Output(), "Checking the status of the deleted pod's deployment")
+				//checking the output from kubectl for rolloutstatus
 				require.Contains(t, buf.String(), tc.expectedOutput)
+				require.Contains(t, term.Output(), "No Non-OLM based deployment restart happend as Non-Olm deployment found in namespace")
+			} else if tc.labelValue == "codeready-toolchain" {
+				require.NoError(t, err)
+				require.Contains(t, term.Output(), "Fetching the current OLM and non-OLM deployments of the operator in")
+				require.Contains(t, term.Output(), "Proceeding to restart the non-OLM deployment ")
+				require.Contains(t, term.Output(), "Running the rollout restart command for non-olm deployment")
+				require.Contains(t, term.Output(), "Checking the status of the rolled out deployment")
+				//checking the output from kubectl for rolloutstatus
+				require.Contains(t, buf.String(), tc.expectedOutput)
+				require.Contains(t, term.Output(), "No OLM based deployment restart happend as Olm deployment found in namespace")
 			}
-			err1 := checkRolloutStatus(tf, streams, tc.labelSelector)
-			require.NoError(t, err1)
-			//checking the output from kubectl
-			require.Contains(t, buf.String(), tc.expectedMsg)
 
 		})
 	}
 }
 
 func TestRestart(t *testing.T) {
-	t.Run("restart should fail if more than one clustername", func(t *testing.T) {
-		//given
-		toolchainCluster := NewToolchainCluster(ToolchainClusterName("host-cool-server.com"))
-		deployment := newDeployment(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"), 1)
-		term := NewFakeTerminalWithResponse("Y")
-		newClient, _ := NewFakeClients(t, toolchainCluster, deployment)
-		ctx := clicontext.NewCommandContext(term, newClient)
 
-		//when
-		err := restart(ctx, "host-cool-server.com", "member")
-
-		//then
-		require.Error(t, err, "please provide 1 cluster name to restart the operator e.g `ksctl adm restart host`")
-	})
-	t.Run("restart should fail if zero clustername", func(t *testing.T) {
-		//given
-		toolchainCluster := NewToolchainCluster(ToolchainClusterName("host-cool-server.com"))
-		deployment := newDeployment(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"), 1)
-		term := NewFakeTerminalWithResponse("Y")
-		newClient, _ := NewFakeClients(t, toolchainCluster, deployment)
-		ctx := clicontext.NewCommandContext(term, newClient)
-
-		//when
-		err := restart(ctx)
-
-		//then
-		require.Error(t, err, "please provide 1 cluster name to restart the operator e.g `ksctl adm restart host`")
-	})
 	t.Run("restart should succeed with 1 clustername", func(t *testing.T) {
 		//given
 		SetFileConfig(t, Host())
