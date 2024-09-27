@@ -91,7 +91,7 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 	}
 
 	if len(olmDeploymentList.Items) == 0 {
-		ctx.Printlnf("No OLM based deployment restart happend as Olm deployment found in namespace %s is 0", ns)
+		ctx.Printlnf("No OLM based deployment restart happened as Olm deployment found in namespace %s is 0", ns)
 	} else {
 		for _, olmDeployment := range olmDeploymentList.Items {
 			ctx.Printlnf("Proceeding to delete the Pods of %v", olmDeployment)
@@ -116,7 +116,7 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 			}
 		}
 	} else {
-		ctx.Printlnf("No Non-OLM based deployment restart happend as Non-Olm deployment found in namespace %s is 0", ns)
+		ctx.Printlnf("No Non-OLM based deployment restart happened as Non-Olm deployment found in namespace %s is 0", ns)
 	}
 	return nil
 }

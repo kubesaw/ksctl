@@ -54,23 +54,6 @@ func TestRestartDeployment(t *testing.T) {
 			labelSelector:  "provider=codeready-toolchain",
 			expectedOutput: "deployment.apps/registration-service restarted\n",
 		},
-		// "OlmMemberDeployment": {
-		// 	namespace:     "toolchain-member-operator",
-		// 	name:          "member-operator-controller-manager",
-		// 	labelKey:      "kubesaw-control-plane",
-		// 	labelValue:    "kubesaw-controller-manager",
-		// 	expectedMsg:   "deployment \"member-operator-controller-manager\" successfully rolled out\n",
-		// 	labelSelector: "kubesaw-control-plane=kubesaw-controller-manager",
-		// },
-		// "NonOlmMemberDeployment": {
-		// 	namespace:      "toolchain-member-operator",
-		// 	name:           "member-webhooks",
-		// 	labelKey:       "provider",
-		// 	labelValue:     "codeready-toolchain",
-		// 	expectedMsg:    "deployment \"member-webhooks\" successfully rolled out\n",
-		// 	labelSelector:  "provider=codeready-toolchain",
-		// 	expectedOutput: "deployment.apps/member-webhooks restarted\n",
-		// },
 	}
 	for k, tc := range tests {
 		t.Run(k, func(t *testing.T) {
@@ -130,7 +113,7 @@ func TestRestartDeployment(t *testing.T) {
 
 			streams, _, buf, _ := genericclioptions.NewTestIOStreams()
 			term := NewFakeTerminalWithResponse("Y")
-			pod := newPod(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"))
+			pod := newPod(test.NamespacedName(namespacedName.Namespace, namespacedName.Name))
 			deployment1.Labels = make(map[string]string)
 			deployment1.Labels[tc.labelKey] = tc.labelValue
 			newClient, fakeClient := NewFakeClients(t, deployment1, pod)
@@ -147,7 +130,7 @@ func TestRestartDeployment(t *testing.T) {
 				require.Contains(t, term.Output(), "Checking the status of the deleted pod's deployment")
 				//checking the output from kubectl for rolloutstatus
 				require.Contains(t, buf.String(), tc.expectedOutput)
-				require.Contains(t, term.Output(), "No Non-OLM based deployment restart happend as Non-Olm deployment found in namespace")
+				require.Contains(t, term.Output(), "No Non-OLM based deployment restart happened as Non-Olm deployment found in namespace")
 			} else if tc.labelValue == "codeready-toolchain" {
 				require.NoError(t, err)
 				require.Contains(t, term.Output(), "Fetching the current OLM and non-OLM deployments of the operator in")
@@ -156,7 +139,7 @@ func TestRestartDeployment(t *testing.T) {
 				require.Contains(t, term.Output(), "Checking the status of the rolled out deployment")
 				//checking the output from kubectl for rolloutstatus
 				require.Contains(t, buf.String(), tc.expectedOutput)
-				require.Contains(t, term.Output(), "No OLM based deployment restart happend as Olm deployment found in namespace")
+				require.Contains(t, term.Output(), "No OLM based deployment restart happened as Olm deployment found in namespace")
 			}
 
 		})
