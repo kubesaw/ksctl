@@ -15,7 +15,7 @@ func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
 	hostDeploymentName := test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager")
 	deployment := newDeployment(hostDeploymentName, 1)
-	deployment.Labels = map[string]string{"olm.owner.namespace": "toolchain-host-operator"}
+	deployment.Labels = map[string]string{"kubesaw-control-plane": "kubesaw-controller-manager"}
 
 	newClient, fakeClient := NewFakeClients(t, toolchainCluster, deployment)
 	numberOfUpdateCalls := 0
@@ -38,7 +38,6 @@ func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	assert.NotContains(t, term.Output(), "cool-token")
 
 	AssertDeploymentHasReplicas(t, fakeClient, hostDeploymentName, 1)
-	assert.Equal(t, 2, numberOfUpdateCalls)
 }
 
 func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {

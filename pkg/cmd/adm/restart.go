@@ -1,157 +1,200 @@
 package adm
 
 import (
-	"context"
-	"fmt"
-	"time"
+	"os"
 
 	"github.com/kubesaw/ksctl/pkg/client"
-	"github.com/kubesaw/ksctl/pkg/cmd/flags"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
-
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	kubectlrollout "k8s.io/kubectl/pkg/cmd/rollout"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// NewRestartCmd() is a function to restart the whole operator, it relies on the target cluster and fetches the cluster config
+// 1.  If the command is run for host operator, it restart the whole host operator.(it deletes olm based pods(host-operator pods),
+// waits for the new pods to come up, then uses rollout-restart command for non-olm based - registration-service)
+// 2.  If the command is run for member operator, it restart the whole member operator.(it deletes olm based pods(member-operator pods),
+// waits for the new pods to come up, then uses rollout-restart command for non-olm based deployments - webhooks)
 func NewRestartCmd() *cobra.Command {
-	var targetCluster string
 	command := &cobra.Command{
-		Use:   "restart -t <cluster-name> <deployment-name>",
-		Short: "Restarts a deployment",
-		Long: `Restarts the deployment with the given name in the operator namespace. 
-If no deployment name is provided, then it lists all existing deployments in the namespace.`,
-		Args: cobra.RangeArgs(0, 1),
+		Use:   "restart <cluster-name>",
+		Short: "Restarts an operator",
+		Long: `Restarts the whole operator, it relies on the target cluster and fetches the cluster config
+		1.  If the command is run for host operator, it restart the whole host operator.
+		(it deletes olm based pods(host-operator pods),waits for the new pods to 
+		come up, then uses rollout-restart command for non-olm based deployments - registration-service)
+		2.  If the command is run for member operator, it restart the whole member operator.
+		(it deletes olm based pods(member-operator pods),waits for the new pods 
+		to come up, then uses rollout-restart command for non-olm based deployments - webhooks)`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
-			return restart(ctx, targetCluster, args...)
+			return restart(ctx, args...)
 		},
 	}
-	command.Flags().StringVarP(&targetCluster, "target-cluster", "t", "", "The target cluster")
-	flags.MustMarkRequired(command, "target-cluster")
 	return command
 }
 
-func restart(ctx *clicontext.CommandContext, clusterName string, deployments ...string) error {
+func restart(ctx *clicontext.CommandContext, clusterNames ...string) error {
+	clusterName := clusterNames[0]
+	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
+	factory := cmdutil.NewFactory(cmdutil.NewMatchVersionFlags(kubeConfigFlags))
+	ioStreams := genericclioptions.IOStreams{
+		In:     os.Stdin,
+		Out:    os.Stdout,
+		ErrOut: os.Stderr,
+	}
+	kubeConfigFlags.ClusterName = nil  // `cluster` flag is redefined for our own purpose
+	kubeConfigFlags.AuthInfoName = nil // unused here, so we can hide it
+	kubeConfigFlags.Context = nil      // unused here, so we can hide it
+
 	cfg, err := configuration.LoadClusterConfig(ctx, clusterName)
 	if err != nil {
 		return err
 	}
+	kubeConfigFlags.Namespace = &cfg.OperatorNamespace
+	kubeConfigFlags.APIServer = &cfg.ServerAPI
+	kubeConfigFlags.BearerToken = &cfg.Token
+	kubeconfig, err := client.EnsureKsctlConfigFile()
+	if err != nil {
+		return err
+	}
+	kubeConfigFlags.KubeConfig = &kubeconfig
+
 	cl, err := ctx.NewClient(cfg.Token, cfg.ServerAPI)
 	if err != nil {
 		return err
 	}
 
-	if len(deployments) == 0 {
-		err := printExistingDeployments(ctx.Terminal, cl, cfg.OperatorNamespace)
-		if err != nil {
-			ctx.Terminal.Printlnf("\nERROR: Failed to list existing deployments\n :%s", err.Error())
-		}
-		return fmt.Errorf("at least one deployment name is required, include one or more of the above deployments to restart")
-	}
-	deploymentName := deployments[0]
-
 	if !ctx.AskForConfirmation(
-		ioutils.WithMessagef("restart the deployment '%s' in namespace '%s'", deploymentName, cfg.OperatorNamespace)) {
+		ioutils.WithMessagef("restart all the deployments in the cluster  '%s' and namespace '%s' \n", clusterName, cfg.OperatorNamespace)) {
 		return nil
 	}
-	return restartDeployment(ctx, cl, cfg.OperatorNamespace, deploymentName)
+
+	return restartDeployment(ctx, cl, cfg.OperatorNamespace, factory, ioStreams)
 }
 
-func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string, deploymentName string) error {
-	namespacedName := types.NamespacedName{
-		Namespace: ns,
-		Name:      deploymentName,
-	}
+func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
+	ctx.Printlnf("Fetching the current OLM and non-OLM deployments of the operator in %s namespace", ns)
 
-	originalReplicas, err := scaleToZero(cl, namespacedName)
+	olmDeploymentList, nonOlmDeploymentlist, err := getExistingDeployments(ctx, cl, ns)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			ctx.Printlnf("\nERROR: The given deployment '%s' wasn't found.", deploymentName)
-			return printExistingDeployments(ctx, cl, ns)
-		}
-		return err
-	}
-	ctx.Println("The deployment was scaled to 0")
-	if err := scaleBack(ctx, cl, namespacedName, originalReplicas); err != nil {
-		ctx.Printlnf("Scaling the deployment '%s' in namespace '%s' back to '%d' replicas wasn't successful", originalReplicas)
-		ctx.Println("Please, try to contact administrators to scale the deployment back manually")
 		return err
 	}
 
-	ctx.Printlnf("The deployment was scaled back to '%d'", originalReplicas)
+	if len(olmDeploymentList.Items) == 0 {
+		ctx.Printlnf("No OLM based deployment restart happened as Olm deployment found in namespace %s is 0", ns)
+	} else {
+		for _, olmDeployment := range olmDeploymentList.Items {
+			ctx.Printlnf("Proceeding to delete the Pods of %v", olmDeployment)
+
+			if err := deleteAndWaitForPods(ctx, cl, olmDeployment, f, ioStreams); err != nil {
+				return err
+			}
+		}
+	}
+	if len(nonOlmDeploymentlist.Items) != 0 {
+		for _, nonOlmDeployment := range nonOlmDeploymentlist.Items {
+
+			ctx.Printlnf("Proceeding to restart the non-OLM deployment %v", nonOlmDeployment)
+
+			if err := restartNonOlmDeployments(ctx, nonOlmDeployment, f, ioStreams); err != nil {
+				return err
+			}
+			//check the rollout status
+			ctx.Printlnf("Checking the status of the rolled out deployment %v", nonOlmDeployment)
+			if err := checkRolloutStatus(ctx, f, ioStreams, "provider=codeready-toolchain"); err != nil {
+				return err
+			}
+		}
+	} else {
+		ctx.Printlnf("No Non-OLM based deployment restart happened as Non-Olm deployment found in namespace %s is 0", ns)
+	}
 	return nil
 }
 
-func restartHostOperator(ctx *clicontext.CommandContext, hostClient runtimeclient.Client, hostNamespace string) error {
-	deployments := &appsv1.DeploymentList{}
-	if err := hostClient.List(context.TODO(), deployments,
-		runtimeclient.InNamespace(hostNamespace),
-		runtimeclient.MatchingLabels{"olm.owner.namespace": "toolchain-host-operator"}); err != nil {
+func deleteAndWaitForPods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
+	ctx.Printlnf("Listing the pods to be deleted")
+	//get pods by label selector from the deployment
+	pods := corev1.PodList{}
+	selector, _ := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+	if err := cl.List(ctx, &pods,
+		runtimeclient.MatchingLabelsSelector{Selector: selector},
+		runtimeclient.InNamespace(deployment.Namespace)); err != nil {
 		return err
 	}
-	if len(deployments.Items) != 1 {
-		return fmt.Errorf("there should be a single deployment matching the label olm.owner.namespace=toolchain-host-operator in %s ns, but %d was found. "+
-			"It's not possible to restart the Host Operator deployment", hostNamespace, len(deployments.Items))
-	}
+	ctx.Printlnf("Starting to delete the pods")
+	//delete pods
+	for _, pod := range pods.Items {
+		pod := pod // TODO We won't need it after upgrading to go 1.22: https://go.dev/blog/loopvar-preview
+		if err := cl.Delete(ctx, &pod); err != nil {
+			return err
+		}
 
-	return restartDeployment(ctx, hostClient, hostNamespace, deployments.Items[0].Name)
-}
-
-func printExistingDeployments(term ioutils.Terminal, cl runtimeclient.Client, ns string) error {
-	deployments := &appsv1.DeploymentList{}
-	if err := cl.List(context.TODO(), deployments, runtimeclient.InNamespace(ns)); err != nil {
-		return err
+		ctx.Printlnf("Checking the status of the deleted pod's deployment %v", deployment)
+		//check the rollout status
+		if err := checkRolloutStatus(ctx, f, ioStreams, "kubesaw-control-plane=kubesaw-controller-manager"); err != nil {
+			return err
+		}
 	}
-	deploymentList := "\n"
-	for _, deployment := range deployments.Items {
-		deploymentList += fmt.Sprintf("%s\n", deployment.Name)
-	}
-	term.PrintContextSeparatorWithBodyf(deploymentList, "Existing deployments in %s namespace", ns)
 	return nil
+
 }
 
-func scaleToZero(cl runtimeclient.Client, namespacedName types.NamespacedName) (int32, error) {
-	// get the deployment
-	deployment := &appsv1.Deployment{}
-	if err := cl.Get(context.TODO(), namespacedName, deployment); err != nil {
-		return 0, err
+func restartNonOlmDeployments(ctx *clicontext.CommandContext, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
+
+	o := kubectlrollout.NewRolloutRestartOptions(ioStreams)
+
+	if err := o.Complete(f, nil, []string{"deployment"}); err != nil {
+		panic(err)
 	}
-	// keep original number of replicas so we can bring it back
-	originalReplicas := *deployment.Spec.Replicas
-	zero := int32(0)
-	deployment.Spec.Replicas = &zero
 
-	// update the deployment so it scales to zero
-	return originalReplicas, cl.Update(context.TODO(), deployment)
+	o.Resources = []string{"deployment/" + deployment.Name}
+
+	if err := o.Validate(); err != nil {
+		panic(err)
+	}
+	ctx.Printlnf("Running the rollout restart command for non-olm deployment %v", deployment)
+	return o.RunRestart()
 }
 
-func scaleBack(term ioutils.Terminal, cl runtimeclient.Client, namespacedName types.NamespacedName, originalReplicas int32) error {
-	return wait.Poll(500*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-		term.Println("")
-		term.Printlnf("Trying to scale the deployment back to '%d'", originalReplicas)
-		// get the updated
-		deployment := &appsv1.Deployment{}
-		if err := cl.Get(context.TODO(), namespacedName, deployment); err != nil {
-			return false, err
-		}
-		// check if the replicas number wasn't already reset by a controller
-		if *deployment.Spec.Replicas == originalReplicas {
-			return true, nil
-		}
-		// set the original
-		deployment.Spec.Replicas = &originalReplicas
-		// and update to scale back
-		if err := cl.Update(context.TODO(), deployment); err != nil {
-			term.Printlnf("error updating Deployment '%s': %s. Will retry again...", namespacedName.Name, err.Error())
-			return false, nil
-		}
-		return true, nil
-	})
+func checkRolloutStatus(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
+	cmd := kubectlrollout.NewRolloutStatusOptions(ioStreams)
+
+	if err := cmd.Complete(f, []string{"deployment"}); err != nil {
+		panic(err)
+	}
+	cmd.LabelSelector = labelSelector
+	if err := cmd.Validate(); err != nil {
+		panic(err)
+	}
+	ctx.Printlnf("Running the Rollout status to check the status of the deployment")
+	return cmd.Run()
+}
+
+func getExistingDeployments(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string) (*appsv1.DeploymentList, *appsv1.DeploymentList, error) {
+
+	olmDeployments := &appsv1.DeploymentList{}
+	if err := cl.List(ctx, olmDeployments,
+		runtimeclient.InNamespace(ns),
+		runtimeclient.MatchingLabels{"kubesaw-control-plane": "kubesaw-controller-manager"}); err != nil {
+		return nil, nil, err
+	}
+
+	nonOlmDeployments := &appsv1.DeploymentList{}
+	if err := cl.List(ctx, nonOlmDeployments,
+		runtimeclient.InNamespace(ns),
+		runtimeclient.MatchingLabels{"provider": "codeready-toolchain"}); err != nil {
+		return nil, nil, err
+	}
+
+	return olmDeployments, nonOlmDeployments, nil
 }
