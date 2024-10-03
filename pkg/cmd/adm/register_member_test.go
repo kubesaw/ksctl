@@ -35,19 +35,16 @@ func TestRegisterMember(t *testing.T) {
 	hostKubeconfig := PersistKubeConfigFile(t, HostKubeConfig())
 	memberKubeconfig := PersistKubeConfigFile(t, MemberKubeConfig())
 
-	hostNs := "toolchain-host-operator"
-	memberNs := "toolchain-member-operator"
-
 	toolchainClusterMemberSa := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "toolchaincluster-member",
-			Namespace: memberNs,
+			Namespace: test.MemberOperatorNs,
 		},
 	}
 	toolchainClusterHostSa := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "toolchaincluster-host",
-			Namespace: hostNs,
+			Namespace: test.HostOperatorNs,
 		},
 	}
 
@@ -65,7 +62,7 @@ func TestRegisterMember(t *testing.T) {
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
 		// force the ready condition on the toolchaincluster created ( this is done by the tc controller in prod env )
-		mockCreateToolchainClusterWithReadyCondition(t, fakeClient, hostNs, memberNs)
+		mockCreateToolchainClusterWithReadyCondition(t, fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 
 		expectedExampleSPC := &toolchainv1alpha1.SpaceProvisionerConfig{
@@ -75,7 +72,7 @@ func TestRegisterMember(t *testing.T) {
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "member-cool-server.com",
-				Namespace: hostNs,
+				Namespace: test.HostOperatorNs,
 			},
 			Spec: toolchainv1alpha1.SpaceProvisionerConfigSpec{
 				ToolchainCluster: "member-cool-server.com",
@@ -93,16 +90,16 @@ func TestRegisterMember(t *testing.T) {
 		require.NoError(t, err)
 		// check the expected secrets are there with the kubeconfigs
 		// the member kubeconfig secret in the host namespace
-		verifyToolchainClusterSecret(t, fakeClient, toolchainClusterMemberSa.Name, hostNs, memberNs, memberToolchainClusterName)
+		verifyToolchainClusterSecret(t, fakeClient, toolchainClusterMemberSa.Name, test.HostOperatorNs, test.MemberOperatorNs, memberToolchainClusterName)
 		// the host secret in the member namespace
-		verifyToolchainClusterSecret(t, fakeClient, toolchainClusterHostSa.Name, memberNs, hostNs, hostToolchainClusterName)
+		verifyToolchainClusterSecret(t, fakeClient, toolchainClusterHostSa.Name, test.MemberOperatorNs, test.HostOperatorNs, hostToolchainClusterName)
 		tcs := &toolchainv1alpha1.ToolchainClusterList{}
-		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(hostNs)))
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(test.HostOperatorNs)))
 		assert.Len(t, tcs.Items, 1)
 		assert.Equal(t, memberToolchainClusterName, tcs.Items[0].Name)
 		// secret ref in tc matches
 		assert.Equal(t, toolchainClusterMemberSa.Name+"-"+memberToolchainClusterName, tcs.Items[0].Spec.SecretRef.Name)
-		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(memberNs)))
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(test.MemberOperatorNs)))
 		assert.Len(t, tcs.Items, 1)
 		assert.Equal(t, hostToolchainClusterName, tcs.Items[0].Name)
 		// secret ref in tc matches
@@ -116,7 +113,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		mockCreateToolchainClusterInNamespaceWithReadyCondition(t, fakeClient, memberNs, hostNs, memberNs) // we set to ready only the host toolchaincluster in member operator namespace
+		mockCreateToolchainClusterInNamespaceWithReadyCondition(t, fakeClient, test.MemberOperatorNs) // we set to ready only the host toolchaincluster in member operator namespace
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
@@ -125,9 +122,9 @@ func TestRegisterMember(t *testing.T) {
 		// then
 		require.Error(t, err)
 		tcs := &toolchainv1alpha1.ToolchainClusterList{}
-		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(hostNs)))
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(test.HostOperatorNs)))
 		assert.Len(t, tcs.Items, 1)
-		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(memberNs)))
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(test.MemberOperatorNs)))
 		assert.Len(t, tcs.Items, 1)
 		assert.Contains(t, term.Output(), "The ToolchainCluster resource representing the member in the host cluster has not become ready.")
 	})
@@ -136,7 +133,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		mockCreateToolchainClusterInNamespaceWithReadyCondition(t, fakeClient, hostNs, hostNs, memberNs) // set to ready only the member toolchaincluster in host operator namespace
+		mockCreateToolchainClusterInNamespaceWithReadyCondition(t, fakeClient, test.HostOperatorNs) // set to ready only the member toolchaincluster in host operator namespace
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
@@ -145,10 +142,10 @@ func TestRegisterMember(t *testing.T) {
 		// then
 		require.Error(t, err)
 		tcs := &toolchainv1alpha1.ToolchainClusterList{}
-		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(hostNs)))
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(test.HostOperatorNs)))
 		assert.Empty(t, tcs.Items)
 		assert.Contains(t, term.Output(), "The ToolchainCluster resource representing the host in the member cluster has not become ready.")
-		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(memberNs)))
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(test.MemberOperatorNs)))
 		assert.Len(t, tcs.Items, 1)
 	})
 
@@ -156,7 +153,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		mockCreateToolchainClusterWithReadyCondition(t, fakeClient, hostNs, memberNs)
+		mockCreateToolchainClusterWithReadyCondition(t, fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
@@ -172,7 +169,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		mockCreateToolchainClusterWithReadyCondition(t, fakeClient, hostNs, memberNs)
+		mockCreateToolchainClusterWithReadyCondition(t, fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
@@ -192,7 +189,7 @@ func TestRegisterMember(t *testing.T) {
 		preexistingToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "member-cool-server.com",
-				Namespace: hostNs,
+				Namespace: test.HostOperatorNs,
 			},
 			Status: toolchainv1alpha1.ToolchainClusterStatus{
 				APIEndpoint: "https://cool-server.com",
@@ -208,7 +205,7 @@ func TestRegisterMember(t *testing.T) {
 		preexistingToolchainCluster.Name = "member-cool-server.com1"
 		require.NoError(t, fakeClient.Create(context.TODO(), preexistingToolchainCluster.DeepCopy()))
 
-		mockCreateToolchainClusterWithReadyCondition(t, fakeClient, hostNs, memberNs)
+		mockCreateToolchainClusterWithReadyCondition(t, fakeClient)
 
 		// when
 		err := registerMemberCluster(ctx, newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig, false, "2"))
@@ -227,7 +224,7 @@ func TestRegisterMember(t *testing.T) {
 		term1 := NewFakeTerminalWithResponse("Y")
 		term2 := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		mockCreateToolchainClusterWithReadyCondition(t, fakeClient, hostNs, memberNs)
+		mockCreateToolchainClusterWithReadyCondition(t, fakeClient)
 		ctx1 := newExtendedCommandContext(term1, newClient)
 		ctx2 := newExtendedCommandContext(term2, newClient)
 
@@ -250,7 +247,7 @@ func TestRegisterMember(t *testing.T) {
 		term1 := NewFakeTerminalWithResponse("Y")
 		term2 := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		mockCreateToolchainClusterWithReadyCondition(t, fakeClient, hostNs, memberNs)
+		mockCreateToolchainClusterWithReadyCondition(t, fakeClient)
 		ctx1 := newExtendedCommandContext(term1, newClient)
 		ctx2 := newExtendedCommandContext(term2, newClient)
 
@@ -274,12 +271,12 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
-		mockCreateToolchainClusterWithReadyCondition(t, fakeClient, hostNs, memberNs)
+		mockCreateToolchainClusterWithReadyCondition(t, fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 		preexistingToolchainCluster1 := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "host-not-so-cool-server.com",
-				Namespace: memberNs,
+				Namespace: test.MemberOperatorNs,
 			},
 			Status: toolchainv1alpha1.ToolchainClusterStatus{
 				APIEndpoint: "https://not-so-cool-server.com",
@@ -294,7 +291,7 @@ func TestRegisterMember(t *testing.T) {
 		preexistingToolchainCluster2 := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "host-uncool-server.com",
-				Namespace: memberNs,
+				Namespace: test.MemberOperatorNs,
 			},
 			Status: toolchainv1alpha1.ToolchainClusterStatus{
 				APIEndpoint: "https://uncool-server.com",
@@ -327,7 +324,7 @@ func TestRegisterMember(t *testing.T) {
 		preexistingToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "host-not-so-cool-server.com",
-				Namespace: memberNs,
+				Namespace: test.MemberOperatorNs,
 			},
 			Status: toolchainv1alpha1.ToolchainClusterStatus{
 				APIEndpoint: "https://not-so-cool-server.com",
@@ -359,7 +356,7 @@ func TestRegisterMember(t *testing.T) {
 		preexistingToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "host-with-weird-name",
-				Namespace: memberNs,
+				Namespace: test.MemberOperatorNs,
 			},
 			Status: toolchainv1alpha1.ToolchainClusterStatus{
 				APIEndpoint: "https://cool-server.com",
@@ -391,11 +388,11 @@ func TestRegisterMember(t *testing.T) {
 		preexistingToolchainCluster := &toolchainv1alpha1.ToolchainCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "member-with-weird-name",
-				Namespace: hostNs,
+				Namespace: test.HostOperatorNs,
 			},
 			Status: toolchainv1alpha1.ToolchainClusterStatus{
 				APIEndpoint:       "https://cool-server.com",
-				OperatorNamespace: memberNs,
+				OperatorNamespace: test.MemberOperatorNs,
 				Conditions: []toolchainv1alpha1.Condition{
 					{
 						Type:   toolchainv1alpha1.ConditionReady,
@@ -420,7 +417,7 @@ func TestRegisterMember(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterHostSa) // we pre-provision only the host toolchaincluster ServiceAccount
-		mockCreateToolchainClusterWithReadyCondition(t, fakeClient, hostNs, memberNs)
+		mockCreateToolchainClusterWithReadyCondition(t, fakeClient)
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
@@ -430,9 +427,9 @@ func TestRegisterMember(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, term.Output(), "The toolchain-member-operator/toolchaincluster-member ServiceAccount is not present in the member cluster.")
 		tcs := &toolchainv1alpha1.ToolchainClusterList{}
-		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(hostNs)))
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(test.HostOperatorNs)))
 		assert.Empty(t, tcs.Items)
-		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(memberNs)))
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(test.MemberOperatorNs)))
 		assert.Len(t, tcs.Items, 1)
 	})
 
@@ -449,41 +446,43 @@ func TestRegisterMember(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, term.Output(), "The toolchain-host-operator/toolchaincluster-host ServiceAccount is not present in the host cluster.")
 		tcs := &toolchainv1alpha1.ToolchainClusterList{}
-		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(hostNs)))
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(test.HostOperatorNs)))
 		assert.Empty(t, tcs.Items)
-		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(memberNs)))
+		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(test.MemberOperatorNs)))
 		assert.Empty(t, tcs.Items)
 	})
 }
 
-func mockCreateToolchainClusterInNamespaceWithReadyCondition(t *testing.T, fakeClient *test.FakeClient, namespace string, hostOperatorNamespace, memberOperatorNamespace string) {
+func mockCreateToolchainClusterInNamespaceWithReadyCondition(t *testing.T, fakeClient *test.FakeClient, namespace string) {
 	fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 		if obj, ok := obj.(*toolchainv1alpha1.ToolchainCluster); ok {
 			if obj.GetNamespace() == namespace {
-				_mockCreateToolchainClusterWithReadyConditionModify(t, obj, hostOperatorNamespace, memberOperatorNamespace)
+				fillStatusWithDetailsAndReadyCondition(t, obj)
 			}
 		}
 		return fakeClient.Client.Create(ctx, obj, opts...)
 	}
 }
 
-func mockCreateToolchainClusterWithReadyCondition(t *testing.T, fakeClient *test.FakeClient, hostOperatorNamespace, memberOperatorNamespace string) {
+func mockCreateToolchainClusterWithReadyCondition(t *testing.T, fakeClient *test.FakeClient) {
 	fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 		if obj, ok := obj.(*toolchainv1alpha1.ToolchainCluster); ok {
-			_mockCreateToolchainClusterWithReadyConditionModify(t, obj, hostOperatorNamespace, memberOperatorNamespace)
+			fillStatusWithDetailsAndReadyCondition(t, obj)
 		}
 		return fakeClient.Client.Create(ctx, obj, opts...)
 	}
 }
 
-func _mockCreateToolchainClusterWithReadyConditionModify(t *testing.T, obj *toolchainv1alpha1.ToolchainCluster, hostOperatorNamespace, memberOperatorNamespace string) {
+func fillStatusWithDetailsAndReadyCondition(t *testing.T, obj *toolchainv1alpha1.ToolchainCluster) {
 	var operatorNamespace string
-	if obj.GetNamespace() == hostOperatorNamespace {
-		operatorNamespace = memberOperatorNamespace
-	} else if obj.GetNamespace() == memberOperatorNamespace {
-		operatorNamespace = hostOperatorNamespace
-	} else {
-		assert.Fail(t, "the mock create of ToolchainCluster only works in host operator namespace %s or member operator namespace %s but the creation of toolchain cluster was requested in %s", hostOperatorNamespace, memberOperatorNamespace, obj.GetNamespace())
+	switch obj.GetNamespace() {
+	case test.HostOperatorNs:
+		operatorNamespace = test.MemberOperatorNs
+	case test.MemberOperatorNs:
+		operatorNamespace = test.HostOperatorNs
+	default:
+		// If we get here, there is a logic error in the test. Let's fail the test unequivocally.
+		assert.Fail(t, "the mock create of ToolchainCluster only works in host operator namespace %s or member operator namespace %s but the creation of toolchain cluster was requested in %s", test.HostOperatorNs, test.MemberOperatorNs, obj.GetNamespace())
 	}
 	obj.Status = toolchainv1alpha1.ToolchainClusterStatus{
 		APIEndpoint:       "https://cool-server.com",
