@@ -20,6 +20,8 @@ import (
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var emptyCreationTimestamp = regexp.MustCompile(`\n *creationTimestamp: null`)
+
 type objectsCache map[string]runtimeclient.Object
 
 func (c objectsCache) storeObject(ctx *clusterContext, obj runtimeclient.Object) error {
@@ -163,7 +165,6 @@ const header = `# --------------------------------------------------------------
 
 func writeFile(filePath string, content []byte) error {
 	// https://github.com/kubernetes/kubernetes/issues/67610
-	emptyCreationTimestamp := regexp.MustCompile(`\n *creationTimestamp: null`)
 	contentString := emptyCreationTimestamp.ReplaceAllString(string(content), "")
 	contentString = strings.ReplaceAll(contentString, "\nuser: {}", "")
 	// This will only apply to konflux tier template that start with metadata = {}
