@@ -179,7 +179,6 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	ctx.Printlnf("creating secret %s/%s in the %s cluster", targetClusterDetails.namespace, secretName, sourceClusterType.TheOtherType())
 	kubeConfigSecret := &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: targetClusterDetails.namespace}}
 	_, err = controllerutil.CreateOrUpdate(context.TODO(), targetClusterDetails.client, kubeConfigSecret, func() error {
-
 		// update the secret label
 		labels := kubeConfigSecret.GetLabels()
 		if labels == nil {
@@ -196,7 +195,6 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 
 		return nil
 	})
-
 	if err != nil {
 		return err
 	}
@@ -210,24 +208,9 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	ctx.Printlnf("creating ToolchainCluster representation of %s in %s:", sourceClusterType, targetClusterDetails.toolchainClusterName)
 	toolchainClusterCR := &toolchainv1alpha1.ToolchainCluster{ObjectMeta: metav1.ObjectMeta{Name: sourceClusterDetails.toolchainClusterName, Namespace: targetClusterDetails.namespace}}
 	_, err = controllerutil.CreateOrUpdate(context.TODO(), targetClusterDetails.client, toolchainClusterCR, func() error {
-
-		// update the tc label
-		labels := toolchainClusterCR.GetLabels()
-		if labels == nil {
-			labels = make(map[string]string)
-		}
-		// TODO drop this "namespace" label as soon as ToolchainCluster controller supports loading data from kubeconfig
-		labels["namespace"] = sourceClusterDetails.namespace
-		toolchainClusterCR.Labels = labels
-		toolchainClusterCR.Spec.APIEndpoint = sourceClusterDetails.apiEndpoint
 		toolchainClusterCR.Spec.SecretRef.Name = secretName
-		if insecureSkipTLSVerify {
-			toolchainClusterCR.Spec.DisabledTLSValidations = []toolchainv1alpha1.TLSValidation{toolchainv1alpha1.TLSAll}
-		}
-
 		return nil
 	})
-
 	if err != nil {
 		return err
 	}
@@ -346,7 +329,7 @@ func getToolchainClustersWithHostname(ctx context.Context, cl runtimeclient.Clie
 
 	clusters := []toolchainv1alpha1.ToolchainCluster{}
 	for _, tc := range list.Items {
-		if tc.Spec.APIEndpoint == hostName {
+		if tc.Status.APIEndpoint == hostName {
 			clusters = append(clusters, tc)
 		}
 	}
@@ -428,8 +411,8 @@ func validateArgs(ctx *extendedCommandContext, args registerMemberArgs) (*regist
 	if len(hostsInMember.Items) > 1 {
 		errors = append(errors, fmt.Sprintf("member misconfigured: the member cluster (%s) is already registered with more than 1 host in namespace %s", memberApiEndpoint, args.memberNamespace))
 	} else if len(hostsInMember.Items) == 1 {
-		if hostsInMember.Items[0].Spec.APIEndpoint != hostApiEndpoint {
-			errors = append(errors, fmt.Sprintf("the member is already registered with another host (%s) so registering it with the new one (%s) would result in an invalid configuration", hostsInMember.Items[0].Spec.APIEndpoint, hostApiEndpoint))
+		if hostsInMember.Items[0].Status.APIEndpoint != hostApiEndpoint {
+			errors = append(errors, fmt.Sprintf("the member is already registered with another host (%s) so registering it with the new one (%s) would result in an invalid configuration", hostsInMember.Items[0].Status.APIEndpoint, hostApiEndpoint))
 		}
 		if hostsInMember.Items[0].Name != hostToolchainClusterName {
 			errors = append(errors, fmt.Sprintf("the host is already in the member namespace using a ToolchainCluster object with the name '%s' but the new registration would use a ToolchainCluster with the name '%s' which would lead to an invalid configuration", hostsInMember.Items[0].Name, hostToolchainClusterName))
@@ -528,7 +511,7 @@ until the SpaceProvisionerConfig.spec.enabled is set to true.
 
 func findToolchainClusterForMember(allToolchainClusters []toolchainv1alpha1.ToolchainCluster, memberAPIEndpoint, memberOperatorNamespace string) *toolchainv1alpha1.ToolchainCluster {
 	for _, tc := range allToolchainClusters {
-		if tc.Spec.APIEndpoint == memberAPIEndpoint && tc.Labels["namespace"] == memberOperatorNamespace {
+		if tc.Status.APIEndpoint == memberAPIEndpoint && tc.Status.OperatorNamespace == memberOperatorNamespace {
 			return &tc
 		}
 	}
