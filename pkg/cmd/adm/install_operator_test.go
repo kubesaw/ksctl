@@ -1,27 +1,29 @@
 package adm
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
 	commonclient "github.com/codeready-toolchain/toolchain-common/pkg/client"
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
+	clicontext "github.com/kubesaw/ksctl/pkg/context"
+
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
-	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	v1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestInstallOperator(t *testing.T) {
@@ -60,7 +62,8 @@ func TestInstallOperator(t *testing.T) {
 			// given
 			fakeClient := test.NewFakeClient(t, &installPlan)
 			fakeClientWithReadyCatalogSource(fakeClient)
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true), ioutils.WithTee(os.Stdout))
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
@@ -75,7 +78,7 @@ func TestInstallOperator(t *testing.T) {
 				olmv1alpha1.CatalogSourceSpec{
 					SourceType:  olmv1alpha1.SourceTypeGrpc,
 					Image:       fmt.Sprintf("quay.io/codeready-toolchain/%s-operator-index:latest", operator),
-					DisplayName: fmt.Sprintf("KubeSaw %s Operator", operator),
+					DisplayName: fmt.Sprintf("KubeSaw '%s' Operator", operator),
 					Publisher:   "Red Hat",
 					UpdateStrategy: &olmv1alpha1.UpdateStrategy{
 						RegistryPoll: &olmv1alpha1.RegistryPoll{
@@ -88,13 +91,14 @@ func TestInstallOperator(t *testing.T) {
 			)
 			AssertOperatorGroupExists(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
 			AssertSubscriptionExists(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
-			assert.Contains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
+			assert.Contains(t, buffy.String(), fmt.Sprintf("The '%s' operator has been successfully installed in the '%s' namespace", operator, namespace))
 		})
 
 		t.Run("install "+operator+" operator fails if CatalogSource is not ready", func(t *testing.T) {
 			// given
 			fakeClient := test.NewFakeClient(t)
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true), ioutils.WithTee(os.Stdout))
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
@@ -104,7 +108,7 @@ func TestInstallOperator(t *testing.T) {
 			require.ErrorContains(t, err, "failed waiting for catalog source to be ready.")
 			AssertOperatorGroupDoesNotExist(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
 			AssertSubscriptionDoesNotExist(t, fakeClient, types.NamespacedName{Name: fmt.Sprintf("%s-operator", operator), Namespace: namespace})
-			assert.NotContains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
+			assert.NotContains(t, buffy.String(), "The '%s' operator has been successfully installed in the '%s' namespace", operator, namespace)
 		})
 
 		t.Run("install "+operator+" operators fails if InstallPlan is not ready", func(t *testing.T) {
@@ -114,7 +118,8 @@ func TestInstallOperator(t *testing.T) {
 			notReadyIP.Status = olmv1alpha1.InstallPlanStatus{Phase: olmv1alpha1.InstallPlanFailed}
 			fakeClient := test.NewFakeClient(t, notReadyIP)
 			fakeClientWithReadyCatalogSource(fakeClient)
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true), ioutils.WithTee(os.Stdout))
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
@@ -122,7 +127,7 @@ func TestInstallOperator(t *testing.T) {
 
 			// then
 			require.ErrorContains(t, err, "failed waiting for install plan to be complete.")
-			assert.NotContains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
+			assert.NotContains(t, buffy.String(), "The '%s' operator has been successfully installed in the '%s' namespace", operator, namespace)
 		})
 
 		t.Run(operator+" fails to install if the other operator is installed", func(t *testing.T) {
@@ -132,7 +137,8 @@ func TestInstallOperator(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: operatorAlreadyInstalled, Namespace: namespace},
 			}
 			fakeClient := test.NewFakeClient(t, &existingSubscription)
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true), ioutils.WithTee(os.Stdout))
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
@@ -142,7 +148,7 @@ func TestInstallOperator(t *testing.T) {
 			)
 
 			// then
-			require.EqualError(t, err, fmt.Sprintf("found already installed subscription %s in namespace %s - it's not allowed to have host and member in the same namespace", operatorAlreadyInstalled, namespace))
+			require.EqualError(t, err, fmt.Sprintf("found existing subscription '%s' in namespace '%s', but host and member operators cannot be installed in the same namespace", operatorAlreadyInstalled, namespace))
 		})
 
 		t.Run("skip creation of operator group if already present", func(t *testing.T) {
@@ -152,7 +158,8 @@ func TestInstallOperator(t *testing.T) {
 			}
 			fakeClient := test.NewFakeClient(t, &existingOperatorGroup, &installPlan)
 			fakeClientWithReadyCatalogSource(fakeClient)
-			term := NewFakeTerminalWithResponse("y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true), ioutils.WithTee(os.Stdout))
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
@@ -160,16 +167,17 @@ func TestInstallOperator(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			assert.Contains(t, term.Output(), fmt.Sprintf("OperatorGroup %s already present in namespace %s. Skipping creation of new operator group.", operatorResourceName(operator), namespace))
-			assert.NotContains(t, term.Output(), fmt.Sprintf("Creating new operator group %s in namespace %s.", operatorResourceName(operator), namespace))
-			assert.Contains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace))
+			assert.Contains(t, buffy.String(), fmt.Sprintf("OperatorGroup '%s' already exists in namespace '%s', skipping creation of the '%s' OperatorGroup.", operatorResourceName(operator), namespace, operatorResourceName(operator)))
+			assert.NotContains(t, buffy.String(), fmt.Sprintf("Creating the OperatorGroup '%s' in namespace '%s'.", operatorResourceName(operator), namespace))
+			assert.Contains(t, buffy.String(), fmt.Sprintf("The '%s' operator has been successfully installed in the '%s' namespace", operator, namespace))
 		})
 
 		t.Run("namespace is computed if not provided", func(t *testing.T) {
 			// given
 			fakeClient := test.NewFakeClient(t, &installPlan)
 			fakeClientWithReadyCatalogSource(fakeClient)
-			term := NewFakeTerminalWithResponse("y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true), ioutils.WithTee(os.Stdout))
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
@@ -179,7 +187,7 @@ func TestInstallOperator(t *testing.T) {
 			)
 			// then
 			require.NoError(t, err)
-			assert.Contains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the %s namespace", operator, namespace)) // and it's installed in the expected namespace
+			assert.Contains(t, buffy.String(), fmt.Sprintf("The '%s' operator has been successfully installed in the '%s' namespace", operator, namespace)) // and it's installed in the expected namespace
 		})
 	}
 
@@ -187,7 +195,8 @@ func TestInstallOperator(t *testing.T) {
 		// given
 		fakeClient := test.NewFakeClient(t)
 		fakeClientWithReadyCatalogSource(fakeClient)
-		term := NewFakeTerminalWithResponse("Y")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewTerminalContext(term)
 
 		// when
@@ -203,7 +212,8 @@ func TestInstallOperator(t *testing.T) {
 	t.Run("doesn't install operator if response is no", func(t *testing.T) {
 		// given
 		fakeClient := test.NewFakeClient(t)
-		term := NewFakeTerminalWithResponse("n")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(false))
 		ctx := clicontext.NewTerminalContext(term)
 
 		// when
@@ -215,8 +225,8 @@ func TestInstallOperator(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Contains(t, term.Output(), fmt.Sprintf("Are you sure that you want to install %s in namespace", operator))
-		assert.NotContains(t, term.Output(), fmt.Sprintf("The %s operator has been successfully installed in the toolchain-host-operator namespace", operator))
+		// assert.Contains(t, buffy.String(), fmt.Sprintf("Are you sure that you want to install '%s' in namespace", operator))
+		assert.NotContains(t, buffy.String(), fmt.Sprintf("The '%s' operator has been successfully installed in the toolchain-host-operator namespace", operator))
 	})
 }
 

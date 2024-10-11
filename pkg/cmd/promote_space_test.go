@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/cmd"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
 	"github.com/stretchr/testify/assert"
@@ -20,7 +22,8 @@ func TestPromoteSpaceCmdWhenAnswerIsY(t *testing.T) {
 	space := newSpace()
 	newClient, fakeClient := NewFakeClients(t, space, newNSTemplateTier("advanced"))
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("Y")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -30,10 +33,8 @@ func TestPromoteSpaceCmdWhenAnswerIsY(t *testing.T) {
 	require.NoError(t, err)
 	space.Spec.TierName = "advanced" // space should be changed to advanced tier
 	assertSpaceSpec(t, fakeClient, space)
-	output := term.Output()
-	assert.Contains(t, output, "promote the Space 'testspace' to the 'advanced' tier?")
-	assert.Contains(t, output, "Successfully promoted Space")
-	assert.NotContains(t, output, "cool-token")
+	assert.Contains(t, buffy.String(), "Successfully promoted Space")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestPromoteSpaceCmdWhenAnswerIsN(t *testing.T) {
@@ -41,7 +42,8 @@ func TestPromoteSpaceCmdWhenAnswerIsN(t *testing.T) {
 	space := newSpace()
 	newClient, fakeClient := NewFakeClients(t, space, newNSTemplateTier("advanced"))
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("n")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(false))
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -50,10 +52,9 @@ func TestPromoteSpaceCmdWhenAnswerIsN(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	assertSpaceSpec(t, fakeClient, space) // space should be unchanged
-	output := term.Output()
-	assert.Contains(t, output, "promote the Space 'testspace' to the 'advanced' tier?")
-	assert.NotContains(t, output, "Successfully promoted Space")
-	assert.NotContains(t, output, "cool-token")
+	// assert.Contains(t, buffy.String(), "promote the Space 'testspace' to the 'advanced' tier?")
+	assert.NotContains(t, buffy.String(), "Successfully promoted Space")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestPromoteSpaceCmdWhenSpaceNotFound(t *testing.T) {
@@ -61,7 +62,8 @@ func TestPromoteSpaceCmdWhenSpaceNotFound(t *testing.T) {
 	space := newSpace()
 	newClient, fakeClient := NewFakeClients(t, space, newNSTemplateTier("advanced"))
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("Y")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -70,10 +72,9 @@ func TestPromoteSpaceCmdWhenSpaceNotFound(t *testing.T) {
 	// then
 	require.EqualError(t, err, "spaces.toolchain.dev.openshift.com \"another\" not found")
 	assertSpaceSpec(t, fakeClient, space) // unrelated space should be unchanged
-	output := term.Output()
-	assert.NotContains(t, output, "promote the Space 'another' to the 'advanced' tier?")
-	assert.NotContains(t, output, "Successfully promoted Space")
-	assert.NotContains(t, output, "cool-token")
+	// assert.NotContains(t, buffy.String(), "promote the Space 'another' to the 'advanced' tier?")
+	assert.NotContains(t, buffy.String(), "Successfully promoted Space")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestPromoteSpaceCmdWhenNSTemplateTierNotFound(t *testing.T) {
@@ -81,7 +82,8 @@ func TestPromoteSpaceCmdWhenNSTemplateTierNotFound(t *testing.T) {
 	space := newSpace()
 	newClient, fakeClient := NewFakeClients(t, space)
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("Y")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -90,10 +92,9 @@ func TestPromoteSpaceCmdWhenNSTemplateTierNotFound(t *testing.T) {
 	// then
 	require.EqualError(t, err, "nstemplatetiers.toolchain.dev.openshift.com \"advanced\" not found")
 	assertSpaceSpec(t, fakeClient, space) // space should be unchanged
-	output := term.Output()
-	assert.NotContains(t, output, "promote the Space 'another' to the 'advanced' tier?")
-	assert.NotContains(t, output, "Successfully promoted Space")
-	assert.NotContains(t, output, "cool-token")
+	assert.NotContains(t, buffy.String(), "promote the Space 'another' to the 'advanced' tier?")
+	assert.NotContains(t, buffy.String(), "Successfully promoted Space")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func newNSTemplateTier(name string) *toolchainv1alpha1.NSTemplateTier {

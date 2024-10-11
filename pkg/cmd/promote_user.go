@@ -18,7 +18,7 @@ func NewPromoteUserCmd() *cobra.Command {
 parameters - first one is MasterUserRecord name and second is the name of the target tier that the user should be promoted to`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return PromoteUser(ctx, args[0], args[1])
 		},
@@ -28,7 +28,7 @@ parameters - first one is MasterUserRecord name and second is the name of the ta
 func PromoteUser(ctx *clicontext.CommandContext, murName, targetTier string) error {
 	return client.PatchMasterUserRecord(ctx, murName, func(mur *toolchainv1alpha1.MasterUserRecord) (bool, error) {
 
-		cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+		cfg, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName)
 		if err != nil {
 			return false, err
 		}
@@ -42,19 +42,15 @@ func PromoteUser(ctx *clicontext.CommandContext, murName, targetTier string) err
 			return false, err
 		}
 
-		if err := ctx.PrintObject(mur, "MasterUserRecord to be promoted"); err != nil {
+		if err := ctx.PrintObject("MasterUserRecord to be promoted:", mur); err != nil {
 			return false, err
 		}
 
-		confirmation := ctx.AskForConfirmation(ioutils.WithMessagef(
-			"promote the MasterUserRecord '%s' to the '%s' user tier?",
-			murName, targetTier))
-
-		if confirmation {
-			// set target tier
-			mur.Spec.TierName = targetTier
-			return true, nil
+		if confirm, err := ctx.Confirm("Promote the '%s' MasterUserRecord to the '%s' user tier?", murName, targetTier); err != nil || !confirm {
+			return false, err
 		}
-		return false, nil
+		// set target tier
+		mur.Spec.TierName = targetTier
+		return true, nil
 	}, "Successfully promoted MasterUserRecord")
 }

@@ -22,7 +22,7 @@ func NewStatusCmd() *cobra.Command {
 		Long:  `Show the ToolchainStatus CR`,
 		Args:  cobra.MaximumNArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return Status(ctx)
 		},
@@ -30,7 +30,7 @@ func NewStatusCmd() *cobra.Command {
 }
 
 func Status(ctx *clicontext.CommandContext) error {
-	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+	cfg, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName)
 	if err != nil {
 		return err
 	}
@@ -48,14 +48,14 @@ func Status(ctx *clicontext.CommandContext) error {
 	}
 
 	cond, exists := condition.FindConditionByType(status.Status.Conditions, toolchainv1alpha1.ConditionReady)
-	title := "Current ToolchainStatus CR - "
+	title := "Current ToolchainStatus - "
 	if exists {
 		title += fmt.Sprintf("Condition: %s, Status: %s, Reason: %s", cond.Type, cond.Status, cond.Reason)
 		if cond.Message != "" {
 			title += fmt.Sprintf(", Message: %s", cond.Message)
 		}
 	} else {
-		title += "Condition Ready wasn't found!"
+		title += "Condition Ready not found"
 	}
-	return ctx.PrintObject(status, title)
+	return ctx.PrintObject(title, status)
 }

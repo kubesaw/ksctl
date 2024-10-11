@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"testing"
@@ -8,6 +9,7 @@ import (
 	"github.com/kubesaw/ksctl/pkg/assets"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	"github.com/kubesaw/ksctl/pkg/test"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,13 +48,15 @@ func newAdminManifestsContextWithDefaultFiles(t *testing.T, config *assets.KubeS
 }
 
 func newAdminManifestsContext(t *testing.T, config *assets.KubeSawAdmins, files assets.FS) *adminManifestsContext {
-	fakeTerminal := test.NewFakeTerminal()
-	fakeTerminal.Tee(os.Stdout)
+	// fakeTerminal := test.NewFakeTerminal()
+	// fakeTerminal.Tee(os.Stdout)
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 	require.NoError(t, client.AddToScheme())
 	temp, err := os.MkdirTemp("", "cli-tests-")
 	require.NoError(t, err)
 	return &adminManifestsContext{
-		Terminal:      fakeTerminal,
+		Terminal:      term,
 		kubeSawAdmins: config,
 		files:         files,
 		adminManifestsFlags: adminManifestsFlags{

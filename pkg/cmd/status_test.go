@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/cmd"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
 	"github.com/stretchr/testify/assert"
@@ -23,7 +25,8 @@ func TestStatusCmdWhenIsReady(t *testing.T) {
 	toolchainStatus := NewToolchainStatus(ToBeReady())
 	newClient, _ := NewFakeClients(t, toolchainStatus)
 	SetFileConfig(t, Host())
-	term := NewFakeTerminal()
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -31,9 +34,8 @@ func TestStatusCmdWhenIsReady(t *testing.T) {
 
 	// then
 	require.NoError(t, err)
-	output := term.Output()
-	assert.Contains(t, output, "Current ToolchainStatus CR - Condition: Ready, Status: True, Reason: AllComponentsReady")
-	assert.NotContains(t, output, "cool-token")
+	assert.Contains(t, buffy.String(), "Current ToolchainStatus - Condition: Ready, Status: True, Reason: AllComponentsReady")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestStatusCmdWhenIsNotReady(t *testing.T) {
@@ -41,7 +43,8 @@ func TestStatusCmdWhenIsNotReady(t *testing.T) {
 	toolchainStatus := NewToolchainStatus(ToBeNotReady())
 	newClient, _ := NewFakeClients(t, toolchainStatus)
 	SetFileConfig(t, Host())
-	term := NewFakeTerminal()
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -49,9 +52,8 @@ func TestStatusCmdWhenIsNotReady(t *testing.T) {
 
 	// then
 	require.NoError(t, err)
-	output := term.Output()
-	assert.Contains(t, output, "Current ToolchainStatus CR - Condition: Ready, Status: False, Reason: ComponentsNotReady, Message: components not ready: [members]")
-	assert.NotContains(t, output, "cool-token")
+	assert.Contains(t, buffy.String(), "Current ToolchainStatus - Condition: Ready, Status: False, Reason: ComponentsNotReady, Message: components not ready: [members]")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestStatusCmdWhenConditionNotFound(t *testing.T) {
@@ -59,7 +61,8 @@ func TestStatusCmdWhenConditionNotFound(t *testing.T) {
 	toolchainStatus := NewToolchainStatus(toolchainv1alpha1.Condition{})
 	newClient, _ := NewFakeClients(t, toolchainStatus)
 	SetFileConfig(t, Host())
-	term := NewFakeTerminal()
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -67,9 +70,8 @@ func TestStatusCmdWhenConditionNotFound(t *testing.T) {
 
 	// then
 	require.NoError(t, err)
-	output := term.Output()
-	assert.Contains(t, output, "Current ToolchainStatus CR - Condition Ready wasn't found!")
-	assert.NotContains(t, output, "cool-token")
+	assert.Contains(t, buffy.String(), "Current ToolchainStatus - Condition Ready not found")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestStatusCmdWithInsufficientPermissions(t *testing.T) {
@@ -77,7 +79,8 @@ func TestStatusCmdWithInsufficientPermissions(t *testing.T) {
 	toolchainStatus := NewToolchainStatus(toolchainv1alpha1.Condition{})
 	newClient, _ := NewFakeClients(t, toolchainStatus)
 	SetFileConfig(t, Host(NoToken()))
-	term := NewFakeTerminal()
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -85,9 +88,9 @@ func TestStatusCmdWithInsufficientPermissions(t *testing.T) {
 
 	// then
 	require.Error(t, err)
-	output := term.Output()
-	assert.NotContains(t, output, "Current ToolchainStatus CR")
-	assert.NotContains(t, output, "cool-token")
+	// output := term.Output()
+	assert.NotContains(t, buffy.String(), "Current ToolchainStatus CR")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestStatusCmdWhenGetFailed(t *testing.T) {
@@ -98,7 +101,8 @@ func TestStatusCmdWhenGetFailed(t *testing.T) {
 	fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 		return fmt.Errorf("some error")
 	}
-	term := NewFakeTerminal()
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -106,9 +110,9 @@ func TestStatusCmdWhenGetFailed(t *testing.T) {
 
 	// then
 	require.Error(t, err)
-	output := term.Output()
-	assert.NotContains(t, output, "Current ToolchainStatus CR")
-	assert.NotContains(t, output, "cool-token")
+	// output := term.Output()
+	assert.NotContains(t, buffy.String(), "Current ToolchainStatus CR")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func NewToolchainStatus(cond toolchainv1alpha1.Condition) *toolchainv1alpha1.ToolchainStatus {

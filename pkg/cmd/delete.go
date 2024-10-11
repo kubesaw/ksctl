@@ -21,7 +21,7 @@ func NewGdprDeleteCmd() *cobra.Command {
 only one parameter which is the name of the UserSignup to be deleted`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return Delete(ctx, args...)
 		},
@@ -29,7 +29,7 @@ only one parameter which is the name of the UserSignup to be deleted`,
 }
 
 func Delete(ctx *clicontext.CommandContext, args ...string) error {
-	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+	cfg, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName)
 	if err != nil {
 		return err
 	}
@@ -41,14 +41,14 @@ func Delete(ctx *clicontext.CommandContext, args ...string) error {
 	if err != nil {
 		return err
 	}
-	if err := ctx.PrintObject(userSignup, "UserSignup to be deleted"); err != nil {
+	if err := ctx.PrintObject("UserSignup to be deleted:", userSignup); err != nil {
 		return err
 	}
-	confirmation := ctx.AskForConfirmation(ioutils.WithDangerZoneMessagef(
-		"deletion of all user's namespaces and all related data.\n"+
-			"This command should be executed based on GDPR request.", "delete the UserSignup above?"))
-	if !confirmation {
-		return nil
+	ctx.Warn("!!!  DANGER ZONE  !!!")
+	ctx.Warn("Deleting all the user's namespaces and all their resources")
+	ctx.Warn("This command should be executed after a GDPR request")
+	if confirm, err := ctx.Confirm("Delete the UserSignup above?"); err != nil || !confirm {
+		return err
 	}
 	propagationPolicy := metav1.DeletePropagationForeground
 	opts := runtimeclient.DeleteOption(&runtimeclient.DeleteOptions{
@@ -57,6 +57,6 @@ func Delete(ctx *clicontext.CommandContext, args ...string) error {
 	if err := cl.Delete(context.TODO(), userSignup, opts); err != nil {
 		return err
 	}
-	ctx.Printlnf("\nThe deletion of the UserSignup has been triggered")
+	ctx.Info("The deletion of the UserSignup has been triggered")
 	return nil
 }

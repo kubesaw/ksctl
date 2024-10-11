@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
-	"github.com/ghodss/yaml"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
@@ -20,7 +19,7 @@ func NewRetargetCmd() *cobra.Command {
 		Long:  `Retargets the given Space by patching the Space.Spec.TargetCluster field to the name of the given target cluster`,
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return Retarget(ctx, args[0], args[1])
 		},
@@ -28,7 +27,7 @@ func NewRetargetCmd() *cobra.Command {
 }
 
 func Retarget(ctx *clicontext.CommandContext, spaceName, targetCluster string) error {
-	hostClusterConfig, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+	hostClusterConfig, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName)
 	if err != nil {
 		return err
 	}
@@ -38,7 +37,7 @@ func Retarget(ctx *clicontext.CommandContext, spaceName, targetCluster string) e
 	}
 
 	// note: view toolchain role on the member cluster is good enough for retargeting since the retarget role is mainly for modifying the Space on the host
-	fullTargetClusterName, err := configuration.GetMemberClusterName(ctx, targetCluster)
+	fullTargetClusterName, err := configuration.GetMemberClusterName(ctx.Logger, targetCluster)
 	if err != nil {
 		return err
 	}
@@ -63,35 +62,34 @@ func Retarget(ctx *clicontext.CommandContext, spaceName, targetCluster string) e
 	}
 
 	// print Space before prompt
-	if err := ctx.PrintObject(space, "Space to be retargeted"); err != nil {
+	if err := ctx.PrintObject("Space to be retargeted:", space); err != nil {
 		return err
 	}
 
 	// and the owner (creator)
-	spec, err := yaml.Marshal(userSignup.Spec)
-	if err != nil {
-		return errs.Wrapf(err, "unable to unmarshal UserSignup.Spec")
+	// spec, err := yaml.Marshal(userSignup.Spec)
+	// if err != nil {
+	// 	return errs.Wrapf(err, "unable to unmarshal UserSignup.Spec")
+	// }
+
+	if err := ctx.PrintObject(fmt.Sprintf("Owned (created) by UserSignup '%s' with spec", userSignup.Name), userSignup); err != nil {
+		return err
 	}
-	ctx.PrintContextSeparatorWithBodyf(string(spec), "Owned (created) by UserSignup '%s' with spec", userSignup.Name)
 
-	// prompt for confirmation to proceed
-	confirmationMsg := ioutils.WithDangerZoneMessagef(
-		"deletion of all related namespaces and all related data",
-		"retarget the Space '%s' owned (created) by UserSignup '%s' to cluster '%s'?",
-		spaceName, userSignup.Name, targetCluster)
-
-	if confirmed := ctx.AskForConfirmation(confirmationMsg); !confirmed {
-		return nil
+	ctx.Warn("!!!  DANGER ZONE  !!!")
+	ctx.Warn("Deleting all the user's namespaces and all their resources")
+	if confirm, err := ctx.Confirm("Retarget the '%s' Space owned (created) by the '%s' UserSignup to the '%s' cluster?", spaceName, userSignup.Name, targetCluster); err != nil || !confirm {
+		return err
 	}
 
 	err = client.PatchSpace(ctx, space.Name, func(space *toolchainv1alpha1.Space) (bool, error) {
 		space.Spec.TargetCluster = fullTargetClusterName
 		return true, nil
-	}, "Space has been patched to target cluster "+targetCluster)
+	}, fmt.Sprintf("Space has been patched to the '%s' target cluster ", targetCluster))
 	if err != nil {
 		return errs.Wrapf(err, "failed to retarget Space '%s'", spaceName)
 	}
 
-	ctx.Printlnf("\nSpace has been retargeted to cluster " + targetCluster)
+	ctx.Infof("Space has been retargeted to the '%s' cluster ", targetCluster)
 	return nil
 }

@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"github.com/kubesaw/ksctl/pkg/assets"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,8 +71,8 @@ func TestGenerateCliConfigs(t *testing.T) {
 	newExternalClient := func(config *rest.Config) (*rest.RESTClient, error) {
 		return DefaultNewExternalClientFromConfig(config)
 	}
-	term := NewFakeTerminalWithResponse("Y")
-	term.Tee(os.Stdout)
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 
 	t.Run("successful", func(t *testing.T) {
 		t.Run("when there is host and two members", func(t *testing.T) {
@@ -149,7 +151,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 		t.Run("test buildClientFromKubeconfigFiles cannot build REST client", func(t *testing.T) {
 			// given
 			ctx := &generateContext{
-				Terminal: NewFakeTerminalWithResponse("y"),
+				Terminal: term,
 				newRESTClient: func(config *rest.Config) (*rest.RESTClient, error) {
 					return nil, fmt.Errorf("some error")
 				},

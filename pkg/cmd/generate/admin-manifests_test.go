@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	uuid "github.com/google/uuid"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	userv1 "github.com/openshift/api/user/v1"
 	"github.com/stretchr/testify/assert"
@@ -54,8 +56,8 @@ func TestAdminManifests(t *testing.T) {
 		// given
 		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 		require.NoError(t, err)
-		term := NewFakeTerminalWithResponse("Y")
-		term.Tee(os.Stdout)
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
 
 		// when
@@ -71,8 +73,8 @@ func TestAdminManifests(t *testing.T) {
 			// given
 			outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 			require.NoError(t, err)
-			term := NewFakeTerminalWithResponse("Y")
-			term.Tee(os.Stdout)
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy)
 			flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), singleCluster())
 
 			// when
@@ -96,8 +98,8 @@ func TestAdminManifests(t *testing.T) {
 
 			outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 			require.NoError(t, err)
-			term := NewFakeTerminalWithResponse("Y")
-			term.Tee(os.Stdout)
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy)
 			flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), singleCluster())
 
 			// when
@@ -113,8 +115,8 @@ func TestAdminManifests(t *testing.T) {
 		// given
 		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 		require.NoError(t, err)
-		term := NewFakeTerminalWithResponse("Y")
-		term.Tee(os.Stdout)
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), hostRootDir("host-cluster"))
 
 		// when
@@ -129,8 +131,8 @@ func TestAdminManifests(t *testing.T) {
 		// given
 		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 		require.NoError(t, err)
-		term := NewFakeTerminalWithResponse("Y")
-		term.Tee(os.Stdout)
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile), memberRootDir("member-clusters"))
 
 		// when
@@ -146,8 +148,8 @@ func TestAdminManifests(t *testing.T) {
 		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 		require.NoError(t, err)
 		storeDummySA(t, outTempDir)
-		term := NewFakeTerminalWithResponse("Y")
-		term.Tee(os.Stdout)
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
 
 		// when
@@ -161,8 +163,8 @@ func TestAdminManifests(t *testing.T) {
 	t.Run("if out dir doesn't exist then it creates", func(t *testing.T) {
 		// given
 		outTempDir := filepath.Join(os.TempDir(), fmt.Sprintf("admin-manifests-cli-test-%s", uuid.NewString()))
-		term := NewFakeTerminalWithResponse("Y")
-		term.Tee(os.Stdout)
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
 
 		// when
@@ -177,8 +179,8 @@ func TestAdminManifests(t *testing.T) {
 		// given
 		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 		require.NoError(t, err)
-		term := NewFakeTerminalWithResponse("Y")
-		term.Tee(os.Stdout)
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile("does/not/exist"))
 
 		// when
@@ -204,8 +206,8 @@ func TestAdminManifests(t *testing.T) {
 
 		outTempDir, err := os.MkdirTemp("", "admin-manifests-cli-test-")
 		require.NoError(t, err)
-		term := NewFakeTerminalWithResponse("Y")
-		term.Tee(os.Stdout)
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		flags := newAdminManifestsFlags(outDir(outTempDir), kubeSawAdminsFile(configFile))
 
 		// when

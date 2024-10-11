@@ -35,7 +35,7 @@ func NewCreateSocialEventCmd() *cobra.Command {
 		Long:  `Create an event (workshop, lab, etc.) to which attendees can signup to with a code.`,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return CreateSocialEvent(ctx, startDate, endDate, description, userTier, spaceTier, maxAttendees, targetCluster)
 		},
@@ -54,7 +54,7 @@ func NewCreateSocialEventCmd() *cobra.Command {
 }
 
 func CreateSocialEvent(ctx *clicontext.CommandContext, startDate, endDate, description, userTier, spaceTier string, maxAttendees int, targetCluster string) error {
-	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+	cfg, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName)
 	if err != nil {
 		return err
 	}
@@ -110,15 +110,15 @@ func CreateSocialEvent(ctx *clicontext.CommandContext, startDate, endDate, descr
 		},
 	}
 	if targetCluster != "" {
-		se.Spec.TargetCluster, err = configuration.GetMemberClusterName(ctx, targetCluster)
+		se.Spec.TargetCluster, err = configuration.GetMemberClusterName(ctx.Logger, targetCluster)
 		if err != nil {
 			return err
 		}
 	}
 
-	if err := cl.Create(context.TODO(), se); err != nil {
+	if err := cl.Create(ctx.Context, se); err != nil {
 		return err
 	}
-	ctx.Printlnf("Social Event successfully created. Activation code is '%s'", se.Name)
+	ctx.Infof("Social Event successfully created. Activation code is '%s'", se.Name)
 	return nil
 }
