@@ -3,6 +3,7 @@ package cmd
 import (
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/kubesaw/ksctl/pkg/client"
+	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 	"github.com/spf13/cobra"
@@ -16,7 +17,7 @@ func NewDisableUserCmd() *cobra.Command {
 only one parameter which is the name of the MasterUserRecord to be disabled`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return DisableUser(ctx, args...)
 		},
@@ -25,15 +26,15 @@ only one parameter which is the name of the MasterUserRecord to be disabled`,
 
 func DisableUser(ctx *clicontext.CommandContext, args ...string) error {
 	return client.PatchMasterUserRecord(ctx, args[0], func(masterUserRecord *toolchainv1alpha1.MasterUserRecord) (bool, error) {
-		if err := ctx.PrintObject(masterUserRecord, "MasterUserRecord to be disabled"); err != nil {
+		if err := ctx.PrintObject("MasterUserRecord to be disabled:", masterUserRecord); err != nil {
 			return false, err
 		}
-		confirmation := ctx.AskForConfirmation(ioutils.WithDangerZoneMessagef(
-			"Disabling the MasterUserRecord will delete User/Identity objects so the user can’t login.", "disable the MasterUserRecord above?"))
-		if confirmation {
-			masterUserRecord.Spec.Disabled = true
-			return true, nil
+		ctx.Warn("!!!  DANGER ZONE  !!!")
+		ctx.Warn("Disabling the MasterUserRecord will delete the User and Identity resources so the user cannot login anymore")
+		if confirm, err := ctx.Confirm("Disable the MasterUserRecord above?"); err != nil || !confirm {
+			return false, err
 		}
-		return false, nil
+		masterUserRecord.Spec.Disabled = true
+		return true, nil
 	}, "MasterUserRecord has been disabled")
 }

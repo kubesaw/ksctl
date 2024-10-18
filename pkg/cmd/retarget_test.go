@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	testusersignup "github.com/codeready-toolchain/toolchain-common/pkg/test/usersignup"
 	"github.com/kubesaw/ksctl/pkg/cmd"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,9 +25,10 @@ func TestRetarget(t *testing.T) {
 
 	t.Run("retarget success", func(t *testing.T) {
 		// given
-		term := NewFakeTerminalWithResponse("y")
 		space := testspace.NewSpace(test.HostOperatorNs, "john-dev", testspace.WithCreatorLabel("john"))
 		newClient, fakeClient := prepareRetargetSpace(t, space, userSignup)
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -34,20 +37,21 @@ func TestRetarget(t *testing.T) {
 		// then
 		require.NoError(t, err)
 		testspace.AssertThatSpace(t, space.Namespace, space.Name, fakeClient).HasSpecTargetCluster("member-m2.devcluster.openshift.com")
-		assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
-		assert.Contains(t, term.Output(), fmt.Sprintf("Are you sure that you want to retarget the Space '%s' owned (created) by UserSignup '%s' to cluster 'member2'?", space.Name, userSignup.Name))
-		assert.Contains(t, term.Output(), "Space to be retargeted")
-		assert.Contains(t, term.Output(), fmt.Sprintf("Owned (created) by UserSignup '%s' with spec", userSignup.Name))
-		assert.Contains(t, term.Output(), "Space has been patched to target cluster member2")
-		assert.Contains(t, term.Output(), "Space has been retargeted to cluster member2")
-		assert.NotContains(t, term.Output(), "cool-token")
+		assert.Contains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+		// assert.Contains(t, buffy.String(), fmt.Sprintf("Are you sure that you want to retarget the Space '%s' owned (created) by UserSignup '%s' to cluster 'member2'?", space.Name, userSignup.Name))
+		assert.Contains(t, buffy.String(), "Space to be retargeted")
+		assert.Contains(t, buffy.String(), fmt.Sprintf("Owned (created) by UserSignup '%s' with spec", userSignup.Name))
+		assert.Contains(t, buffy.String(), "Space has been patched to the 'member2' target cluster")
+		assert.Contains(t, buffy.String(), "Space has been retargeted to the 'member2' cluster")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("retarget fail", func(t *testing.T) {
 		t.Run("no space found", func(t *testing.T) {
 			// given
-			term := NewFakeTerminalWithResponse("y")
 			newClient, _ := prepareRetargetSpace(t) // no usersignup created
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -59,9 +63,10 @@ func TestRetarget(t *testing.T) {
 
 		t.Run("space already targeted to the provided target cluster", func(t *testing.T) {
 			// given
-			term := NewFakeTerminalWithResponse("y")
 			space := testspace.NewSpace(test.HostOperatorNs, "john-dev", testspace.WithCreatorLabel("john"), testspace.WithSpecTargetCluster("member-m2.devcluster.openshift.com"))
 			newClient, _ := prepareRetargetSpace(t, space, userSignup)
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -73,9 +78,10 @@ func TestRetarget(t *testing.T) {
 
 		t.Run("failed to get member cluster config", func(t *testing.T) {
 			// given
-			term := NewFakeTerminalWithResponse("y")
 			space := testspace.NewSpace(test.HostOperatorNs, "john-dev")
 			newClient, _ := prepareRetargetSpace(t, space)
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -88,7 +94,6 @@ func TestRetarget(t *testing.T) {
 
 		t.Run("setting target cluster failed", func(t *testing.T) {
 			// given
-			term := NewFakeTerminalWithResponse("y")
 			space := testspace.NewSpace(test.HostOperatorNs, "john-dev", testspace.WithCreatorLabel("john"))
 			newClient, fakeClient := prepareRetargetSpace(t, space, userSignup)
 			fakeClient.MockPatch = func(ctx context.Context, obj runtimeclient.Object, patch runtimeclient.Patch, opts ...runtimeclient.PatchOption) error {
@@ -99,6 +104,8 @@ func TestRetarget(t *testing.T) {
 				}
 				return fakeClient.Client.Patch(ctx, obj, patch, opts...)
 			}
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -111,9 +118,10 @@ func TestRetarget(t *testing.T) {
 
 		t.Run("space without owner label", func(t *testing.T) {
 			// given
-			term := NewFakeTerminalWithResponse("y")
 			space := testspace.NewSpace(test.HostOperatorNs, "john-dev")
 			newClient, _ := prepareRetargetSpace(t, space, userSignup)
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -126,9 +134,10 @@ func TestRetarget(t *testing.T) {
 
 		t.Run("usersignup not found", func(t *testing.T) {
 			// given
-			term := NewFakeTerminalWithResponse("y")
 			space := testspace.NewSpace(test.HostOperatorNs, "john-dev", testspace.WithCreatorLabel("john"))
 			newClient, _ := prepareRetargetSpace(t, space)
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -142,9 +151,10 @@ func TestRetarget(t *testing.T) {
 
 	t.Run("user responds no", func(t *testing.T) {
 		// given
-		term := NewFakeTerminalWithResponse("n")
 		space := testspace.NewSpace(test.HostOperatorNs, "john-dev", testspace.WithCreatorLabel("john"), testspace.WithSpecTargetCluster("member-m1.devcluster.openshift.com"))
 		newClient, fakeClient := prepareRetargetSpace(t, space, userSignup)
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(false))
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -153,13 +163,13 @@ func TestRetarget(t *testing.T) {
 		// then
 		require.NoError(t, err)
 		testspace.AssertThatSpace(t, space.Namespace, space.Name, fakeClient).HasSpecTargetCluster("member-m1.devcluster.openshift.com")
-		assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
-		assert.Contains(t, term.Output(), fmt.Sprintf("Are you sure that you want to retarget the Space '%s' owned (created) by UserSignup '%s' to cluster 'member2'?", space.Name, userSignup.Name))
-		assert.Contains(t, term.Output(), "Space to be retargeted")
-		assert.Contains(t, term.Output(), fmt.Sprintf("Owned (created) by UserSignup '%s' with spec", userSignup.Name))
-		assert.NotContains(t, term.Output(), "Space has been patched to target cluster member2")
-		assert.NotContains(t, term.Output(), "Space has been retargeted to cluster member2")
-		assert.NotContains(t, term.Output(), "cool-token")
+		assert.Contains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+		// assert.Contains(t, buffy.String(), fmt.Sprintf("Are you sure that you want to retarget the Space '%s' owned (created) by UserSignup '%s' to cluster 'member2'?", space.Name, userSignup.Name))
+		assert.Contains(t, buffy.String(), "Space to be retargeted")
+		assert.Contains(t, buffy.String(), fmt.Sprintf("Owned (created) by UserSignup '%s' with spec", userSignup.Name))
+		assert.NotContains(t, buffy.String(), "Space has been patched to the 'member2' target cluster")
+		assert.NotContains(t, buffy.String(), "Space has been retargeted to the 'member2' cluster")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 }
 

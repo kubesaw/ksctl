@@ -18,7 +18,7 @@ func NewPromoteSpaceCmd() *cobra.Command {
 parameters - first one is Space name and second is the name of the target NSTemplateTier that the space should be promoted to`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return PromoteSpace(ctx, args[0], args[1])
 		},
@@ -27,8 +27,7 @@ parameters - first one is Space name and second is the name of the target NSTemp
 
 func PromoteSpace(ctx *clicontext.CommandContext, spaceName, targetTier string) error {
 	return client.PatchSpace(ctx, spaceName, func(space *toolchainv1alpha1.Space) (bool, error) {
-
-		cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+		cfg, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName)
 		if err != nil {
 			return false, err
 		}
@@ -42,19 +41,15 @@ func PromoteSpace(ctx *clicontext.CommandContext, spaceName, targetTier string) 
 			return false, err
 		}
 
-		if err := ctx.PrintObject(space, "Space to be promoted"); err != nil {
+		if err := ctx.PrintObject("Space to be promoted:", space); err != nil {
 			return false, err
 		}
 
-		confirmation := ctx.AskForConfirmation(ioutils.WithMessagef(
-			"promote the Space '%s' to the '%s' tier?",
-			spaceName, targetTier))
-
-		if confirmation {
-			// set target tier
-			space.Spec.TierName = targetTier
-			return true, nil
+		if confirm, err := ctx.Confirm("Promote the '%s' Space to the '%s' tier?", spaceName, targetTier); err != nil || !confirm {
+			return false, err
 		}
-		return false, nil
+		// set target tier
+		space.Spec.TierName = targetTier
+		return true, nil
 	}, "Successfully promoted Space")
 }

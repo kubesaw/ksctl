@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/cmd"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
 	"github.com/stretchr/testify/assert"
@@ -21,13 +23,14 @@ func TestCreateSocialEvent(t *testing.T) {
 	spaceTier := newNSTemplateTier("base")
 	userTier := newUserTier("deactivate30")
 	SetFileConfig(t, Host(), Member())
-	term := NewFakeTerminalWithResponse("y")
 
 	t.Run("success", func(t *testing.T) {
 
 		t.Run("1-day event without description", func(t *testing.T) {
 			// given
 			newClient, fakeClient := NewFakeClients(t, userTier, spaceTier)
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy)
 			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-21" // summer 🏝
 			endDate := "2022-06-21"   // ends same day
@@ -38,7 +41,7 @@ func TestCreateSocialEvent(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			assert.Contains(t, term.Output(), "Social Event successfully created")
+			assert.Contains(t, buffy.String(), "Social Event successfully created")
 			// verify that the SocialEvent was created
 			ses := &toolchainv1alpha1.SocialEventList{}
 			err = fakeClient.List(context.TODO(), ses, runtimeclient.InNamespace(test.HostOperatorNs))
@@ -57,6 +60,8 @@ func TestCreateSocialEvent(t *testing.T) {
 		t.Run("2-day event", func(t *testing.T) {
 			// given
 			newClient, fakeClient := NewFakeClients(t, userTier, spaceTier)
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy)
 			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-21" // summer 🏝
 			endDate := "2022-06-22"
@@ -84,6 +89,8 @@ func TestCreateSocialEvent(t *testing.T) {
 		t.Run("invalid start date", func(t *testing.T) {
 			// given
 			newClient, _ := NewFakeClients(t, userTier, spaceTier)
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy)
 			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-xx" // invalid!
 			endDate := "2022-06-22"
@@ -100,6 +107,8 @@ func TestCreateSocialEvent(t *testing.T) {
 		t.Run("invalid end date", func(t *testing.T) {
 			// given
 			newClient, _ := NewFakeClients(t, userTier, spaceTier)
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy)
 			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-21"
 			endDate := "2022-06-32" // invalid value!
@@ -116,6 +125,8 @@ func TestCreateSocialEvent(t *testing.T) {
 		t.Run("end date before start date", func(t *testing.T) {
 			// given
 			newClient, _ := NewFakeClients(t, userTier, spaceTier)
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy)
 			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-21"
 			endDate := "2022-06-11" // before start date!
@@ -132,6 +143,8 @@ func TestCreateSocialEvent(t *testing.T) {
 		t.Run("usertier does not exist", func(t *testing.T) {
 			// given
 			newClient, _ := NewFakeClients(t, spaceTier) // no user tier
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy)
 			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-21"
 			endDate := "2022-06-22"
@@ -148,6 +161,8 @@ func TestCreateSocialEvent(t *testing.T) {
 		t.Run("nstemplatetier does not exist", func(t *testing.T) {
 			// given
 			newClient, _ := NewFakeClients(t, userTier) // no space tier
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy)
 			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-21"
 			endDate := "2022-06-22"
@@ -164,6 +179,8 @@ func TestCreateSocialEvent(t *testing.T) {
 		t.Run("invalid target cluster", func(t *testing.T) {
 			// given
 			newClient, _ := NewFakeClients(t, userTier, spaceTier)
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy)
 			ctx := clicontext.NewCommandContext(term, newClient)
 			startDate := "2022-06-21" // summer 🏝
 			endDate := "2022-06-21"   // ends same day

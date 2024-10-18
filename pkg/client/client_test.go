@@ -1,16 +1,20 @@
 package client_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
+	"github.com/charmbracelet/log"
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/codeready-toolchain/toolchain-common/pkg/states"
 	commontest "github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/h2non/gock"
 	"github.com/kubesaw/ksctl/pkg/client"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	routev1 "github.com/openshift/api/route/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -56,7 +60,8 @@ func TestPatchUserSignup(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
 		newClient, fakeClient := NewFakeClients(t, userSignup)
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -75,7 +80,8 @@ func TestPatchUserSignup(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
 		newClient, fakeClient := NewFakeClients(t, userSignup)
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -93,7 +99,8 @@ func TestPatchUserSignup(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
 		newClient, fakeClient := NewFakeClients(t, userSignup)
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -114,7 +121,8 @@ func TestPatchUserSignup(t *testing.T) {
 		fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 			return fmt.Errorf("some error")
 		}
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -134,7 +142,8 @@ func TestPatchUserSignup(t *testing.T) {
 		fakeClient.MockPatch = func(ctx context.Context, obj runtimeclient.Object, patch runtimeclient.Patch, opts ...runtimeclient.PatchOption) error {
 			return fmt.Errorf("some error")
 		}
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -152,7 +161,8 @@ func TestPatchUserSignup(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
 		fakeClient := commontest.NewFakeClient(t, userSignup)
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		newClient := func(_, _ string) (runtimeclient.Client, error) {
 			return nil, fmt.Errorf("some error")
 		}
@@ -176,7 +186,8 @@ func TestUpdateUserSignupLacksPermissions(t *testing.T) {
 
 	userSignup := NewUserSignup()
 	newClient, fakeClient := NewFakeClients(t, userSignup)
-	term := NewFakeTerminal()
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -200,7 +211,8 @@ func TestEnsure(t *testing.T) {
 		t.Run("when creating", func(t *testing.T) {
 			// given
 			fakeClient := commontest.NewFakeClient(t)
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			actual := subs.DeepCopy()
 
 			// when
@@ -211,17 +223,16 @@ func TestEnsure(t *testing.T) {
 			assert.True(t, applied)
 			namespacedName := commontest.NamespacedName(subs.Namespace, subs.Name)
 			AssertSubscriptionHasSpec(t, fakeClient, namespacedName, subs.Spec)
-			output := term.Output()
-			assert.NotContains(t, output, "!!!  DANGER ZONE  !!!")
-			assert.Contains(t, output, "Are you sure that you want to create the Subscription resource with the name toolchain-host-operator/cool-subs ?")
-			assert.Contains(t, output, "The 'toolchain-host-operator/cool-subs' Subscription has been created")
-			assert.NotContains(t, output, "cool-token")
+			assert.NotContains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+			assert.Contains(t, buffy.String(), "The 'toolchain-host-operator/cool-subs' Subscription has been created")
+			assert.NotContains(t, buffy.String(), "cool-token")
 		})
 
 		t.Run("when updating", func(t *testing.T) {
 			// given
 			fakeClient := commontest.NewFakeClient(t, newSubscription("other-operator", "prod"))
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 
 			// when
 			actual := subs.DeepCopy()
@@ -232,18 +243,18 @@ func TestEnsure(t *testing.T) {
 			assert.True(t, applied)
 			namespacedName := commontest.NamespacedName(subs.Namespace, subs.Name)
 			AssertSubscriptionHasSpec(t, fakeClient, namespacedName, subs.Spec)
-			output := term.Output()
-			assert.Contains(t, output, "!!!  DANGER ZONE  !!!")
-			assert.Contains(t, output, "Are you sure that you want to update the Subscription with the hard-coded version?")
-			assert.Contains(t, output, "The 'cool-subs' Subscription has been updated")
-			assert.NotContains(t, output, "cool-token")
+			assert.Contains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+			assert.Contains(t, buffy.String(), "There is already a Subscription named 'toolchain-host-operator/cool-subs'")
+			assert.Contains(t, buffy.String(), "The 'cool-subs' Subscription has been updated")
+			assert.NotContains(t, buffy.String(), "cool-token")
 		})
 
 		t.Run("when N is answered", func(t *testing.T) {
 			// given
 			existing := newSubscription("other-operator", "prod")
 			fakeClient := commontest.NewFakeClient(t, existing)
-			term := NewFakeTerminalWithResponse("N")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(false), ioutils.WithTee(os.Stdout))
 
 			// when
 			actual := subs.DeepCopy()
@@ -254,11 +265,10 @@ func TestEnsure(t *testing.T) {
 			assert.False(t, applied)
 			namespacedName := commontest.NamespacedName(subs.Namespace, subs.Name)
 			AssertSubscriptionHasSpec(t, fakeClient, namespacedName, existing.Spec)
-			output := term.Output()
-			assert.Contains(t, output, "!!!  DANGER ZONE  !!!")
-			assert.Contains(t, output, "Are you sure that you want to update the Subscription with the hard-coded version?")
-			assert.NotContains(t, output, "The 'cool-subs' Subscription has been updated")
-			assert.NotContains(t, output, "cool-token")
+			assert.Contains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+			assert.Contains(t, buffy.String(), "There is already a Subscription named 'toolchain-host-operator/cool-subs'")
+			assert.NotContains(t, buffy.String(), "The 'cool-subs' Subscription has been updated")
+			assert.NotContains(t, buffy.String(), "cool-token")
 		})
 	})
 
@@ -271,7 +281,8 @@ func TestEnsure(t *testing.T) {
 			fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 				return fmt.Errorf("some error")
 			}
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy)
 
 			// when
 			actual := subs.DeepCopy()
@@ -283,11 +294,10 @@ func TestEnsure(t *testing.T) {
 			fakeClient.MockGet = nil
 			namespacedName := commontest.NamespacedName(subs.Namespace, subs.Name)
 			AssertSubscriptionHasSpec(t, fakeClient, namespacedName, existing.Spec)
-			output := term.Output()
-			assert.NotContains(t, output, "!!!  DANGER ZONE  !!!")
-			assert.NotContains(t, output, "Are you sure that you want to update the Subscription with the hard-coded version?")
-			assert.NotContains(t, output, "The 'cool-subs' Subscription has been updated")
-			assert.NotContains(t, output, "cool-token")
+			assert.NotContains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+			assert.NotContains(t, buffy.String(), "Are you sure that you want to update the Subscription with the hard-coded version?")
+			assert.NotContains(t, buffy.String(), "The 'cool-subs' Subscription has been updated")
+			assert.NotContains(t, buffy.String(), "cool-token")
 		})
 
 		t.Run("when create fails", func(t *testing.T) {
@@ -296,7 +306,8 @@ func TestEnsure(t *testing.T) {
 			fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 				return fmt.Errorf("some error")
 			}
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true), ioutils.WithTee(os.Stdout))
 
 			// when
 			actual := subs.DeepCopy()
@@ -307,11 +318,9 @@ func TestEnsure(t *testing.T) {
 			assert.False(t, applied)
 			namespacedName := commontest.NamespacedName(subs.Namespace, subs.Name)
 			AssertSubscriptionDoesNotExist(t, fakeClient, namespacedName)
-			output := term.Output()
-			assert.NotContains(t, output, "!!!  DANGER ZONE  !!!")
-			assert.Contains(t, output, "Are you sure that you want to create the Subscription resource with the name toolchain-host-operator/cool-subs ?")
-			assert.NotContains(t, output, "The 'toolchain-host-operator/cool-subs' Subscription has been created")
-			assert.NotContains(t, output, "cool-token")
+			assert.NotContains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+			assert.NotContains(t, buffy.String(), "The 'toolchain-host-operator/cool-subs' Subscription has been created")
+			assert.NotContains(t, buffy.String(), "cool-token")
 		})
 
 		t.Run("when update fails", func(t *testing.T) {
@@ -321,7 +330,8 @@ func TestEnsure(t *testing.T) {
 			fakeClient.MockUpdate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.UpdateOption) error {
 				return fmt.Errorf("some error")
 			}
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true), ioutils.WithTee(os.Stdout))
 
 			// when
 			actual := subs.DeepCopy()
@@ -332,11 +342,9 @@ func TestEnsure(t *testing.T) {
 			assert.False(t, applied)
 			namespacedName := commontest.NamespacedName(subs.Namespace, subs.Name)
 			AssertSubscriptionHasSpec(t, fakeClient, namespacedName, existing.Spec)
-			output := term.Output()
-			assert.Contains(t, output, "!!!  DANGER ZONE  !!!")
-			assert.Contains(t, output, "Are you sure that you want to update the Subscription with the hard-coded version?")
-			assert.NotContains(t, output, "The 'cool-subs' Subscription has been updated")
-			assert.NotContains(t, output, "cool-token")
+			assert.Contains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+			assert.NotContains(t, buffy.String(), "The 'cool-subs' Subscription has been updated")
+			assert.NotContains(t, buffy.String(), "cool-token")
 		})
 	})
 }
@@ -349,17 +357,17 @@ func TestCreate(t *testing.T) {
 			// given
 			namespacedName := commontest.NamespacedName("openshift-customer-monitoring", "openshift-customer-monitoring")
 			fakeClient := commontest.NewFakeClient(t)
-			term := NewFakeTerminalWithResponse("Y")
 			operatorGroup := newOperatorGroup(namespacedName, map[string]string{"provider": "ksctl"})
+			buffy := bytes.NewBuffer(nil)
+			logger := log.New(buffy)
 
 			// when
-			err := client.Create(term, fakeClient, operatorGroup)
+			err := client.Create(context.TODO(), logger, fakeClient, operatorGroup)
 
 			// then
 			require.NoError(t, err)
 			AssertOperatorGroupHasLabels(t, fakeClient, namespacedName, map[string]string{"provider": "ksctl"})
-			output := term.Output()
-			assert.Contains(t, output, "The 'openshift-customer-monitoring/openshift-customer-monitoring' OperatorGroup has been created")
+			assert.Contains(t, buffy.String(), "The 'openshift-customer-monitoring/openshift-customer-monitoring' OperatorGroup has been created")
 		})
 	})
 
@@ -369,17 +377,17 @@ func TestCreate(t *testing.T) {
 			// given
 			namespacedName := commontest.NamespacedName("openshift-customer-monitoring", "openshift-customer-monitoring")
 			fakeClient := commontest.NewFakeClient(t, newOperatorGroup(namespacedName, map[string]string{"provider": "osd"}))
-			term := NewFakeTerminalWithResponse("Y")
 			operatorGroup := newOperatorGroup(namespacedName, map[string]string{"provider": "ksctl"})
+			buffy := bytes.NewBuffer(nil)
+			logger := log.New(buffy)
 
 			// when
-			err := client.Create(term, fakeClient, operatorGroup)
+			err := client.Create(context.TODO(), logger, fakeClient, operatorGroup)
 
 			// then
 			require.NoError(t, err)
 			AssertOperatorGroupHasLabels(t, fakeClient, namespacedName, map[string]string{"provider": "osd"})
-			output := term.Output()
-			assert.Contains(t, output, "The 'openshift-customer-monitoring/openshift-customer-monitoring' OperatorGroup already exists")
+			assert.Contains(t, buffy.String(), "The 'openshift-customer-monitoring/openshift-customer-monitoring' OperatorGroup already exists")
 		})
 
 		t.Run("when error occurs on client.Get", func(t *testing.T) {
@@ -388,12 +396,13 @@ func TestCreate(t *testing.T) {
 			fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 				return fmt.Errorf("get failed")
 			}
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			logger := log.New(buffy)
 			namespacedName := commontest.NamespacedName("openshift-customer-monitoring", "openshift-customer-monitoring")
 			operatorGroup := newOperatorGroup(namespacedName, map[string]string{"provider": "ksctl"})
 
 			// when
-			err := client.Create(term, fakeClient, operatorGroup)
+			err := client.Create(context.TODO(), logger, fakeClient, operatorGroup)
 
 			// then
 			require.Error(t, err)
@@ -406,12 +415,13 @@ func TestCreate(t *testing.T) {
 			fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 				return fmt.Errorf("create failed")
 			}
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			logger := log.New(buffy)
 			namespacedName := commontest.NamespacedName("openshift-customer-monitoring", "openshift-customer-monitoring")
 			operatorGroup := newOperatorGroup(namespacedName, map[string]string{"provider": "ksctl"})
 
 			// when
-			err := client.Create(term, fakeClient, operatorGroup)
+			err := client.Create(context.TODO(), logger, fakeClient, operatorGroup)
 
 			// then
 			require.Error(t, err)
@@ -424,7 +434,6 @@ func TestGetRoute(t *testing.T) {
 
 	// given
 	require.NoError(t, client.AddToScheme())
-	term := NewFakeTerminalWithResponse("Y")
 
 	t.Run("success", func(t *testing.T) {
 
@@ -451,9 +460,11 @@ func TestGetRoute(t *testing.T) {
 				},
 			}
 			fakeClient := commontest.NewFakeClient(t, route)
+			buffy := bytes.NewBuffer(nil)
+			logger := log.New(buffy)
 
 			// when
-			r, err := client.GetRouteURL(term, fakeClient, types.NamespacedName{
+			r, err := client.GetRouteURL(logger, fakeClient, types.NamespacedName{
 				Namespace: "openshift-monitoring",
 				Name:      "thanos-querier",
 			})
@@ -482,9 +493,11 @@ func TestGetRoute(t *testing.T) {
 				},
 			}
 			fakeClient := commontest.NewFakeClient(t, route)
+			buffy := bytes.NewBuffer(nil)
+			logger := log.New(buffy)
 
 			// when
-			r, err := client.GetRouteURL(term, fakeClient, types.NamespacedName{
+			r, err := client.GetRouteURL(logger, fakeClient, types.NamespacedName{
 				Namespace: "openshift-monitoring",
 				Name:      "thanos-querier",
 			})
@@ -510,8 +523,11 @@ func TestGetRoute(t *testing.T) {
 			fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 				return fmt.Errorf("mock error")
 			}
+			buffy := bytes.NewBuffer(nil)
+			logger := log.New(buffy)
+
 			// when
-			_, err := client.GetRouteURL(term, fakeClient, types.NamespacedName{
+			_, err := client.GetRouteURL(logger, fakeClient, types.NamespacedName{
 				Namespace: "openshift-monitoring",
 				Name:      "thanos-querier",
 			})
@@ -532,9 +548,11 @@ func TestGetRoute(t *testing.T) {
 				// no status will cause a timeout
 			}
 			fakeClient := commontest.NewFakeClient(t, route)
+			buffy := bytes.NewBuffer(nil)
+			logger := log.New(buffy)
 
 			// when
-			_, err := client.GetRouteURL(term, fakeClient, types.NamespacedName{
+			_, err := client.GetRouteURL(logger, fakeClient, types.NamespacedName{
 				Namespace: "openshift-monitoring",
 				Name:      "thanos-querier",
 			})

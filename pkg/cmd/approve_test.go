@@ -1,15 +1,18 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
 
+	"github.com/charmbracelet/log"
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/codeready-toolchain/toolchain-common/pkg/states"
 	"github.com/kubesaw/ksctl/pkg/cmd"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -25,7 +28,8 @@ func TestApprove(t *testing.T) {
 		userSignup := NewUserSignup()
 		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -37,10 +41,8 @@ func TestApprove(t *testing.T) {
 		states.SetVerificationRequired(userSignup, false)
 		states.SetDeactivated(userSignup, false)
 		AssertUserSignupSpec(t, fakeClient, userSignup)
-		output := term.Output()
-		assert.Contains(t, output, "Are you sure that you want to approve the UserSignup above?")
-		assert.Contains(t, output, "UserSignup has been approved")
-		assert.NotContains(t, output, "cool-token")
+		assert.Contains(t, buffy.String(), "UserSignup has been approved")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("when answer is N", func(t *testing.T) {
@@ -48,7 +50,8 @@ func TestApprove(t *testing.T) {
 		userSignup := NewUserSignup()
 		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("n")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(false))
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -57,10 +60,8 @@ func TestApprove(t *testing.T) {
 		// then
 		require.NoError(t, err)
 		AssertUserSignupSpec(t, fakeClient, userSignup)
-		output := term.Output()
-		assert.Contains(t, output, "Are you sure that you want to approve the UserSignup above?")
-		assert.NotContains(t, output, "UserSignup has been approved")
-		assert.NotContains(t, output, "cool-token")
+		assert.NotContains(t, buffy.String(), "UserSignup has been approved")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("reactivate deactivated user", func(t *testing.T) {
@@ -68,7 +69,8 @@ func TestApprove(t *testing.T) {
 		userSignup := NewUserSignup(UserSignupDeactivated(true))
 		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -87,7 +89,8 @@ func TestApprove(t *testing.T) {
 		userSignup := NewUserSignup(UserSignupAutomaticallyApproved(true))
 		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -103,7 +106,8 @@ func TestApprove(t *testing.T) {
 		userSignup := NewUserSignup(UserSignupApprovedByAdmin(true))
 		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -120,7 +124,8 @@ func TestApprove(t *testing.T) {
 		userSignup := NewUserSignup(UserSignupAutomaticallyApproved(true))
 		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -129,10 +134,10 @@ func TestApprove(t *testing.T) {
 		// then
 		require.EqualError(t, err, fmt.Sprintf(`UserSignup "%s" is already approved`, userSignup.Name))
 		AssertUserSignupSpec(t, fakeClient, userSignup)
-		output := term.Output()
-		assert.NotContains(t, output, "Are you sure that you want to approve the UserSignup above?")
-		assert.NotContains(t, output, "UserSignup has been approved")
-		assert.NotContains(t, output, "cool-token")
+		// output := term.Output()
+		assert.NotContains(t, buffy.String(), "Are you sure that you want to approve the UserSignup above?")
+		assert.NotContains(t, buffy.String(), "UserSignup has been approved")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("when getting usersignup failed", func(t *testing.T) {
@@ -140,7 +145,8 @@ func TestApprove(t *testing.T) {
 		userSignup := NewUserSignup()
 		newClient, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -151,10 +157,9 @@ func TestApprove(t *testing.T) {
 		// then
 		require.EqualError(t, err, "mock error")
 		AssertUserSignupSpec(t, fakeClient, userSignup)
-		output := term.Output()
-		assert.NotContains(t, output, "Are you sure that you want to approve the UserSignup above?")
-		assert.NotContains(t, output, "UserSignup has been approved")
-		assert.NotContains(t, output, "cool-token")
+		assert.NotContains(t, buffy.String(), "Are you sure that you want to approve the UserSignup above?")
+		assert.NotContains(t, buffy.String(), "UserSignup has been approved")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("with phone check variations", func(t *testing.T) {
@@ -164,7 +169,8 @@ func TestApprove(t *testing.T) {
 			userSignup := NewUserSignup()
 			newClient, fakeClient := NewFakeClients(t, userSignup)
 			SetFileConfig(t, Host())
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -176,10 +182,8 @@ func TestApprove(t *testing.T) {
 			states.SetVerificationRequired(userSignup, false)
 			states.SetDeactivated(userSignup, false)
 			AssertUserSignupSpec(t, fakeClient, userSignup)
-			output := term.Output()
-			assert.Contains(t, output, "Are you sure that you want to approve the UserSignup above?")
-			assert.Contains(t, output, "UserSignup has been approved")
-			assert.NotContains(t, output, "cool-token")
+			assert.Contains(t, buffy.String(), "UserSignup has been approved")
+			assert.NotContains(t, buffy.String(), "cool-token")
 		})
 
 		t.Run("when usersignup doesn't have phone hash but skip phone verification flag is set", func(t *testing.T) {
@@ -187,7 +191,8 @@ func TestApprove(t *testing.T) {
 			userSignup := NewUserSignup(UserSignupRemoveLabel(toolchainv1alpha1.UserSignupUserPhoneHashLabelKey))
 			newClient, fakeClient := NewFakeClients(t, userSignup)
 			SetFileConfig(t, Host())
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -199,10 +204,8 @@ func TestApprove(t *testing.T) {
 			states.SetVerificationRequired(userSignup, false)
 			states.SetDeactivated(userSignup, false)
 			AssertUserSignupSpec(t, fakeClient, userSignup)
-			output := term.Output()
-			assert.Contains(t, output, "Are you sure that you want to approve the UserSignup above?")
-			assert.Contains(t, output, "UserSignup has been approved")
-			assert.NotContains(t, output, "cool-token")
+			assert.Contains(t, buffy.String(), "UserSignup has been approved")
+			assert.NotContains(t, buffy.String(), "cool-token")
 		})
 
 		t.Run("when usersignup doesn't have phone hash", func(t *testing.T) {
@@ -210,7 +213,8 @@ func TestApprove(t *testing.T) {
 			userSignup := NewUserSignup(UserSignupRemoveLabel(toolchainv1alpha1.UserSignupUserPhoneHashLabelKey))
 			newClient, fakeClient := NewFakeClients(t, userSignup)
 			SetFileConfig(t, Host())
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -219,10 +223,8 @@ func TestApprove(t *testing.T) {
 			// then
 			require.EqualError(t, err, fmt.Sprintf(`UserSignup "%s" is missing a phone hash label - the user may not have provided a phone number for verification. In most cases, the user should be asked to attempt the phone verification process. For exceptions, skip this check using the --skip-phone-check parameter`, userSignup.Name))
 			AssertUserSignupSpec(t, fakeClient, userSignup)
-			output := term.Output()
-			assert.NotContains(t, output, "Are you sure that you want to approve the UserSignup above?")
-			assert.NotContains(t, output, "UserSignup has been approved")
-			assert.NotContains(t, output, "cool-token")
+			assert.NotContains(t, buffy.String(), "UserSignup has been approved")
+			assert.NotContains(t, buffy.String(), "cool-token")
 		})
 	})
 
@@ -235,7 +237,8 @@ func TestApprove(t *testing.T) {
 				Host(),
 				Member(ClusterName("member1"), ServerName("m1.devcluster.openshift.com")),
 				Member(ClusterName("member2"), ServerName("m2.devcluster.openshift.com")))
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -249,10 +252,8 @@ func TestApprove(t *testing.T) {
 			// check the expected target cluster matches with the actual one
 			userSignup.Spec.TargetCluster = "member-m1.devcluster.openshift.com"
 			AssertUserSignupSpec(t, fakeClient, userSignup)
-			output := term.Output()
-			assert.Contains(t, output, "Are you sure that you want to approve the UserSignup above?")
-			assert.Contains(t, output, "UserSignup has been approved")
-			assert.NotContains(t, output, "cool-token")
+			assert.Contains(t, buffy.String(), "UserSignup has been approved")
+			assert.NotContains(t, buffy.String(), "cool-token")
 		})
 
 		t.Run("when targetCluster is invalid", func(t *testing.T) {
@@ -263,7 +264,8 @@ func TestApprove(t *testing.T) {
 				Host(),
 				Member(ClusterName("member1"), ServerName("m1.devcluster.openshift.com")),
 				Member(ClusterName("member2"), ServerName("m2.devcluster.openshift.com")))
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -288,8 +290,9 @@ func TestLookupUserSignupByName(t *testing.T) {
 		userSignup := NewUserSignup()
 		_, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
-		cfg, err := configuration.LoadClusterConfig(term, "host")
+		buffy := bytes.NewBuffer(nil)
+		logger := log.New(buffy)
+		cfg, err := configuration.LoadClusterConfig(logger, "host")
 		require.NoError(t, err)
 
 		// when
@@ -303,8 +306,9 @@ func TestLookupUserSignupByName(t *testing.T) {
 	t.Run("when user is unknown", func(t *testing.T) {
 		_, fakeClient := NewFakeClients(t)
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
-		cfg, err := configuration.LoadClusterConfig(term, "host")
+		buffy := bytes.NewBuffer(nil)
+		logger := log.New(buffy)
+		cfg, err := configuration.LoadClusterConfig(logger, "host")
 		require.NoError(t, err)
 
 		// when
@@ -322,8 +326,9 @@ func TestLookupUserSignupByName(t *testing.T) {
 			return fmt.Errorf("mock error")
 		}
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
-		cfg, err := configuration.LoadClusterConfig(term, "host")
+		buffy := bytes.NewBuffer(nil)
+		logger := log.New(buffy)
+		cfg, err := configuration.LoadClusterConfig(logger, "host")
 		require.NoError(t, err)
 
 		// when
@@ -340,8 +345,9 @@ func TestLookupUserSignupByEmailAddress(t *testing.T) {
 		userSignup := NewUserSignup()
 		_, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
-		cfg, err := configuration.LoadClusterConfig(term, "host")
+		buffy := bytes.NewBuffer(nil)
+		logger := log.New(buffy)
+		cfg, err := configuration.LoadClusterConfig(logger, "host")
 		require.NoError(t, err)
 
 		// when
@@ -356,8 +362,9 @@ func TestLookupUserSignupByEmailAddress(t *testing.T) {
 		userSignup := NewUserSignup()
 		_, fakeClient := NewFakeClients(t, userSignup)
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
-		cfg, err := configuration.LoadClusterConfig(term, "host")
+		buffy := bytes.NewBuffer(nil)
+		logger := log.New(buffy)
+		cfg, err := configuration.LoadClusterConfig(logger, "host")
 		require.NoError(t, err)
 
 		// when
@@ -372,8 +379,9 @@ func TestLookupUserSignupByEmailAddress(t *testing.T) {
 		userSignup2 := NewUserSignup() // same email address as userSignup1
 		_, fakeClient := NewFakeClients(t, userSignup1, userSignup2)
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
-		cfg, err := configuration.LoadClusterConfig(term, "host")
+		buffy := bytes.NewBuffer(nil)
+		logger := log.New(buffy)
+		cfg, err := configuration.LoadClusterConfig(logger, "host")
 		require.NoError(t, err)
 
 		// when
@@ -390,8 +398,9 @@ func TestLookupUserSignupByEmailAddress(t *testing.T) {
 			return fmt.Errorf("mock error")
 		}
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
-		cfg, err := configuration.LoadClusterConfig(term, "host")
+		buffy := bytes.NewBuffer(nil)
+		logger := log.New(buffy)
+		cfg, err := configuration.LoadClusterConfig(logger, "host")
 		require.NoError(t, err)
 
 		// when

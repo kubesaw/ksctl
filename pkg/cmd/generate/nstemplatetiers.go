@@ -11,6 +11,7 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/template/nstemplatetiers"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/cmd/flags"
+	"github.com/kubesaw/ksctl/pkg/configuration"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -25,7 +26,7 @@ func NewNSTemplateTiersCmd() *cobra.Command {
 		Long:  `Reads files from the provided directory, and generates the NSTemplateTier & TierTemplates to the out-dir`,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			return NSTemplateTiers(term, source, outDir, hostNs)
 		},
 	}
@@ -81,14 +82,13 @@ func NSTemplateTiers(term ioutils.Terminal, source, outDir, hostNs string) error
 		}
 		kind := toEnsure.GetObjectKind().GroupVersionKind().Kind
 		path := filepath.Join(absOutDir, tierName, fmt.Sprintf("%s-%s.yaml", strings.ToLower(kind), toEnsure.GetName()))
-		term.Printlnf("Storing %s with name %s in %s", kind, toEnsure.GetName(), path)
+		term.Infof("Storing %s with name %s in %s", kind, toEnsure.GetName(), path)
 		return true, writeManifest(ctx, path, toEnsure)
 	}, hostNs, metadata, templates)
 	if err != nil {
 		return err
 	}
-	term.Println("")
-	term.Println(`Generation of the NSTemplateTiers has finished. 
-Make sure that the old TierTemplates are still present in the folders (you didn't delete them before/after running the command). They are necessary for running proper updates of the existing Spaces (Namespaces).`)
+	term.Info(`Generation of the NSTemplateTiers has finished`)
+	term.Info(`Make sure that the old TierTemplates are still present in the folders (you didn't delete them before/after running the command). They are necessary for running proper updates of the existing Spaces (Namespaces).`)
 	return nil
 }

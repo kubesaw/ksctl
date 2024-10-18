@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/cmd"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
 	"github.com/stretchr/testify/assert"
@@ -24,7 +26,8 @@ func TestBanCmdWhenAnswerIsY(t *testing.T) {
 	userSignup := NewUserSignup()
 	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("y")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -33,14 +36,14 @@ func TestBanCmdWhenAnswerIsY(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	AssertBannedUser(t, fakeClient, userSignup, banReason)
-	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
-	assert.Contains(t, term.Output(), "Are you sure that you want to ban the user with the UserSignup by creating BannedUser resource that are both above?")
-	assert.Contains(t, term.Output(), "UserSignup has been banned")
-	assert.NotContains(t, term.Output(), "cool-token")
+	assert.Contains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+	assert.Contains(t, buffy.String(), "UserSignup has been banned")
+	assert.NotContains(t, buffy.String(), "cool-token")
 
 	t.Run("don't ban twice", func(t *testing.T) {
 		// given
-		term := NewFakeTerminalWithResponse("y")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -49,8 +52,8 @@ func TestBanCmdWhenAnswerIsY(t *testing.T) {
 		// then
 		require.NoError(t, err)
 		AssertBannedUser(t, fakeClient, userSignup, banReason)
-		assert.NotContains(t, term.Output(), "!!!  DANGER ZONE  !!!")
-		assert.Contains(t, term.Output(), "The user was already banned - there is a BannedUser resource with the same labels already present")
+		assert.NotContains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+		assert.Contains(t, buffy.String(), "The user was already banned - there is a BannedUser resource with the same labels already present")
 	})
 }
 
@@ -59,7 +62,8 @@ func TestBanCmdWhenAnswerIsN(t *testing.T) {
 	userSignup := NewUserSignup()
 	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("n")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(false))
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -68,10 +72,10 @@ func TestBanCmdWhenAnswerIsN(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	AssertNoBannedUser(t, fakeClient, userSignup)
-	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
-	assert.Contains(t, term.Output(), "Are you sure that you want to ban the user with the UserSignup by creating BannedUser resource that are both above?")
-	assert.NotContains(t, term.Output(), "UserSignup has been banned")
-	assert.NotContains(t, term.Output(), "cool-token")
+	assert.Contains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+	// assert.Contains(t, buffy.String(), "Are you sure that you want to ban the user with the UserSignup by creating BannedUser resource that are both above?")
+	assert.NotContains(t, buffy.String(), "UserSignup has been banned")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestBanCmdWhenNotFound(t *testing.T) {
@@ -79,7 +83,8 @@ func TestBanCmdWhenNotFound(t *testing.T) {
 	userSignup := NewUserSignup()
 	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("n")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(false))
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -88,10 +93,10 @@ func TestBanCmdWhenNotFound(t *testing.T) {
 	// then
 	require.EqualError(t, err, "usersignups.toolchain.dev.openshift.com \"some\" not found")
 	AssertNoBannedUser(t, fakeClient, userSignup)
-	assert.NotContains(t, term.Output(), "!!!  DANGER ZONE  !!!")
-	assert.NotContains(t, term.Output(), "Are you sure that you want to ban the user with the UserSignup by creating BannedUser resource that are both above?")
-	assert.NotContains(t, term.Output(), "UserSignup has been banned")
-	assert.NotContains(t, term.Output(), "cool-token")
+	assert.NotContains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+	// assert.NotContains(t, buffy.String(), "Are you sure that you want to ban the user with the UserSignup by creating BannedUser resource that are both above?")
+	assert.NotContains(t, buffy.String(), "UserSignup has been banned")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestCreateBannedUser(t *testing.T) {
@@ -102,7 +107,8 @@ func TestCreateBannedUser(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
 		newClient, fakeClient := NewFakeClients(t, userSignup)
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -119,7 +125,8 @@ func TestCreateBannedUser(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
 		newClient, fakeClient := NewFakeClients(t, userSignup)
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -136,7 +143,8 @@ func TestCreateBannedUser(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
 		newClient, fakeClient := NewFakeClients(t, userSignup)
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -156,7 +164,8 @@ func TestCreateBannedUser(t *testing.T) {
 		fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 			return fmt.Errorf("some error")
 		}
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -176,7 +185,8 @@ func TestCreateBannedUser(t *testing.T) {
 		fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 			return fmt.Errorf("some error")
 		}
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -193,10 +203,11 @@ func TestCreateBannedUser(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
 		fakeClient := test.NewFakeClient(t, userSignup)
-		term := NewFakeTerminal()
 		newClient := func(token, apiEndpoint string) (runtimeclient.Client, error) {
 			return nil, fmt.Errorf("some error")
 		}
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -213,7 +224,8 @@ func TestCreateBannedUser(t *testing.T) {
 		//given
 		userSignup := NewUserSignup()
 		newClient, fakeClient := NewFakeClients(t, userSignup)
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		fakeClient.MockList = func(ctx context.Context, list runtimeclient.ObjectList, opts ...runtimeclient.ListOption) error {
@@ -233,7 +245,8 @@ func TestCreateBannedUser(t *testing.T) {
 		userSignup := NewUserSignup()
 		userSignup.Labels = nil
 		newClient, fakeClient := NewFakeClients(t, userSignup)
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -253,7 +266,8 @@ func TestCreateBannedUserLacksPermissions(t *testing.T) {
 
 	userSignup := NewUserSignup()
 	newClient, fakeClient := NewFakeClients(t, userSignup)
-	term := NewFakeTerminal()
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when

@@ -1,15 +1,16 @@
 package adm_test
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/charmbracelet/log"
 	"github.com/h2non/gock"
 	"github.com/kubesaw/ksctl/pkg/cmd/adm"
-	. "github.com/kubesaw/ksctl/pkg/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	authv1 "k8s.io/api/authentication/v1"
@@ -30,8 +31,6 @@ func TestMustGatherNamespaceCmd(t *testing.T) {
 			NegotiatedSerializer: scheme.Codecs,
 		},
 	}
-	term := NewFakeTerminalWithResponse("Y")
-	term.Tee(os.Stdout)
 
 	t.Run("ok", func(t *testing.T) {
 		t.Run("create the dest-dir on-the-fly", func(t *testing.T) {
@@ -39,9 +38,11 @@ func TestMustGatherNamespaceCmd(t *testing.T) {
 			baseDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
 			destDir := filepath.Join(baseDir, "test-dev")
+			buffy := bytes.NewBuffer(nil)
+			logger := log.New(buffy)
 
 			// when
-			err = adm.MustGatherNamespace(term, kubeconfig, "test-dev", destDir)
+			err = adm.MustGatherNamespace(logger, kubeconfig, "test-dev", destDir)
 
 			// then
 			require.NoError(t, err)
@@ -56,9 +57,11 @@ func TestMustGatherNamespaceCmd(t *testing.T) {
 			destDir := filepath.Join(baseDir, "test-dev")
 			err = os.Mkdir(destDir, 0755)
 			require.NoError(t, err)
+			buffy := bytes.NewBuffer(nil)
+			logger := log.New(buffy)
 
 			// when
-			err = adm.MustGatherNamespace(term, kubeconfig, "test-dev", destDir)
+			err = adm.MustGatherNamespace(logger, kubeconfig, "test-dev", destDir)
 
 			// then
 			require.NoError(t, err)
@@ -79,13 +82,15 @@ func TestMustGatherNamespaceCmd(t *testing.T) {
 			// put some contents
 			err = os.WriteFile(filepath.Join(destDir, "test.yaml"), []byte("apiVersion; v1"), 0600)
 			require.NoError(t, err)
+			buffy := bytes.NewBuffer(nil)
+			logger := log.New(buffy)
 
 			// when
-			err = adm.MustGatherNamespace(term, kubeconfig, "test-dev", destDir)
+			err = adm.MustGatherNamespace(logger, kubeconfig, "test-dev", destDir)
 
 			// then
 			require.NoError(t, err) // no error occurred, but command aborted
-			assert.Contains(t, term.Output(), fmt.Sprintf("The '%s' dest-dir is not empty. Aborting.", destDir))
+			assert.Contains(t, buffy.String(), fmt.Sprintf("The '%s' dest-dir is not empty. Aborting.", destDir))
 		})
 	})
 

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/log"
 	"github.com/kubesaw/ksctl/pkg/cmd/flags"
-	"github.com/kubesaw/ksctl/pkg/ioutils"
 	"gopkg.in/yaml.v3"
 
 	"github.com/spf13/cobra"
@@ -37,7 +37,7 @@ func NewMustGatherNamespaceCmd() *cobra.Command {
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			logger := log.New(cmd.OutOrStdout())
 			kubeconfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 			kubeconfig.Timeout = 60 * time.Second
 			// These fields need to be set when using the REST client ¯\_(ツ)_/¯
@@ -48,7 +48,7 @@ func NewMustGatherNamespaceCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return MustGatherNamespace(term, kubeconfig, args[0], destDir)
+			return MustGatherNamespace(logger, kubeconfig, args[0], destDir)
 		},
 	}
 	cmd.Flags().StringVar(&destDir, "dest-dir", "", "Gather information with a specific local folder to copy to")
@@ -58,7 +58,7 @@ func NewMustGatherNamespaceCmd() *cobra.Command {
 	return cmd
 }
 
-func MustGatherNamespace(term ioutils.Terminal, kubeconfig *restclient.Config, namespace, destDir string) error {
+func MustGatherNamespace(logger *log.Logger, kubeconfig *restclient.Config, namespace, destDir string) error {
 	// verify that the destDir exists, otherwise, create it
 
 	//  If path is already a directory, MkdirAll does nothing and returns nil.
@@ -70,7 +70,7 @@ func MustGatherNamespace(term ioutils.Terminal, kubeconfig *restclient.Config, n
 		return err
 	}
 	if len(entries) > 0 {
-		term.Printlnf("The '%s' dest-dir is not empty. Aborting.", destDir)
+		logger.Errorf("The '%s' dest-dir is not empty. Aborting.", destDir)
 		return nil
 	}
 
@@ -81,13 +81,13 @@ func MustGatherNamespace(term ioutils.Terminal, kubeconfig *restclient.Config, n
 	}
 	dcl := discovery.NewDiscoveryClient(rcl)
 
-	term.Println("fetching the list of API resources on the cluster...")
+	logger.Info("fetching the list of API resources on the cluster...")
 	apiResourceLists, err := dcl.ServerPreferredNamespacedResources()
 	if err != nil {
 		return err
 	}
 
-	term.Printlnf("gathering all resources from the '%s' namespace...", namespace)
+	logger.Infof("gathering all resources from the '%s' namespace...", namespace)
 	cl, err := runtimeclient.New(kubeconfig, runtimeclient.Options{})
 	if err != nil {
 		return err
@@ -122,32 +122,32 @@ func MustGatherNamespace(term ioutils.Terminal, kubeconfig *restclient.Config, n
 			})
 			if err := cl.List(context.Background(), list, runtimeclient.InNamespace(namespace)); err != nil {
 				// log the error but continue so we can collect the remaining resources
-				term.Printlnf("failed to list %s/%s: %v", strings.ToLower(gv.String()), strings.ToLower(r.Kind), err)
+				logger.Errorf("failed to list %s/%s: %v", strings.ToLower(gv.String()), strings.ToLower(r.Kind), err)
 				continue
 			}
 			for _, item := range list.Items {
-				term.Printlnf("found %s/%s", item.GetKind(), item.GetName())
+				logger.Infof("found %s/%s", item.GetKind(), item.GetName())
 				filename := filepath.Join(destDir, fmt.Sprintf("%s-%s.yaml", strings.ToLower(item.GetKind()), item.GetName()))
 				data, err := yaml.Marshal(item.Object)
 				if err != nil {
-					term.Printlnf("failed to marshal %s/%s %s: %v", strings.ToLower(gv.String()), strings.ToLower(r.Kind), item.GetName(), err)
+					logger.Errorf("failed to marshal %s/%s %s: %v", strings.ToLower(gv.String()), strings.ToLower(r.Kind), item.GetName(), err)
 					continue
 				}
 				if err := writeToFile(filename, data); err != nil {
-					term.Printlnf("failed to save contents of %s/%s %s: %v", strings.ToLower(gv.String()), strings.ToLower(r.Kind), item.GetName(), err)
+					logger.Errorf("failed to save contents of %s/%s %s: %v", strings.ToLower(gv.String()), strings.ToLower(r.Kind), item.GetName(), err)
 					return err
 				}
 				// also, for pods, gather process names and logs from all containers
 				if item.GetAPIVersion() == "v1" && item.GetKind() == "Pod" {
 					pod := &corev1.Pod{}
 					if _, _, err := decoder.Decode(data, nil, pod); err != nil {
-						term.Printlnf("failed to decode %s/%s '%s': %v", strings.ToLower(gv.String()), strings.ToLower(r.Kind), item.GetName(), err)
+						logger.Errorf("failed to decode %s/%s '%s': %v", strings.ToLower(gv.String()), strings.ToLower(r.Kind), item.GetName(), err)
 						continue
 					}
 					for _, cs := range pod.Status.ContainerStatuses {
 						if cs.Started != nil && *cs.Started {
-							if err := gatherContainerLogs(term, rcl, destDir, namespace, pod.Name, cs.Name); err != nil {
-								term.Printlnf("failed to collect logs from container '%s' in pod '%s': %v", cs.Name, pod.Name, err)
+							if err := gatherContainerLogs(logger, rcl, destDir, namespace, pod.Name, cs.Name); err != nil {
+								logger.Errorf("failed to collect logs from container '%s' in pod '%s': %v", cs.Name, pod.Name, err)
 								// ignore error, continue to next container
 								continue
 							}
@@ -160,8 +160,8 @@ func MustGatherNamespace(term ioutils.Terminal, kubeconfig *restclient.Config, n
 	return nil
 }
 
-func gatherContainerLogs(term ioutils.Terminal, rcl *restclient.RESTClient, destDir, namespace, podName, containerName string) error {
-	term.Printlnf("collecting logs from %s/%s", podName, containerName)
+func gatherContainerLogs(logger *log.Logger, rcl *restclient.RESTClient, destDir, namespace, podName, containerName string) error {
+	logger.Infof("collecting logs from %s/%s", podName, containerName)
 	p := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/log", namespace, podName)
 	result := rcl.Get().AbsPath(p).Param("container", containerName).Do(context.Background())
 	if err := result.Error(); err != nil {

@@ -13,7 +13,7 @@ type clusterContext struct {
 // ensureServiceAccounts reads the list of service accounts definitions and it's permissions.
 // It generates SA and roles & roleBindings for them
 func ensureServiceAccounts(ctx *clusterContext, objsCache objectsCache) error {
-	ctx.Printlnf("-> Ensuring ServiceAccounts and its RoleBindings...")
+	ctx.Infof("-> Ensuring ServiceAccounts and its RoleBindings...")
 	for _, sa := range ctx.kubeSawAdmins.ServiceAccounts {
 		if sa.Selector.ShouldBeSkippedForMember(ctx.specificKMemberName) {
 			continue
@@ -43,8 +43,7 @@ func ensureServiceAccounts(ctx *clusterContext, objsCache objectsCache) error {
 // For each of them it generates User and Identity manifests
 // If user belongs to a group, then it makes sure that there is a Group manifest with the user name
 func ensureUsers(ctx *clusterContext, objsCache objectsCache) error {
-	ctx.Printlnf("-> Ensuring Users and its RoleBindings...")
-
+	ctx.Infof("-> Ensuring Users and their RoleBindings...")
 	for _, user := range ctx.kubeSawAdmins.Users {
 		if user.Selector.ShouldBeSkippedForMember(ctx.specificKMemberName) {
 			continue

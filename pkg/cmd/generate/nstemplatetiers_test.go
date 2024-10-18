@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
@@ -12,7 +13,7 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/apis"
 	commontest "github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/ghodss/yaml"
-	"github.com/kubesaw/ksctl/pkg/test"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	v1 "github.com/openshift/api/template/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -61,7 +62,8 @@ func TestGenerateNSTemplateTiers(t *testing.T) {
 	err := apis.AddToScheme(s)
 	require.NoError(t, err)
 	logf.SetLogger(zap.New(zap.UseDevMode(true)))
-	term := test.NewFakeTerminal()
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 
 	for _, tierToUpdate := range []string{"appstudio", "appstudio-env"} {
 		outTempDir, err := os.MkdirTemp("", "generate-tiers-test-outdir-")

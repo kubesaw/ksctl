@@ -4,6 +4,7 @@ import (
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/codeready-toolchain/toolchain-common/pkg/states"
 	"github.com/kubesaw/ksctl/pkg/client"
+	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 
@@ -18,7 +19,7 @@ func NewDeactivateCmd() *cobra.Command {
 only one parameter which is the name of the UserSignup to be deactivated`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return Deactivate(ctx, args...)
 		},
@@ -27,15 +28,15 @@ only one parameter which is the name of the UserSignup to be deactivated`,
 
 func Deactivate(ctx *clicontext.CommandContext, args ...string) error {
 	return client.PatchUserSignup(ctx, args[0], func(userSignup *toolchainv1alpha1.UserSignup) (bool, error) {
-		if err := ctx.PrintObject(userSignup, "UserSignup to be deactivated"); err != nil {
+		if err := ctx.PrintObject("UserSignup to be deactivated:", userSignup); err != nil {
 			return false, err
 		}
-		confirmation := ctx.AskForConfirmation(ioutils.WithDangerZoneMessagef(
-			"deletion of all user's namespaces and all related data", "deactivate the UserSignup above?"))
-		if confirmation {
-			states.SetDeactivated(userSignup, true)
-			return true, nil
+		ctx.Warn("!!!  DANGER ZONE  !!!")
+		ctx.Warn("Deleting all the user's namespaces and all their resources")
+		if confirmation, err := ctx.Confirm("Deactivate the UserSignup above?"); err != nil || !confirmation {
+			return false, err
 		}
-		return false, nil
+		states.SetDeactivated(userSignup, true)
+		return true, nil
 	}, "UserSignup has been deactivated")
 }

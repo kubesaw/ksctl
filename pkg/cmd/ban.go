@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"context"
-
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/codeready-toolchain/toolchain-common/pkg/banneduser"
 	"github.com/kubesaw/ksctl/pkg/client"
@@ -22,7 +20,7 @@ only two parameters which the first one is the name of the UserSignup to be used
 and the second one the reason of the ban`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return Ban(ctx, args...)
 		},
@@ -32,23 +30,23 @@ and the second one the reason of the ban`,
 func Ban(ctx *clicontext.CommandContext, args ...string) error {
 	return CreateBannedUser(ctx, args[0], args[1], func(userSignup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
 		if _, exists := bannedUser.Labels[toolchainv1alpha1.BannedUserPhoneNumberHashLabelKey]; !exists {
-			ctx.Printlnf("\nINFO: The UserSignup doesn't have the label '%s' set, so the resulting BannedUser resource won't have this label either.\n",
+			ctx.Infof("The UserSignup doesn't have the label '%s' set, so the resulting BannedUser resource won't have this label either.\n",
 				toolchainv1alpha1.BannedUserPhoneNumberHashLabelKey)
 		}
 
-		if err := ctx.PrintObject(bannedUser, "BannedUser resource to be created"); err != nil {
+		if err := ctx.PrintObject("BannedUser resource to be created:", bannedUser); err != nil {
 			return false, err
 		}
 
-		confirmation := ctx.AskForConfirmation(ioutils.WithDangerZoneMessagef(
-			"deletion of all user's namespaces and all related data.\nIn addition, the user won't be able to login any more.",
-			"ban the user with the UserSignup by creating BannedUser resource that are both above?"))
-		return confirmation, nil
+		ctx.Warn("!!!  DANGER ZONE  !!!")
+		ctx.Warn("Deleting all the user's namespaces and all their resources")
+		ctx.Warn("In addition, the user won't be able to login anymore")
+		return ctx.Confirm("Ban the user with the UserSignup by creating a BannedUser resource?")
 	})
 }
 
 func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName, banReason string, confirm func(*toolchainv1alpha1.UserSignup, *toolchainv1alpha1.BannedUser) (bool, error)) error {
-	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+	cfg, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName)
 	if err != nil {
 		return err
 	}
@@ -62,7 +60,7 @@ func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName, banReason 
 		return err
 	}
 
-	ksctlConfig, err := configuration.Load(ctx)
+	ksctlConfig, err := configuration.Load(ctx.Logger)
 	if err != nil {
 		return err
 	}
@@ -77,23 +75,23 @@ func CreateBannedUser(ctx *clicontext.CommandContext, userSignupName, banReason 
 		return err
 	}
 
-	if err := ctx.PrintObject(userSignup, "UserSignup to be banned"); err != nil {
+	if err := ctx.PrintObject("UserSignup to be banned:", userSignup); err != nil {
 		return err
 	}
 
 	if alreadyBannedUser != nil {
-		ctx.Println("The user was already banned - there is a BannedUser resource with the same labels already present")
-		return ctx.PrintObject(alreadyBannedUser, "BannedUser resource")
+		ctx.Info("The user was already banned - there is a BannedUser resource with the same labels already present")
+		return ctx.PrintObject("BannedUser resource", alreadyBannedUser)
 	}
 
 	if shouldCreate, err := confirm(userSignup, bannedUser); !shouldCreate || err != nil {
 		return err
 	}
 
-	if err := cl.Create(context.TODO(), bannedUser); err != nil {
+	if err := cl.Create(ctx.Context, bannedUser); err != nil {
 		return err
 	}
 
-	ctx.Printlnf("\nUserSignup has been banned by creating BannedUser resource with name " + bannedUser.Name)
+	ctx.Infof("UserSignup has been banned by creating BannedUser resource with name '%s'", bannedUser.Name)
 	return nil
 }

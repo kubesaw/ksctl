@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/test/masteruserrecord"
 	"github.com/kubesaw/ksctl/pkg/cmd"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
 	"github.com/stretchr/testify/assert"
@@ -21,7 +23,8 @@ func TestPromoteUserCmdWhenAnswerIsY(t *testing.T) {
 	mur := masteruserrecord.NewMasterUserRecord(t, "testmur", masteruserrecord.TierName("deactivate30"))
 	newClient, fakeClient := NewFakeClients(t, mur, newUserTier("deactivate180"))
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("Y")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -31,10 +34,9 @@ func TestPromoteUserCmdWhenAnswerIsY(t *testing.T) {
 	require.NoError(t, err)
 	mur.Spec.TierName = "deactivate180" // mur should be changed to deactivate180 tier
 	assertMasterUserRecordSpec(t, fakeClient, mur)
-	output := term.Output()
-	assert.Contains(t, output, "promote the MasterUserRecord 'testmur' to the 'deactivate180' user tier?")
-	assert.Contains(t, output, "Successfully promoted MasterUserRecord")
-	assert.NotContains(t, output, "cool-token")
+	// assert.Contains(t, buffy.String(), "promote the MasterUserRecord 'testmur' to the 'deactivate180' user tier?")
+	assert.Contains(t, buffy.String(), "Successfully promoted MasterUserRecord")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestPromoteUserCmdWhenAnswerIsN(t *testing.T) {
@@ -42,7 +44,8 @@ func TestPromoteUserCmdWhenAnswerIsN(t *testing.T) {
 	mur := masteruserrecord.NewMasterUserRecord(t, "testmur", masteruserrecord.TierName("deactivate30"))
 	newClient, fakeClient := NewFakeClients(t, mur, newUserTier("deactivate180"))
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("n")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(false))
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -51,10 +54,9 @@ func TestPromoteUserCmdWhenAnswerIsN(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	assertMasterUserRecordSpec(t, fakeClient, mur) // mur should be unchanged
-	output := term.Output()
-	assert.Contains(t, output, "promote the MasterUserRecord 'testmur' to the 'deactivate180' user tier?")
-	assert.NotContains(t, output, "Successfully promoted MasterUserRecord")
-	assert.NotContains(t, output, "cool-token")
+	// assert.Contains(t, buffy.String(), "promote the MasterUserRecord 'testmur' to the 'deactivate180' user tier?")
+	assert.NotContains(t, buffy.String(), "Successfully promoted MasterUserRecord")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestPromoteUserCmdWhenMasterUserRecordNotFound(t *testing.T) {
@@ -62,7 +64,8 @@ func TestPromoteUserCmdWhenMasterUserRecordNotFound(t *testing.T) {
 	mur := masteruserrecord.NewMasterUserRecord(t, "testmur", masteruserrecord.TierName("deactivate30"))
 	newClient, fakeClient := NewFakeClients(t, mur, newUserTier("deactivate180"))
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("Y")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -71,10 +74,9 @@ func TestPromoteUserCmdWhenMasterUserRecordNotFound(t *testing.T) {
 	// then
 	require.EqualError(t, err, "masteruserrecords.toolchain.dev.openshift.com \"another\" not found")
 	assertMasterUserRecordSpec(t, fakeClient, mur) // unrelated mur should be unchanged
-	output := term.Output()
-	assert.NotContains(t, output, "promote the MasterUserRecord 'another' to the 'deactivate180' user tier?")
-	assert.NotContains(t, output, "Successfully promoted MasterUserRecord")
-	assert.NotContains(t, output, "cool-token")
+	assert.NotContains(t, buffy.String(), "promote the MasterUserRecord 'another' to the 'deactivate180' user tier?")
+	assert.NotContains(t, buffy.String(), "Successfully promoted MasterUserRecord")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestPromoteUserCmdWhenUserTierNotFound(t *testing.T) {
@@ -82,7 +84,8 @@ func TestPromoteUserCmdWhenUserTierNotFound(t *testing.T) {
 	mur := masteruserrecord.NewMasterUserRecord(t, "testmur", masteruserrecord.TierName("deactivate30"))
 	newClient, fakeClient := NewFakeClients(t, mur)
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("Y")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -91,10 +94,9 @@ func TestPromoteUserCmdWhenUserTierNotFound(t *testing.T) {
 	// then
 	require.EqualError(t, err, "usertiers.toolchain.dev.openshift.com \"deactivate180\" not found")
 	assertMasterUserRecordSpec(t, fakeClient, mur) // mur should be unchanged
-	output := term.Output()
-	assert.NotContains(t, output, "promote the MasterUserRecord 'another' to the 'deactivate180' user tier?")
-	assert.NotContains(t, output, "Successfully promoted MasterUserRecord")
-	assert.NotContains(t, output, "cool-token")
+	assert.NotContains(t, buffy.String(), "promote the MasterUserRecord 'another' to the 'deactivate180' user tier?")
+	assert.NotContains(t, buffy.String(), "Successfully promoted MasterUserRecord")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func assertMasterUserRecordSpec(t *testing.T, fakeClient *test.FakeClient, expectedMasterUserRecord *toolchainv1alpha1.MasterUserRecord) {

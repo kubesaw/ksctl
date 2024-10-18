@@ -5,10 +5,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/log"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/cmd/flags"
 	"github.com/kubesaw/ksctl/pkg/configuration"
-	"github.com/kubesaw/ksctl/pkg/ioutils"
 
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -50,8 +50,8 @@ func setupKubectlCmd(newCmd newCmd) *cobra.Command {
 		if clusterName == "" { // flag is required, but we need to manually verify its presence in the PreRun
 			return fmt.Errorf("you must specify the target cluster")
 		}
-		term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
-		cfg, err := configuration.LoadClusterConfig(term, clusterName)
+		logger := log.New(cmd.OutOrStdout())
+		cfg, err := configuration.LoadClusterConfig(logger, clusterName)
 		if err != nil {
 			return err
 		}

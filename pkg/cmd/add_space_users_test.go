@@ -1,8 +1,10 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
@@ -10,6 +12,7 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/test/masteruserrecord"
 	"github.com/kubesaw/ksctl/pkg/cmd"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
 	uuid "github.com/google/uuid"
@@ -28,7 +31,8 @@ func TestAddSpaceUsers(t *testing.T) {
 		newClient, fakeClient := initAddSpaceUsersTest(t, mur1, mur2)
 
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -36,11 +40,9 @@ func TestAddSpaceUsers(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		output := term.Output()
 		assertSpaceBindings(t, fakeClient, []string{"alice", "bob"}, "admin")
-		assert.Contains(t, output, "Are you sure that you want to add users to the above Space?")
-		assert.Contains(t, output, "SpaceBinding(s) successfully created")
-		assert.NotContains(t, output, "cool-token")
+		assert.Contains(t, buffy.String(), "SpaceBinding(s) successfully created")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("when a non-default role is specified", func(t *testing.T) {
@@ -48,9 +50,9 @@ func TestAddSpaceUsers(t *testing.T) {
 		mur1 := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
 		mur2 := masteruserrecord.NewMasterUserRecord(t, "bob", masteruserrecord.TierName("deactivate30"))
 		newClient, fakeClient := initAddSpaceUsersTest(t, mur1, mur2)
-
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -58,11 +60,9 @@ func TestAddSpaceUsers(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		output := term.Output()
 		assertSpaceBindings(t, fakeClient, []string{"alice", "bob"}, "viewer")
-		assert.Contains(t, output, "Are you sure that you want to add users to the above Space?")
-		assert.Contains(t, output, "SpaceBinding(s) successfully created")
-		assert.NotContains(t, output, "cool-token")
+		assert.Contains(t, buffy.String(), "SpaceBinding(s) successfully created")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("when answer is N", func(t *testing.T) {
@@ -72,7 +72,8 @@ func TestAddSpaceUsers(t *testing.T) {
 		newClient, fakeClient := initAddSpaceUsersTest(t, mur1, mur2)
 
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("N")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(false), ioutils.WithTee(os.Stdout))
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -80,11 +81,9 @@ func TestAddSpaceUsers(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		output := term.Output()
 		assertSpaceBindings(t, fakeClient, []string{}, "") // no spacebindings expected
-		assert.Contains(t, output, "Are you sure that you want to add users to the above Space?")
-		assert.NotContains(t, output, "SpaceBinding(s) successfully created")
-		assert.NotContains(t, output, "cool-token")
+		assert.NotContains(t, buffy.String(), "SpaceBinding(s) successfully created")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("when space not found", func(t *testing.T) {
@@ -94,7 +93,8 @@ func TestAddSpaceUsers(t *testing.T) {
 		newClient, fakeClient := NewFakeClients(t, mur1, mur2) // no space
 
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("N")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -102,11 +102,10 @@ func TestAddSpaceUsers(t *testing.T) {
 
 		// then
 		require.EqualError(t, err, `spaces.toolchain.dev.openshift.com "testspace" not found`)
-		output := term.Output()
 		assertSpaceBindings(t, fakeClient, []string{}, "") // no spacebindings expected
-		assert.NotContains(t, output, "Are you sure that you want to add users to the above Space?")
-		assert.NotContains(t, output, "SpaceBinding(s) successfully created")
-		assert.NotContains(t, output, "cool-token")
+		assert.NotContains(t, buffy.String(), "Are you sure that you want to add users to the above Space?")
+		assert.NotContains(t, buffy.String(), "SpaceBinding(s) successfully created")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("when first mur not found", func(t *testing.T) {
@@ -114,7 +113,8 @@ func TestAddSpaceUsers(t *testing.T) {
 		newClient, fakeClient := initAddSpaceUsersTest(t) // no murs
 
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("N")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -122,11 +122,10 @@ func TestAddSpaceUsers(t *testing.T) {
 
 		// then
 		require.EqualError(t, err, `masteruserrecords.toolchain.dev.openshift.com "alice" not found`)
-		output := term.Output()
 		assertSpaceBindings(t, fakeClient, []string{}, "") // no spacebindings expected
-		assert.NotContains(t, output, "Are you sure that you want to add users to the above Space?")
-		assert.NotContains(t, output, "SpaceBinding(s) successfully created")
-		assert.NotContains(t, output, "cool-token")
+		assert.NotContains(t, buffy.String(), "Are you sure that you want to add users to the above Space?")
+		assert.NotContains(t, buffy.String(), "SpaceBinding(s) successfully created")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("when second mur not found", func(t *testing.T) {
@@ -135,7 +134,8 @@ func TestAddSpaceUsers(t *testing.T) {
 		newClient, fakeClient := initAddSpaceUsersTest(t, mur1) // mur2 missing
 
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("N")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -143,11 +143,10 @@ func TestAddSpaceUsers(t *testing.T) {
 
 		// then
 		require.EqualError(t, err, `masteruserrecords.toolchain.dev.openshift.com "bob" not found`)
-		output := term.Output()
 		assertSpaceBindings(t, fakeClient, []string{}, "") // no spacebindings expected
-		assert.NotContains(t, output, "Are you sure that you want to add users to the above Space?")
-		assert.NotContains(t, output, "SpaceBinding(s) successfully created")
-		assert.NotContains(t, output, "cool-token")
+		assert.NotContains(t, buffy.String(), "Are you sure that you want to add users to the above Space?")
+		assert.NotContains(t, buffy.String(), "SpaceBinding(s) successfully created")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("when role is invalid", func(t *testing.T) {
@@ -156,7 +155,8 @@ func TestAddSpaceUsers(t *testing.T) {
 		newClient, fakeClient := initAddSpaceUsersTest(t, mur1) // mur2 missing
 
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("N")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -166,11 +166,10 @@ func TestAddSpaceUsers(t *testing.T) {
 		require.Contains(t, err.Error(), "invalid role 'badrole' for space 'testspace' - the following are valid roles:")
 		require.Contains(t, err.Error(), "\nadmin\n")
 		require.Contains(t, err.Error(), "\nviewer\n")
-		output := term.Output()
 		assertSpaceBindings(t, fakeClient, []string{}, "") // no spacebindings expected
-		assert.NotContains(t, output, "Are you sure that you want to add users to the above Space?")
-		assert.NotContains(t, output, "SpaceBinding(s) successfully created")
-		assert.NotContains(t, output, "cool-token")
+		assert.NotContains(t, buffy.String(), "Are you sure that you want to add users to the above Space?")
+		assert.NotContains(t, buffy.String(), "SpaceBinding(s) successfully created")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("client get error", func(t *testing.T) {
@@ -183,7 +182,8 @@ func TestAddSpaceUsers(t *testing.T) {
 		}
 
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -191,11 +191,10 @@ func TestAddSpaceUsers(t *testing.T) {
 
 		// then
 		require.EqualError(t, err, "client error")
-		output := term.Output()
 		assertSpaceBindings(t, fakeClient, []string{}, "") // no spacebindings expected
-		assert.NotContains(t, output, "Are you sure that you want to add users to the above Space?")
-		assert.NotContains(t, output, "SpaceBinding(s) successfully created")
-		assert.NotContains(t, output, "cool-token")
+		assert.NotContains(t, buffy.String(), "Are you sure that you want to add users to the above Space?")
+		assert.NotContains(t, buffy.String(), "SpaceBinding(s) successfully created")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 }
 

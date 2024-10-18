@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/kubesaw/ksctl/pkg/ioutils"
-
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 

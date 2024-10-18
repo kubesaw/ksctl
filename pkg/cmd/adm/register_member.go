@@ -70,7 +70,7 @@ func NewRegisterMemberCmd() *cobra.Command {
 		Short: "Registers a member cluster in the host cluster and vice versa.",
 		Long:  `Registers the Host cluster in the Member cluster and then registers the Member cluster in the host cluster by creating toolchaincluster resources in the host and member namespaces.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := newExtendedCommandContext(term, client.DefaultNewClientFromRestConfig)
 			return registerMemberCluster(ctx, commandArgs)
 		},
@@ -110,8 +110,13 @@ func registerMemberCluster(ctx *extendedCommandContext, args registerMemberArgs)
 		return errors.New(sb.String())
 	}
 
-	if !ctx.AskForConfirmation(validated.confirmationPrompt()) {
-		return nil
+	ctx.Warn("The newly registered cluster will not be used for any space provisioning yet.")
+	// ctx.Warn("This command will output an example SpaceProvisionerConfig that you can modify with the required configuration options and apply to make the cluster available for space placement.")
+	for _, w := range validated.warnings {
+		ctx.Warn(w)
+	}
+	if confirm, err := ctx.Confirm("Please confirm that the following is ok and you are willing to proceed"); err != nil || !confirm {
+		return err
 	}
 
 	return validated.perform(ctx)
@@ -129,7 +134,7 @@ func (v *registerMemberValidated) getSourceAndTargetClusters(sourceClusterType c
 // - `targetCluster` is the cluster where we create the ToolchainCluster resource and the secret
 // - `sourceCluster` is the cluster referenced in the kubeconfig/ToolchainCluster of the `targetCluster`
 func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, sourceClusterType configuration.ClusterType) error {
-	ctx.PrintContextSeparatorf("Ensuring connection from the %s cluster to the %s via a ToolchainCluster CR, a Secret, and a new ServiceAccount resource", sourceClusterType, sourceClusterType.TheOtherType())
+	ctx.Infof("Ensuring connection from the %s cluster to the %s via a ToolchainCluster CR, a Secret, and a new ServiceAccount resource", sourceClusterType, sourceClusterType.TheOtherType())
 	sourceClusterDetails, targetClusterDetails := v.getSourceAndTargetClusters(sourceClusterType)
 	// wait for the SA to be ready
 	toolchainClusterSAKey := runtimeclient.ObjectKey{
@@ -137,17 +142,17 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 		Namespace: sourceClusterDetails.namespace,
 	}
 	if err := waitForToolchainClusterSA(ctx.CommandContext, sourceClusterDetails.client, toolchainClusterSAKey, v.args.waitForReadyTimeout); err != nil {
-		ctx.Printlnf("The %s ServiceAccount is not present in the %s cluster.", toolchainClusterSAKey, sourceClusterType)
-		ctx.Printlnf("Please check the %[1]s ToolchainCluster ServiceAccount in the %[2]s %[3]s cluster or the deployment of the %[3]s operator.", toolchainClusterSAKey, sourceClusterDetails.apiEndpoint, sourceClusterType)
+		ctx.Infof("The %s ServiceAccount is not present in the %s cluster.", toolchainClusterSAKey, sourceClusterType)
+		ctx.Infof("Please check the %[1]s ToolchainCluster ServiceAccount in the %[2]s %[3]s cluster or the deployment of the %[3]s operator.", toolchainClusterSAKey, sourceClusterDetails.apiEndpoint, sourceClusterType)
 		return err
 	}
 	// source cluster details
-	ctx.Printlnf("The source cluster name: %s", sourceClusterDetails.toolchainClusterName)
-	ctx.Printlnf("The API endpoint of the source cluster: %s", sourceClusterDetails.apiEndpoint)
+	ctx.Infof("The source cluster name: %s", sourceClusterDetails.toolchainClusterName)
+	ctx.Infof("The API endpoint of the source cluster: %s", sourceClusterDetails.apiEndpoint)
 
 	// target to details
-	ctx.Printlnf("The name of the target cluster: %s", targetClusterDetails.toolchainClusterName)
-	ctx.Printlnf("The API endpoint of the target cluster: %s", targetClusterDetails.apiEndpoint)
+	ctx.Infof("The name of the target cluster: %s", targetClusterDetails.toolchainClusterName)
+	ctx.Infof("The API endpoint of the target cluster: %s", targetClusterDetails.apiEndpoint)
 
 	// generate a token that will be used for the kubeconfig
 	sourceTargetRestClient, err := newRestClient(sourceClusterDetails.kubeConfig)
@@ -161,10 +166,10 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	// TODO drop this part together with the --lets-encrypt flag and start loading certificate from the kubeconfig as soon as ToolchainCluster controller supports loading certificates from kubeconfig
 	var insecureSkipTLSVerify bool
 	if v.args.useLetsEncrypt {
-		ctx.Printlnf("using let's encrypt certificate")
+		ctx.Info("using let's encrypt certificate")
 		insecureSkipTLSVerify = false
 	} else {
-		ctx.Printlnf("setting insecure skip tls verification flags")
+		ctx.Info("setting insecure skip tls verification flags")
 		insecureSkipTLSVerify = true
 	}
 	// generate the kubeconfig that can be used by target cluster to interact with the source cluster
@@ -176,7 +181,7 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 
 	// Create or Update the secret on the targetCluster
 	secretName := toolchainClusterSAKey.Name + "-" + sourceClusterDetails.toolchainClusterName
-	ctx.Printlnf("creating secret %s/%s in the %s cluster", targetClusterDetails.namespace, secretName, sourceClusterType.TheOtherType())
+	ctx.Infof("creating secret %s/%s in the %s cluster", targetClusterDetails.namespace, secretName, sourceClusterType.TheOtherType())
 	kubeConfigSecret := &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: targetClusterDetails.namespace}}
 	_, err = controllerutil.CreateOrUpdate(context.TODO(), targetClusterDetails.client, kubeConfigSecret, func() error {
 		// update the secret label
@@ -198,14 +203,14 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	if err != nil {
 		return err
 	}
-	ctx.Println("Secret successfully reconciled")
+	ctx.Info("Secret successfully reconciled")
 
 	// TODO -- temporary logic
 	// The creation of the toolchaincluster is just temporary until we implement https://issues.redhat.com/browse/KUBESAW-44,
 	// the creation logic will be moved to the toolchaincluster_resource controller in toolchain-common and will be based on the secret created above.
 	//
 	// create/update toolchaincluster on the targetCluster
-	ctx.Printlnf("creating ToolchainCluster representation of %s in %s:", sourceClusterType, targetClusterDetails.toolchainClusterName)
+	ctx.Infof("Creating the ToolchainCluster resource for '%s' in '%s'", sourceClusterType, targetClusterDetails.toolchainClusterName)
 	toolchainClusterCR := &toolchainv1alpha1.ToolchainCluster{ObjectMeta: metav1.ObjectMeta{Name: sourceClusterDetails.toolchainClusterName, Namespace: targetClusterDetails.namespace}}
 	_, err = controllerutil.CreateOrUpdate(context.TODO(), targetClusterDetails.client, toolchainClusterCR, func() error {
 		toolchainClusterCR.Spec.SecretRef.Name = secretName
@@ -214,14 +219,14 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	if err != nil {
 		return err
 	}
-	ctx.Println("Toolchaincluster successfully reconciled")
+	ctx.Info("Toolchaincluster successfully reconciled")
 	toolchainClusterKey := runtimeclient.ObjectKey{
 		Name:      sourceClusterDetails.toolchainClusterName,
 		Namespace: targetClusterDetails.namespace,
 	}
 	if err := waitUntilToolchainClusterReady(ctx.CommandContext, targetClusterDetails.client, toolchainClusterKey, v.args.waitForReadyTimeout); err != nil {
-		ctx.Printlnf("The ToolchainCluster resource representing the %s in the %s cluster has not become ready.", sourceClusterType, sourceClusterType.TheOtherType())
-		ctx.Printlnf("Please check the %s ToolchainCluster resource in the %s %s cluster.", toolchainClusterKey, targetClusterDetails.apiEndpoint, sourceClusterType.TheOtherType())
+		ctx.Warnf("The ToolchainCluster resource representing the %s in the %s cluster has not become ready.", sourceClusterType, sourceClusterType.TheOtherType())
+		ctx.Warnf("Please check the %s ToolchainCluster resource in the %s %s cluster.", toolchainClusterKey, targetClusterDetails.apiEndpoint, sourceClusterType.TheOtherType())
 		return err
 	}
 	// -- end temporary logic
@@ -275,7 +280,7 @@ func generateKubeConfig(token, apiEndpoint, namespace string, insecureSkipTLSVer
 // waitForToolchainClusterSA waits for the toolchaincluster service account to be present
 func waitForToolchainClusterSA(ctx *clicontext.CommandContext, cl runtimeclient.Client, toolchainClusterKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
 	return wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
-		ctx.Printlnf("waiting for ToolchainCluster SA %s to become ready", toolchainClusterKey)
+		ctx.Infof("Waiting for ToolchainCluster SA '%s' to become ready", toolchainClusterKey)
 		tc := &v1.ServiceAccount{}
 		if err := cl.Get(ctx, toolchainClusterKey, tc); err != nil {
 			if apierrors.IsNotFound(err) {
@@ -292,7 +297,7 @@ func waitForToolchainClusterSA(ctx *clicontext.CommandContext, cl runtimeclient.
 
 func waitUntilToolchainClusterReady(ctx *clicontext.CommandContext, cl runtimeclient.Client, toolchainClusterKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
 	return wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
-		ctx.Printlnf("waiting for ToolchainCluster %s to become ready", toolchainClusterKey)
+		ctx.Infof("Waiting for ToolchainCluster '%s' to become ready", toolchainClusterKey)
 		tc := &toolchainv1alpha1.ToolchainCluster{}
 		if err := cl.Get(ctx, toolchainClusterKey, tc); err != nil {
 			if apierrors.IsNotFound(err) {
@@ -420,7 +425,8 @@ func validateArgs(ctx *extendedCommandContext, args registerMemberArgs) (*regist
 	}
 	existingMemberToolchainCluster := findToolchainClusterForMember(membersInHost, memberApiEndpoint, args.memberNamespace)
 	if existingMemberToolchainCluster != nil {
-		warnings = append(warnings, fmt.Sprintf("there already is a registered member for the same member API endpoint and operator namespace (%s), proceeding will overwrite the objects representing it in the host and member clusters", runtimeclient.ObjectKeyFromObject(existingMemberToolchainCluster)))
+		warnings = append(warnings, fmt.Sprintf("There is already a registered member for the same member API endpoint and operator namespace (%s)", runtimeclient.ObjectKeyFromObject(existingMemberToolchainCluster)))
+		warnings = append(warnings, "Proceeding will overwrite the objects representing it in the host and member clusters")
 		if existingMemberToolchainCluster.Name != memberToolchainClusterName {
 			errors = append(errors, fmt.Sprintf("the newly registered member cluster would have a different name (%s) than the already existing one (%s) which would lead to invalid configuration. Consider using the --name-suffix parameter to match the existing member registration if you intend to just update it instead of creating a new registration", memberToolchainClusterName, existingMemberToolchainCluster.Name))
 		}
@@ -445,29 +451,6 @@ func validateArgs(ctx *extendedCommandContext, args registerMemberArgs) (*regist
 		warnings: warnings,
 		errors:   errors,
 	}, nil
-}
-
-func (v *registerMemberValidated) confirmationPrompt() ioutils.ConfirmationMessage {
-	// we have a single replacement argument at the moment so maybe this is a bit of
-	// an overkill but, let's be explicit about using a format string and its arguments
-	// so that mistakes are not made in the future when we update this stuff.
-	sb := strings.Builder{}
-	args := []any{}
-	sb.WriteString("register the member cluster from kubeconfig %s?")
-	args = append(args, v.args.memberKubeConfig)
-
-	sb.WriteString("\nNote that the newly registered cluster will not be used for any space placement yet. This command will output an example SpaceProvisionerConfig that you can modify with the required configuration options and apply to make the cluster available for space placement.")
-
-	if len(v.warnings) > 0 {
-		sb.WriteString("\nPlease confirm that the following is ok and you are willing to proceed:")
-		for _, f := range v.warnings {
-			sb.WriteString("\n- ")
-			sb.WriteString(f)
-		}
-		sb.WriteString("\n")
-	}
-
-	return ioutils.WithMessagef(sb.String(), args...)
 }
 
 func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
@@ -500,13 +483,9 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 			},
 		},
 	}
-
-	return ctx.PrintObject(exampleSPC, fmt.Sprintf(`
-Modify and apply the following SpaceProvisionerConfig to the host cluster (%s) to configure the provisioning
-of the spaces to the newly registered member cluster. Nothing will be deployed to the cluster
-until the SpaceProvisionerConfig.spec.enabled is set to true.
-
-`, v.hostClusterData.apiEndpoint))
+	ctx.Warnf("Modify and apply the following SpaceProvisionerConfig to the '%s' host cluster to configure the provisioning of the spaces", v.hostClusterData.apiEndpoint)
+	ctx.Warn("Spaces will not be provisioned into this new cluster until 'SpaceProvisionerConfig.spec.enabled' is set to true.")
+	return ctx.PrintObject("Example SpaceProvisionerConfig:", exampleSPC)
 }
 
 func findToolchainClusterForMember(allToolchainClusters []toolchainv1alpha1.ToolchainCluster, memberAPIEndpoint, memberOperatorNamespace string) *toolchainv1alpha1.ToolchainCluster {

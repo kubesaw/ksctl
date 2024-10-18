@@ -30,7 +30,7 @@ ksctl generate admin-manifests ./path/to/kubesaw-stage.openshiftapps.com/kubesaw
 		Long:  `Reads the kubesaw-admins.yaml file and based on the content it generates user-management RBAC and manifests.`,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			return adminManifests(term, resources.Resources, f)
 		},
 	}
@@ -110,9 +110,9 @@ type adminManifestsContext struct {
 
 func ensureCluster(ctx *adminManifestsContext, clusterType configuration.ClusterType, cache objectsCache, specificKMemberName string) error {
 	if specificKMemberName == "" {
-		ctx.PrintContextSeparatorf("Generating manifests for %s cluster type", clusterType)
+		ctx.Infof("Generating manifests for %s cluster type", clusterType)
 	} else {
-		ctx.PrintContextSeparatorf("Generating manifests for %s cluster type in the separate Kustomize component: %s", clusterType, specificKMemberName)
+		ctx.Infof("Generating manifests for %s cluster type in the separate Kustomize component: %s", clusterType, specificKMemberName)
 	}
 
 	clusterCtx := &clusterContext{
