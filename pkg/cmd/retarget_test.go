@@ -14,7 +14,6 @@ import (
 	. "github.com/kubesaw/ksctl/pkg/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/runtime"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -163,7 +162,7 @@ func TestRetarget(t *testing.T) {
 	})
 }
 
-func prepareRetargetSpace(t *testing.T, initObjs ...runtime.Object) (clicontext.NewClientFunc, *test.FakeClient) {
+func prepareRetargetSpace(t *testing.T, initObjs ...runtimeclient.Object) (clicontext.NewClientFunc, *test.FakeClient) {
 	newClient, fakeClient := NewFakeClients(t, initObjs...)
 	SetFileConfig(t,
 		Host(),

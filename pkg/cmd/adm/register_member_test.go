@@ -20,7 +20,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -525,7 +524,7 @@ func whenDeploymentThenUpdated(t *testing.T, fakeClient *test.FakeClient, namesp
 	}
 }
 
-func newFakeClientsFromRestConfig(t *testing.T, initObjs ...runtime.Object) (newClientFromRestConfigFunc, *test.FakeClient) {
+func newFakeClientsFromRestConfig(t *testing.T, initObjs ...runtimeclient.Object) (newClientFromRestConfigFunc, *test.FakeClient) {
 	fakeClient := test.NewFakeClient(t, initObjs...)
 	fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 		return fakeClient.Client.Create(ctx, obj, opts...)

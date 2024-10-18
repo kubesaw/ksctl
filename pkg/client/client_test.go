@@ -42,10 +42,19 @@ func TestNewClientOK(t *testing.T) {
 func TestNewClientFail(t *testing.T) {
 	// when
 	cl, err := client.NewClient("cool-token", "https://fail-cluster.com")
-
+	require.NoError(t, err)
+	assert.NotNil(t, cl)
 	// then
+	testObj := &toolchainv1alpha1.UserSignup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "john-doe",
+			Namespace: "default",
+		},
+	}
+	_, err = cl.IsObjectNamespaced(testObj)
 	require.Error(t, err)
-	assert.Nil(t, cl)
+	// actual error is "failed to get restmapping: failed to get server groups: Get \"https://fail-cluster.com/api?timeout=1m0s\": dial tcp: lookup fail-cluster.com: no such host"
+	require.ErrorContains(t, err, "dial tcp: lookup fail-cluster.com: no such host")
 }
 
 func TestPatchUserSignup(t *testing.T) {

@@ -9,11 +9,10 @@ import (
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/runtime"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewFakeClients(t *testing.T, initObjs ...runtime.Object) (clicontext.NewClientFunc, *test.FakeClient) {
+func NewFakeClients(t *testing.T, initObjs ...runtimeclient.Object) (clicontext.NewClientFunc, *test.FakeClient) {
 	fakeClient := test.NewFakeClient(t, initObjs...)
 	return func(token, apiEndpoint string) (runtimeclient.Client, error) {
 			t.Helper()
