@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCanBeAppliedForDefinedName(t *testing.T) {
+func TestShouldBeSkippedForMember1(t *testing.T) {
 	// given
 	member1Member2 := []string{"member1", "member2"}
 	member2Member3 := []string{"member2", "member3"}
@@ -40,7 +40,7 @@ func TestCanBeAppliedForDefinedName(t *testing.T) {
 	}
 }
 
-func TestCanBeAppliedForEmptyName(t *testing.T) {
+func TestShouldBeSkippedForEmptyName(t *testing.T) {
 	// given
 	member1Member2 := []string{"member1", "member2"}
 	testCases := map[string]struct {
