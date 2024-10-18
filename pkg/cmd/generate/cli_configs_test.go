@@ -37,6 +37,10 @@ func TestGenerateCliConfigs(t *testing.T) {
 				HostRoleBindings("toolchain-host-operator", Role("install-operator"), ClusterRole("admin")),
 				MemberRoleBindings("toolchain-member-operator", Role("install-operator"), ClusterRole("admin"))).
 				WithSkippedMembers("member2"),
+			Sa("jenny", "",
+				HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("view")),
+				MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("view"))).
+				WithSelectedMembers("member2"),
 			Sa("bob", "",
 				HostRoleBindings("toolchain-host-operator", Role("restart=restart-deployment"), ClusterRole("restart=edit")),
 				MemberRoleBindings("toolchain-member-operator", Role("restart=restart-deployment"), ClusterRole("restart=edit")))),
@@ -54,6 +58,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 	setupGockForServiceAccounts(t, HostServerAPI, 50,
 		newServiceAccount("kubesaw-sre-host", "john"),
 		newServiceAccount("kubesaw-sre-host", "bob"),
+		newServiceAccount("kubesaw-sre-host", "jenny"),
 	)
 	setupGockForServiceAccounts(t, Member1ServerAPI, 50,
 		newServiceAccount("kubesaw-admins-member", "john"),
@@ -61,6 +66,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 	)
 	setupGockForServiceAccounts(t, Member2ServerAPI, 50,
 		newServiceAccount("kubesaw-admins-member", "bob"),
+		newServiceAccount("kubesaw-admins-member", "jenny"),
 	)
 	t.Cleanup(gock.OffAll)
 
@@ -87,7 +93,8 @@ func TestGenerateCliConfigs(t *testing.T) {
 
 			verifyKsctlConfigFiles(t, tempDir,
 				cliConfigForUser("john", hasHost(), hasMember("member1", "member1")),
-				cliConfigForUser("bob", hasHost(), hasMember("member1", "member1"), hasMember("member2", "member2")))
+				cliConfigForUser("bob", hasHost(), hasMember("member1", "member1"), hasMember("member2", "member2")),
+				cliConfigForUser("jenny", hasHost(), hasMember("member2", "member2")))
 		})
 
 		t.Run("when there SAs are defined for host cluster only", func(t *testing.T) {
@@ -127,6 +134,7 @@ func TestGenerateCliConfigs(t *testing.T) {
 			setupGockForServiceAccounts(t, HostServerAPI, 50,
 				newServiceAccount("kubesaw-admins-member", "john"),
 				newServiceAccount("kubesaw-admins-member", "bob"),
+				newServiceAccount("kubesaw-admins-member", "jenny"),
 			)
 			tempDir, err := os.MkdirTemp("", "ksctl-out-")
 			require.NoError(t, err)
@@ -141,7 +149,8 @@ func TestGenerateCliConfigs(t *testing.T) {
 
 			verifyKsctlConfigFiles(t, tempDir,
 				cliConfigForUser("john", hasHost(), hasMember("member1", "host")),
-				cliConfigForUser("bob", hasHost(), hasMember("member1", "host"), hasMember("member2", "host")))
+				cliConfigForUser("bob", hasHost(), hasMember("member1", "host"), hasMember("member2", "host")),
+				cliConfigForUser("jenny", hasHost(), hasMember("member2", "host")))
 		})
 	})
 

@@ -77,6 +77,14 @@ func (c ServiceAccountCreator) WithSkippedMembers(members ...string) ServiceAcco
 	}
 }
 
+func (c ServiceAccountCreator) WithSelectedMembers(members ...string) ServiceAccountCreator {
+	return func() assets.ServiceAccount {
+		serviceAccount := c()
+		serviceAccount.Selector.MemberClusters = members
+		return serviceAccount
+	}
+}
+
 func NewPermissionsPerClusterType(permissions ...PermissionsPerClusterTypeModifier) assets.PermissionsPerClusterType {
 	perm := map[string]assets.PermissionBindings{}
 	for _, addPermissions := range permissions {
@@ -176,6 +184,14 @@ func (c UserCreator) WithSkippedMembers(members ...string) UserCreator {
 	return func() assets.User {
 		user := c()
 		user.Selector.SkipMembers = members
+		return user
+	}
+}
+
+func (c UserCreator) WithSelectedMembers(members ...string) UserCreator {
+	return func() assets.User {
+		user := c()
+		user.Selector.MemberClusters = members
 		return user
 	}
 }
