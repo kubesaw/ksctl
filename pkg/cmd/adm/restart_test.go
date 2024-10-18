@@ -1,216 +1,169 @@
 package adm
 
 import (
-	"context"
-	"fmt"
+	"bytes"
+	"io"
+	"net/http"
 	"testing"
 
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
-	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/rest/fake"
+	cgtesting "k8s.io/client-go/testing"
+	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
+	"k8s.io/kubectl/pkg/scheme"
 )
 
 func TestRestartDeployment(t *testing.T) {
 	// given
-	SetFileConfig(t, Host(), Member())
-
-	for _, clusterName := range []string{"host", "member1"} {
-		clusterType := configuration.Host
-		if clusterName != "host" {
-			clusterType = configuration.Member
-		}
-		namespace := fmt.Sprintf("toolchain-%s-operator", clusterType)
-		namespacedName := types.NamespacedName{
-			Namespace: namespace,
-			Name:      "cool-deployment",
-		}
-		term := NewFakeTerminalWithResponse("Y")
-
-		t.Run("restart is successful for "+clusterName, func(t *testing.T) {
-			// given
-			deployment := newDeployment(namespacedName, 3)
-			newClient, fakeClient := NewFakeClients(t, deployment)
-			numberOfUpdateCalls := 0
-			fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
-			ctx := clicontext.NewCommandContext(term, newClient)
-
-			// when
-			err := restart(ctx, clusterName, "cool-deployment")
-
-			// then
-			require.NoError(t, err)
-			AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 3)
-			assert.Equal(t, 2, numberOfUpdateCalls)
-		})
-
-		t.Run("list deployments when no deployment name is provided for "+clusterName, func(t *testing.T) {
-			// given
-			deployment := newDeployment(namespacedName, 3)
-			newClient, fakeClient := NewFakeClients(t, deployment)
-			numberOfUpdateCalls := 0
-			fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
-			term := NewFakeTerminalWithResponse("Y")
-			ctx := clicontext.NewCommandContext(term, newClient)
-
-			// when
-			err := restart(ctx, clusterName)
-
-			// then
-			require.EqualError(t, err, "at least one deployment name is required, include one or more of the above deployments to restart")
-			AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 3)
-			assert.Equal(t, 0, numberOfUpdateCalls)
-			assert.Contains(t, term.Output(), fmt.Sprintf("Existing deployments in toolchain-%s-operator namespace", clusterType))
-			assert.Contains(t, term.Output(), "cool-deployment")
-		})
-
-		t.Run("restart fails - cannot get the deployment for "+clusterName, func(t *testing.T) {
-			// given
-			deployment := newDeployment(namespacedName, 3)
-			newClient, fakeClient := NewFakeClients(t, deployment)
-			numberOfUpdateCalls := 0
-			fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
-			fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
-				return fmt.Errorf("some error")
+	tests := map[string]struct {
+		namespace      string
+		name           string
+		labelKey       string
+		labelValue     string
+		expectedMsg    string
+		labelSelector  string
+		expectedOutput string
+	}{
+		"OlmHostDeployment": {
+			namespace:     "toolchain-host-operator",
+			name:          "host-operator-controller-manager",
+			labelKey:      "kubesaw-control-plane",
+			labelValue:    "kubesaw-controller-manager",
+			expectedMsg:   "deployment \"host-operator-controller-manager\" successfully rolled out\n",
+			labelSelector: "kubesaw-control-plane=kubesaw-controller-manager",
+		},
+		"NonOlmHostDeployment": {
+			namespace:      "toolchain-host-operator",
+			name:           "registration-service",
+			labelKey:       "provider",
+			labelValue:     "codeready-toolchain",
+			expectedMsg:    "deployment \"registration-service\" successfully rolled out\n",
+			labelSelector:  "provider=codeready-toolchain",
+			expectedOutput: "deployment.apps/registration-service restarted\n",
+		},
+	}
+	for k, tc := range tests {
+		t.Run(k, func(t *testing.T) {
+			//given
+			namespacedName := types.NamespacedName{
+				Namespace: tc.namespace,
+				Name:      tc.name,
 			}
-			ctx := clicontext.NewCommandContext(term, newClient)
+			var rolloutGroupVersionEncoder = schema.GroupVersion{Group: "apps", Version: "v1"}
+			deployment1 := newDeployment(namespacedName, 1)
+			ns := scheme.Codecs.WithoutConversion()
+			tf := cmdtesting.NewTestFactory().WithNamespace(namespacedName.Namespace)
+			tf.ClientConfigVal = cmdtesting.DefaultClientConfig()
 
-			// when
-			err := restart(ctx, clusterName, "cool-deployment")
+			info, _ := runtime.SerializerInfoForMediaType(ns.SupportedMediaTypes(), runtime.ContentTypeJSON)
+			encoder := ns.EncoderForVersion(info.Serializer, rolloutGroupVersionEncoder)
+			tf.Client = &RolloutRestartRESTClient{
+				RESTClient: &fake.RESTClient{
+					GroupVersion:         rolloutGroupVersionEncoder,
+					NegotiatedSerializer: ns,
+					Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
+						responseDeployment := &appsv1.Deployment{}
+						responseDeployment.Name = deployment1.Name
+						responseDeployment.Labels = make(map[string]string)
+						responseDeployment.Labels[tc.labelKey] = tc.labelValue
+						body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, responseDeployment))))
+						return &http.Response{StatusCode: http.StatusOK, Header: cmdtesting.DefaultHeader(), Body: body}, nil
+					}),
+				},
+			}
+			tf.FakeDynamicClient.WatchReactionChain = nil
+			tf.FakeDynamicClient.AddWatchReactor("*", func(action cgtesting.Action) (handled bool, ret watch.Interface, err error) {
+				fw := watch.NewFake()
+				dep := &appsv1.Deployment{}
+				dep.Name = deployment1.Name
+				dep.Status = appsv1.DeploymentStatus{
+					Replicas:            1,
+					UpdatedReplicas:     1,
+					ReadyReplicas:       1,
+					AvailableReplicas:   1,
+					UnavailableReplicas: 0,
+					Conditions: []appsv1.DeploymentCondition{{
+						Type: appsv1.DeploymentAvailable,
+					}},
+				}
+				dep.Labels = make(map[string]string)
+				dep.Labels[tc.labelKey] = tc.labelValue
+				c, err := runtime.DefaultUnstructuredConverter.ToUnstructured(dep.DeepCopyObject())
+				if err != nil {
+					t.Errorf("unexpected err %s", err)
+				}
+				u := &unstructured.Unstructured{}
+				u.SetUnstructuredContent(c)
+				go fw.Add(u)
+				return true, fw, nil
+			})
 
-			// then
-			require.Error(t, err)
-			fakeClient.MockGet = nil
-			AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 3)
-			assert.Equal(t, 0, numberOfUpdateCalls)
-		})
-
-		t.Run("restart fails - deployment not found for "+clusterName, func(t *testing.T) {
-			// given
-			deployment := newDeployment(namespacedName, 3)
-			newClient, fakeClient := NewFakeClients(t, deployment)
-			numberOfUpdateCalls := 0
-			fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
+			streams, _, buf, _ := genericclioptions.NewTestIOStreams()
 			term := NewFakeTerminalWithResponse("Y")
+			pod := newPod(test.NamespacedName(namespacedName.Namespace, namespacedName.Name))
+			deployment1.Labels = make(map[string]string)
+			deployment1.Labels[tc.labelKey] = tc.labelValue
+			newClient, fakeClient := NewFakeClients(t, deployment1, pod)
 			ctx := clicontext.NewCommandContext(term, newClient)
 
-			// when
-			err := restart(ctx, clusterName, "wrong-deployment")
+			//when
+			err := restartDeployment(ctx, fakeClient, namespacedName.Namespace, tf, streams)
+			if tc.labelValue == "kubesaw-controller-manager" {
+				require.NoError(t, err)
+				require.Contains(t, term.Output(), "Fetching the current OLM and non-OLM deployments of the operator in")
+				require.Contains(t, term.Output(), "Proceeding to delete the Pods of")
+				require.Contains(t, term.Output(), "Listing the pods to be deleted")
+				require.Contains(t, term.Output(), "Starting to delete the pods")
+				require.Contains(t, term.Output(), "Checking the status of the deleted pod's deployment")
+				//checking the output from kubectl for rolloutstatus
+				require.Contains(t, buf.String(), tc.expectedOutput)
+				require.Contains(t, term.Output(), "No Non-OLM based deployment restart happened as Non-Olm deployment found in namespace")
+			} else if tc.labelValue == "codeready-toolchain" {
+				require.NoError(t, err)
+				require.Contains(t, term.Output(), "Fetching the current OLM and non-OLM deployments of the operator in")
+				require.Contains(t, term.Output(), "Proceeding to restart the non-OLM deployment ")
+				require.Contains(t, term.Output(), "Running the rollout restart command for non-olm deployment")
+				require.Contains(t, term.Output(), "Checking the status of the rolled out deployment")
+				//checking the output from kubectl for rolloutstatus
+				require.Contains(t, buf.String(), tc.expectedOutput)
+				require.Contains(t, term.Output(), "No OLM based deployment restart happened as Olm deployment found in namespace")
+			}
 
-			// then
-			require.NoError(t, err)
-			AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 3)
-			assert.Equal(t, 0, numberOfUpdateCalls)
-			assert.Contains(t, term.Output(), "ERROR: The given deployment 'wrong-deployment' wasn't found.")
-			assert.Contains(t, term.Output(), fmt.Sprintf("Existing deployments in toolchain-%s-operator namespace", clusterType))
-			assert.Contains(t, term.Output(), "cool-deployment")
 		})
 	}
 }
 
-func TestRestartDeploymentWithInsufficientPermissions(t *testing.T) {
-	// given
-	SetFileConfig(t, Host(NoToken()), Member(NoToken()))
-	for _, clusterName := range []string{"host", "member1"} {
-		// given
-		clusterType := configuration.Host
-		if clusterName != "host" {
-			clusterType = configuration.Member
-		}
-		namespace := fmt.Sprintf("toolchain-%s-operator", clusterType)
-		namespacedName := types.NamespacedName{
-			Namespace: namespace,
-			Name:      "cool-deployment",
-		}
-		deployment := newDeployment(namespacedName, 3)
-		newClient, fakeClient := NewFakeClients(t, deployment)
-		numberOfUpdateCalls := 0
-		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
+func TestRestart(t *testing.T) {
+
+	t.Run("restart should succeed with 1 clustername", func(t *testing.T) {
+		//given
+		SetFileConfig(t, Host())
+		toolchainCluster := NewToolchainCluster(ToolchainClusterName("host"))
+		deployment := newDeployment(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"), 1)
 		term := NewFakeTerminalWithResponse("Y")
+		newClient, _ := NewFakeClients(t, toolchainCluster, deployment)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
-		// when
-		err := restart(ctx, clusterName, "cool-deployment")
+		//when
+		err := restart(ctx, "host")
 
-		// then
-		require.Error(t, err)
-		assert.Equal(t, 0, numberOfUpdateCalls)
-		AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 3)
-	}
-}
-
-func TestRestartHostOperator(t *testing.T) {
-	// given
-	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("") // it should not read the input
-	cfg, err := configuration.LoadClusterConfig(term, "host")
-	require.NoError(t, err)
-	namespacedName := types.NamespacedName{
-		Namespace: "toolchain-host-operator",
-		Name:      "host-operator-controller-manager",
-	}
-
-	t.Run("host deployment is present and restart successful", func(t *testing.T) {
-		// given
-		deployment := newDeployment(namespacedName, 1)
-		deployment.Labels = map[string]string{"olm.owner.namespace": "toolchain-host-operator"}
-		newClient, fakeClient := NewFakeClients(t, deployment)
-		numberOfUpdateCalls := 0
-		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
-		ctx := clicontext.NewCommandContext(term, newClient)
-
-		// when
-		err := restartHostOperator(ctx, fakeClient, cfg.OperatorNamespace)
-
-		// then
+		//then
 		require.NoError(t, err)
-		AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 1)
-		assert.Equal(t, 2, numberOfUpdateCalls)
 	})
 
-	t.Run("host deployment with the label is not present - restart fails", func(t *testing.T) {
-		// given
-		deployment := newDeployment(namespacedName, 1)
-		newClient, fakeClient := NewFakeClients(t, deployment)
-		numberOfUpdateCalls := 0
-		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
-		ctx := clicontext.NewCommandContext(term, newClient)
-
-		// when
-		err := restartHostOperator(ctx, fakeClient, cfg.OperatorNamespace)
-
-		// then
-		require.Error(t, err)
-		AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 1)
-		assert.Equal(t, 0, numberOfUpdateCalls)
-	})
-
-	t.Run("there are more deployments with the host operator label - restart fails", func(t *testing.T) {
-		// given
-		deployment := newDeployment(namespacedName, 1)
-		deployment.Labels = map[string]string{"olm.owner.namespace": "toolchain-host-operator"}
-		deployment2 := deployment.DeepCopy()
-		deployment2.Name = "another"
-		newClient, fakeClient := NewFakeClients(t, deployment, deployment2)
-		numberOfUpdateCalls := 0
-		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
-		ctx := clicontext.NewCommandContext(term, newClient)
-
-		// when
-		err := restartHostOperator(ctx, fakeClient, cfg.OperatorNamespace)
-
-		// then
-		require.Error(t, err)
-		AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 1)
-		assert.Equal(t, 0, numberOfUpdateCalls)
-	})
 }
 
 func newDeployment(namespacedName types.NamespacedName, replicas int32) *appsv1.Deployment { //nolint:unparam
@@ -221,32 +174,29 @@ func newDeployment(namespacedName types.NamespacedName, replicas int32) *appsv1.
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"host": "controller"}},
 		},
 	}
 }
 
-func requireDeploymentBeingUpdated(t *testing.T, fakeClient *test.FakeClient, namespacedName types.NamespacedName, currentReplicas int32, numberOfUpdateCalls *int) func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.UpdateOption) error {
-	return func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.UpdateOption) error {
-		deployment, ok := obj.(*appsv1.Deployment)
-		require.True(t, ok)
-		checkDeploymentBeingUpdated(t, fakeClient, namespacedName, currentReplicas, numberOfUpdateCalls, deployment)
-		return fakeClient.Client.Update(ctx, obj, opts...)
+func newPod(namespacedName types.NamespacedName) *corev1.Pod { //nolint:unparam
+	return &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespacedName.Namespace,
+			Name:      namespacedName.Name,
+			Labels:    map[string]string{"host": "controller"},
+		},
+		Spec: corev1.PodSpec{},
+		Status: corev1.PodStatus{
+			Phase: "Running",
+		},
 	}
 }
 
-func checkDeploymentBeingUpdated(t *testing.T, fakeClient *test.FakeClient, namespacedName types.NamespacedName, currentReplicas int32, numberOfUpdateCalls *int, deployment *appsv1.Deployment) {
-	// on the first call, we should have a deployment with 3 replicas ("current") and request to scale down to 0 ("requested")
-	// on the other calls, it's the opposite
-	if *numberOfUpdateCalls == 0 {
-		// check the current deployment's replicas field
-		AssertDeploymentHasReplicas(t, fakeClient, namespacedName, currentReplicas)
-		// check the requested deployment's replicas field
-		assert.Equal(t, int32(0), *deployment.Spec.Replicas)
-	} else {
-		// check the current deployment's replicas field
-		AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 0)
-		// check the requested deployment's replicas field
-		assert.Equal(t, currentReplicas, *deployment.Spec.Replicas)
-	}
-	*numberOfUpdateCalls++
+type RolloutRestartRESTClient struct {
+	*fake.RESTClient
 }
