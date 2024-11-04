@@ -3,7 +3,6 @@ package adm
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
@@ -85,50 +84,46 @@ func restart(ctx *clicontext.CommandContext, clusterNames ...string) error {
 }
 
 func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
-	ctx.Printlnf("Fetching the current Operator and non-operator based deployments in %s namespace", ns)
+	ctx.Printlnf("Fetching the current OLM and non-OLM deployments of the operator in %s namespace", ns)
 
-	operatorDeploymentList, otherDeploymentsList, allDeploymentList, err := getExistingDeployments(ctx, cl, ns)
+	operatorDeploymentList, nonOperatorDeploymentList, err := getExistingDeployments(ctx, cl, ns)
 	if err != nil {
 		return err
 	}
 
 	if len(operatorDeploymentList.Items) == 0 {
-		return fmt.Errorf("no operators found to restart")
+		return fmt.Errorf("no operator based deployment restart happened as operator deployment found in namespace %s is 0", ns)
 	} else {
-		for _, deploymentList := range allDeploymentList {
-			ls := ""
-			for _, deployments := range deploymentList.Items {
-				if deployments.OwnerReferences != nil {
-					ctx.Printlnf("Proceeding to delete the Pods of %v", deployments.Name)
-					ls = "kubesaw-control-plane=kubesaw-controller-manager"
-					if err := deletePods(ctx, cl, deployments); err != nil {
-						return err
-					}
-				}
-				if len(otherDeploymentsList.Items) != 0 {
-					ls = "toolchain.dev.openshift.com/provider=codeready-toolchain"
-					ctx.Printlnf("Proceeding to restart the non-operator deployment %v", deployments.Name)
-					if err := restartNonOperatorDeployments(ctx, deployments, f, ioStreams); err != nil {
-						return err
-					}
-				} else {
-					ctx.Printlnf("No Non-operator deployment restart happened as Non-operator deployment found in namespace %s is 0", ns)
-				}
-				//waiting for the delete/rollout to start so that we get accurate status
-				time.Sleep(5 * time.Second)
+		for _, operatorDeployment := range operatorDeploymentList.Items {
+			ctx.Printlnf("Proceeding to delete the Pods of %v", operatorDeployment)
 
+			if err := deleteAndWaitForPods(ctx, cl, operatorDeployment, f, ioStreams); err != nil {
+				return err
+			}
+		}
+	}
+	if len(nonOperatorDeploymentList.Items) != 0 {
+		for _, nonOperatorDeployment := range nonOperatorDeploymentList.Items {
+			if nonOperatorDeployment.Name != "autoscaling-buffer" {
+				ctx.Printlnf("Proceeding to restart the non-OLM deployment %v", nonOperatorDeployment)
+
+				if err := restartNonOlmDeployments(ctx, nonOperatorDeployment, f, ioStreams); err != nil {
+					return err
+				}
 				//check the rollout status
-				ctx.Printlnf("Checking the status of the deleted/rolled-out deployment %v", deployments.Name)
-				if err := checkRolloutStatus(ctx, f, ioStreams, ls); err != nil {
+				ctx.Printlnf("Checking the status of the rolled out deployment %v", nonOperatorDeployment)
+				if err := checkRolloutStatus(ctx, f, ioStreams, "toolchain.dev.openshift.com/provider=codeready-toolchain"); err != nil {
 					return err
 				}
 			}
 		}
+	} else {
+		ctx.Printlnf("No Non-OLM based deployment restart happened as Non-Olm deployment found in namespace %s is 0", ns)
 	}
 	return nil
 }
 
-func deletePods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deployment appsv1.Deployment) error {
+func deleteAndWaitForPods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
 	ctx.Printlnf("Listing the pods to be deleted")
 	//get pods by label selector from the deployment
 	pods := corev1.PodList{}
@@ -146,10 +141,17 @@ func deletePods(ctx *clicontext.CommandContext, cl runtimeclient.Client, deploym
 			return err
 		}
 	}
+
+	ctx.Printlnf("Checking the status of the deleted pod's deployment %v", deployment.Name)
+	//check the rollout status
+	if err := checkRolloutStatus(ctx, f, ioStreams, "kubesaw-control-plane=kubesaw-controller-manager"); err != nil {
+		return err
+	}
 	return nil
+
 }
 
-func restartNonOperatorDeployments(ctx *clicontext.CommandContext, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
+func restartNonOlmDeployments(ctx *clicontext.CommandContext, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
 
 	o := kubectlrollout.NewRolloutRestartOptions(ioStreams)
 
@@ -180,23 +182,21 @@ func checkRolloutStatus(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStr
 	return cmd.Run()
 }
 
-func getExistingDeployments(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string) (*appsv1.DeploymentList, *appsv1.DeploymentList, []*appsv1.DeploymentList, error) {
+func getExistingDeployments(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string) (*appsv1.DeploymentList, *appsv1.DeploymentList, error) {
 
 	operatorDeployments := &appsv1.DeploymentList{}
 	if err := cl.List(ctx, operatorDeployments,
 		runtimeclient.InNamespace(ns),
 		runtimeclient.MatchingLabels{"kubesaw-control-plane": "kubesaw-controller-manager"}); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
-	otherDeployments := &appsv1.DeploymentList{}
-	if err := cl.List(ctx, otherDeployments,
+	nonOperatorDeployments := &appsv1.DeploymentList{}
+	if err := cl.List(ctx, nonOperatorDeployments,
 		runtimeclient.InNamespace(ns),
 		runtimeclient.MatchingLabels{"toolchain.dev.openshift.com/provider": "codeready-toolchain"}); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	allDeployments := []*appsv1.DeploymentList{}
-	allDeployments = append(allDeployments, operatorDeployments, otherDeployments)
 
-	return operatorDeployments, otherDeployments, allDeployments, nil
+	return operatorDeployments, nonOperatorDeployments, nil
 }
