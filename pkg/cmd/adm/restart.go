@@ -28,10 +28,10 @@ func NewRestartCmd() *cobra.Command {
 		Use:   "restart <cluster-name>",
 		Short: "Restarts an operator",
 		Long: `Restarts the whole operator, it relies on the target cluster and fetches the cluster config
-		1.  If the command is run for host operator, it restart the whole host operator.
+		1.  If the command is run for host operator, it restarts the whole host operator.
 		(it deletes olm based pods(host-operator pods),waits for the new pods to 
 		come up, then uses rollout-restart command for non-olm based deployments - registration-service)
-		2.  If the command is run for member operator, it restart the whole member operator.
+		2.  If the command is run for member operator, it restarts the whole member operator.
 		(it deletes olm based pods(member-operator pods),waits for the new pods 
 		to come up, then uses rollout-restart command for non-olm based deployments - webhooks)`,
 		Args: cobra.ExactArgs(1),
@@ -95,30 +95,37 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 		return fmt.Errorf("no operator based deployment restart happened as operator deployment found in namespace %s is 0", ns)
 	} else {
 		for _, operatorDeployment := range operatorDeploymentList.Items {
-			ctx.Printlnf("Proceeding to delete the Pods of %v", operatorDeployment)
+			ctx.Printlnf("Proceeding to delete the Pods of %v", operatorDeployment.Name)
 
 			if err := deleteAndWaitForPods(ctx, cl, operatorDeployment, f, ioStreams); err != nil {
 				return err
 			}
-		}
-	}
-	if len(nonOperatorDeploymentList.Items) != 0 {
-		for _, nonOperatorDeployment := range nonOperatorDeploymentList.Items {
-			if nonOperatorDeployment.Name != "autoscaling-buffer" {
-				ctx.Printlnf("Proceeding to restart the non-OLM deployment %v", nonOperatorDeployment)
 
-				if err := restartNonOlmDeployments(ctx, nonOperatorDeployment, f, ioStreams); err != nil {
-					return err
-				}
-				//check the rollout status
-				ctx.Printlnf("Checking the status of the rolled out deployment %v", nonOperatorDeployment)
-				if err := checkRolloutStatus(ctx, f, ioStreams, "toolchain.dev.openshift.com/provider=codeready-toolchain"); err != nil {
-					return err
-				}
+			ctx.Printlnf("Checking the status of the deleted pod's deployment %v", operatorDeployment.Name)
+			//check the rollout status
+			if err := checkRolloutStatus(ctx, f, ioStreams, "kubesaw-control-plane=kubesaw-controller-manager"); err != nil {
+				return err
 			}
 		}
-	} else {
-		ctx.Printlnf("No Non-OLM based deployment restart happened as Non-Olm deployment found in namespace %s is 0", ns)
+
+		if len(nonOperatorDeploymentList.Items) != 0 {
+			for _, nonOperatorDeployment := range nonOperatorDeploymentList.Items {
+				if nonOperatorDeployment.Name != "autoscaling-buffer" {
+					ctx.Printlnf("Proceeding to restart the non-operator deployment %v", nonOperatorDeployment.Name)
+
+					if err := restartNonOlmDeployments(ctx, nonOperatorDeployment, f, ioStreams); err != nil {
+						return err
+					}
+					//check the rollout status
+					ctx.Printlnf("Checking the status of the rolled out deployment %v", nonOperatorDeployment.Name)
+					if err := checkRolloutStatus(ctx, f, ioStreams, "toolchain.dev.openshift.com/provider=codeready-toolchain"); err != nil {
+						return err
+					}
+				}
+			}
+		} else {
+			ctx.Printlnf("No Non-operator deployment restart happened as Non-Operator deployment found in namespace %s is 0", ns)
+		}
 	}
 	return nil
 }
@@ -141,12 +148,6 @@ func deleteAndWaitForPods(ctx *clicontext.CommandContext, cl runtimeclient.Clien
 			return err
 		}
 	}
-
-	ctx.Printlnf("Checking the status of the deleted pod's deployment %v", deployment.Name)
-	//check the rollout status
-	if err := checkRolloutStatus(ctx, f, ioStreams, "kubesaw-control-plane=kubesaw-controller-manager"); err != nil {
-		return err
-	}
 	return nil
 
 }
@@ -164,7 +165,7 @@ func restartNonOlmDeployments(ctx *clicontext.CommandContext, deployment appsv1.
 	if err := o.Validate(); err != nil {
 		panic(err)
 	}
-	ctx.Printlnf("Running the rollout restart command for non-olm deployment %v", deployment)
+	ctx.Printlnf("Running the rollout restart command for non-olm deployment %v", deployment.Name)
 	return o.RunRestart()
 }
 

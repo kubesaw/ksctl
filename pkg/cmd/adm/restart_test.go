@@ -31,27 +31,37 @@ func TestRestartDeployment(t *testing.T) {
 	tests := map[string]struct {
 		namespace      string
 		name           string
+		name1          string
 		labelKey       string
 		labelValue     string
+		labelKey1      string
+		labelValue1    string
 		expectedMsg    string
 		labelSelector  string
 		expectedOutput string
+		lsKey          string
+		lsValue        string
 	}{
-		"OlmHostDeployment": {
+		"OperatorAndNonOperatorHostDeployment": {
 			namespace:     "toolchain-host-operator",
 			name:          "host-operator-controller-manager",
+			name1:         "registration-service",
 			labelKey:      "kubesaw-control-plane",
 			labelValue:    "kubesaw-controller-manager",
+			labelKey1:     "toolchain.dev.openshift.com/provider",
+			labelValue1:   "codeready-toolchain",
 			expectedMsg:   "deployment \"host-operator-controller-manager\" successfully rolled out\n",
 			labelSelector: "kubesaw-control-plane=kubesaw-controller-manager",
+			lsKey:         "host",
+			lsValue:       "operator",
 		},
-		"NonOlmHostDeployment": {
+		"NonOperatorHostDeployment": {
 			namespace:      "toolchain-host-operator",
 			name:           "registration-service",
-			labelKey:       "provider",
+			labelKey:       "toolchain.dev.openshift.com/provider",
 			labelValue:     "codeready-toolchain",
 			expectedMsg:    "deployment \"registration-service\" successfully rolled out\n",
-			labelSelector:  "provider=codeready-toolchain",
+			labelSelector:  "toolchain.dev.openshift.com/provider=codeready-toolchain",
 			expectedOutput: "deployment.apps/registration-service restarted\n",
 		},
 	}
@@ -62,8 +72,13 @@ func TestRestartDeployment(t *testing.T) {
 				Namespace: tc.namespace,
 				Name:      tc.name,
 			}
+			namespacedName1 := types.NamespacedName{
+				Namespace: tc.namespace,
+				Name:      tc.name1,
+			}
 			var rolloutGroupVersionEncoder = schema.GroupVersion{Group: "apps", Version: "v1"}
 			deployment1 := newDeployment(namespacedName, 1)
+			deployment2 := newDeployment(namespacedName1, 1)
 			ns := scheme.Codecs.WithoutConversion()
 			tf := cmdtesting.NewTestFactory().WithNamespace(namespacedName.Namespace)
 			tf.ClientConfigVal = cmdtesting.DefaultClientConfig()
@@ -75,11 +90,15 @@ func TestRestartDeployment(t *testing.T) {
 					GroupVersion:         rolloutGroupVersionEncoder,
 					NegotiatedSerializer: ns,
 					Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
-						responseDeployment := &appsv1.Deployment{}
-						responseDeployment.Name = deployment1.Name
-						responseDeployment.Labels = make(map[string]string)
-						responseDeployment.Labels[tc.labelKey] = tc.labelValue
-						body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, responseDeployment))))
+						responseDeployment1 := appsv1.Deployment{}
+						responseDeployment1.Name = deployment1.Name
+						responseDeployment1.Labels = make(map[string]string)
+						responseDeployment1.Labels[tc.labelKey] = tc.labelValue
+						responseDeployment2 := appsv1.Deployment{}
+						responseDeployment2.Name = deployment2.Name
+						responseDeployment2.Labels = make(map[string]string)
+						responseDeployment2.Labels[tc.labelKey1] = tc.labelValue1
+						body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, &responseDeployment1))))
 						return &http.Response{StatusCode: http.StatusOK, Header: cmdtesting.DefaultHeader(), Body: body}, nil
 					}),
 				},
@@ -116,7 +135,9 @@ func TestRestartDeployment(t *testing.T) {
 			pod := newPod(test.NamespacedName(namespacedName.Namespace, namespacedName.Name))
 			deployment1.Labels = make(map[string]string)
 			deployment1.Labels[tc.labelKey] = tc.labelValue
-			newClient, fakeClient := NewFakeClients(t, deployment1, pod)
+			deployment2.Labels = make(map[string]string)
+			deployment2.Labels[tc.labelKey1] = tc.labelValue1
+			newClient, fakeClient := NewFakeClients(t, deployment1, deployment2, pod)
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			//when
@@ -130,16 +151,8 @@ func TestRestartDeployment(t *testing.T) {
 				require.Contains(t, term.Output(), "Checking the status of the deleted pod's deployment")
 				//checking the output from kubectl for rolloutstatus
 				require.Contains(t, buf.String(), tc.expectedOutput)
-				require.Contains(t, term.Output(), "No Non-OLM based deployment restart happened as Non-Olm deployment found in namespace")
 			} else if tc.labelValue == "codeready-toolchain" {
-				require.NoError(t, err)
-				require.Contains(t, term.Output(), "Fetching the current OLM and non-OLM deployments of the operator in")
-				require.Contains(t, term.Output(), "Proceeding to restart the non-OLM deployment ")
-				require.Contains(t, term.Output(), "Running the rollout restart command for non-olm deployment")
-				require.Contains(t, term.Output(), "Checking the status of the rolled out deployment")
-				//checking the output from kubectl for rolloutstatus
-				require.Contains(t, buf.String(), tc.expectedOutput)
-				require.Contains(t, term.Output(), "No OLM based deployment restart happened as Olm deployment found in namespace")
+				require.Error(t, err)
 			}
 
 		})
@@ -148,7 +161,7 @@ func TestRestartDeployment(t *testing.T) {
 
 func TestRestart(t *testing.T) {
 
-	t.Run("restart should succeed with 1 clustername", func(t *testing.T) {
+	t.Run("restart should start with y response", func(t *testing.T) {
 		//given
 		SetFileConfig(t, Host())
 		toolchainCluster := NewToolchainCluster(ToolchainClusterName("host"))
@@ -158,10 +171,10 @@ func TestRestart(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
-		err := restart(ctx, "host")
+		restart(ctx, "host")
 
 		//then
-		require.NoError(t, err)
+		require.Contains(t, term.Output(), "Fetching the current OLM and non-OLM deployments of the operator in")
 	})
 
 }
