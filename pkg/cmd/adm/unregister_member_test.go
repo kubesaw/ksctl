@@ -26,10 +26,10 @@ func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	UnregisterMemberCluster(ctx, "member1")
+	err := UnregisterMemberCluster(ctx, "member1")
 
 	// then
-	//require.NoError(t, err)
+	require.Error(t, err)
 	AssertToolchainClusterDoesNotExist(t, fakeClient, toolchainCluster)
 	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
 	assert.NotContains(t, term.Output(), "THIS COMMAND WILL CAUSE UNREGISTER MEMBER CLUSTER FORM HOST CLUSTER. MAKE SURE THERE IS NO USERS LEFT IN THE MEMBER CLUSTER BEFORE UNREGISTERING IT")
