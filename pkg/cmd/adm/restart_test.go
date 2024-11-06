@@ -171,9 +171,10 @@ func TestRestart(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
-		restart(ctx, "host")
+		err := restart(ctx, "host")
 
 		//then
+		require.Error(t, err)
 		require.Contains(t, term.Output(), "Fetching the current OLM and non-OLM deployments of the operator in")
 	})
 
