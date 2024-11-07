@@ -2,12 +2,9 @@ package adm
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"net/http"
 	"testing"
-
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
@@ -16,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -90,40 +88,31 @@ func TestRestartDeployment(t *testing.T) {
 				Name:      tc.name1,
 			}
 			var rolloutGroupVersionEncoder = schema.GroupVersion{Group: "apps", Version: "v1"}
-			deployment1 := newDeployment(namespacedName, 3)
-			deployment2 := newDeployment(namespacedName1, 3)
+			deployment1 := newDeployment(namespacedName, 1)
+			deployment2 := newDeployment(namespacedName1, 1)
 			ns := scheme.Codecs.WithoutConversion()
 			tf := cmdtesting.NewTestFactory().WithNamespace(namespacedName.Namespace)
 			tf.ClientConfigVal = cmdtesting.DefaultClientConfig()
-
 			info, _ := runtime.SerializerInfoForMediaType(ns.SupportedMediaTypes(), runtime.ContentTypeJSON)
 			encoder := ns.EncoderForVersion(info.Serializer, rolloutGroupVersionEncoder)
-			tf.Client = &RolloutRestartRESTClient{
-				RESTClient: &fake.RESTClient{
-					GroupVersion:         rolloutGroupVersionEncoder,
-					NegotiatedSerializer: ns,
-					Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
-						responseDeployment1 := appsv1.Deployment{}
-						responseDeployment1.Name = deployment1.Name
-						responseDeployment1.Labels = make(map[string]string)
-						responseDeployment1.Labels[tc.labelKey] = tc.labelValue
-						responseDeployment2 := appsv1.Deployment{}
-						responseDeployment2.Name = deployment2.Name
-						responseDeployment2.Labels = make(map[string]string)
-						responseDeployment2.Labels[tc.labelKey1] = tc.labelValue1
-						body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, &responseDeployment1))))
-						return &http.Response{StatusCode: http.StatusOK, Header: cmdtesting.DefaultHeader(), Body: body}, nil
-					}),
-				},
+			tf.Client = &fake.RESTClient{
+				GroupVersion:         rolloutGroupVersionEncoder,
+				NegotiatedSerializer: ns,
+				Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
+					body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, deployment1))))
+					return &http.Response{StatusCode: http.StatusOK, Header: cmdtesting.DefaultHeader(), Body: body}, nil
+				}),
 			}
+			cscalls := 0
 			tf.FakeDynamicClient.WatchReactionChain = nil
 			tf.FakeDynamicClient.AddWatchReactor("*", func(action cgtesting.Action) (handled bool, ret watch.Interface, err error) {
+				cscalls++
 				fw := watch.NewFake()
 				deployment1.Status = appsv1.DeploymentStatus{
-					Replicas:            3,
-					UpdatedReplicas:     3,
-					ReadyReplicas:       3,
-					AvailableReplicas:   3,
+					Replicas:            1,
+					UpdatedReplicas:     1,
+					ReadyReplicas:       1,
+					AvailableReplicas:   1,
 					UnavailableReplicas: 0,
 					Conditions: []appsv1.DeploymentCondition{{
 						Type: appsv1.DeploymentAvailable,
@@ -148,24 +137,30 @@ func TestRestartDeployment(t *testing.T) {
 			deployment2.Labels[tc.labelKey1] = tc.labelValue1
 			newClient, fakeClient := NewFakeClients(t, deployment1, deployment2, pod)
 			ctx := clicontext.NewCommandContext(term, newClient)
-			numberOfUpdateCalls := 0
 
 			//when
 			err := restartDeployment(ctx, fakeClient, namespacedName.Namespace, tf, streams)
+			//then
+			actualPod := &corev1.Pod{}
 			if tc.labelValue == "kubesaw-controller-manager" && tc.labelValue1 == "codeready-toolchain" {
-				fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
-				require.NoError(t, err)
+				err = fakeClient.Get(ctx, namespacedName, actualPod)
+				require.True(t, apierror.IsNotFound(err))
 				require.Contains(t, term.Output(), "Fetching the current OLM and non-OLM deployments of the operator in")
 				require.Contains(t, term.Output(), "Proceeding to delete the Pods of")
 				require.Contains(t, term.Output(), "Listing the pods to be deleted")
 				require.Contains(t, term.Output(), "Starting to delete the pods")
-				require.Equal(t, 0, numberOfUpdateCalls)
-				AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 3)
+				actual := &appsv1.Deployment{}
+				AssertObjectHasContent(t, fakeClient, namespacedName, actual, func() {
+					require.NotNil(t, actual.Spec.Replicas)
+					assert.Equal(t, int32(1), *actual.Spec.Replicas)
+					require.NotNil(t, actual.Annotations["restartedAt"])
+				})
 				require.Contains(t, term.Output(), "Checking the status of the deleted pod's deployment")
 				//checking the output from kubectl for rolloutstatus
 				require.Contains(t, buf.String(), tc.expectedOutput)
 				require.Contains(t, term.Output(), "Proceeding to restart the non-operator deployment")
 				require.Contains(t, term.Output(), "Running the rollout restart command for non-olm deployment")
+				assert.Equal(t, 2, cscalls)
 				require.Contains(t, term.Output(), "Checking the status of the rolled out deployment")
 				require.Contains(t, term.Output(), "Running the Rollout status to check the status of the deployment")
 			} else if tc.labelValue == "codeready-toolchain" {
@@ -227,19 +222,6 @@ func newPod(namespacedName types.NamespacedName) *corev1.Pod { //nolint:unparam
 		Status: corev1.PodStatus{
 			Phase: "Running",
 		},
-	}
-}
-
-type RolloutRestartRESTClient struct {
-	*fake.RESTClient
-}
-
-func requireDeploymentBeingUpdated(t *testing.T, fakeClient *test.FakeClient, namespacedName types.NamespacedName, currentReplicas int32, numberOfUpdateCalls *int) func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.UpdateOption) error {
-	return func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.UpdateOption) error {
-		deployment, ok := obj.(*appsv1.Deployment)
-		require.True(t, ok)
-		checkDeploymentBeingUpdated(t, fakeClient, namespacedName, currentReplicas, numberOfUpdateCalls, deployment)
-		return fakeClient.Client.Update(ctx, obj, opts...)
 	}
 }
 
