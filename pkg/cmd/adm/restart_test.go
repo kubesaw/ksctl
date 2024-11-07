@@ -99,7 +99,7 @@ func TestRestartDeployment(t *testing.T) {
 				GroupVersion:         rolloutGroupVersionEncoder,
 				NegotiatedSerializer: ns,
 				Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
-					body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, deployment1))))
+					body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, deployment2))))
 					return &http.Response{StatusCode: http.StatusOK, Header: cmdtesting.DefaultHeader(), Body: body}, nil
 				}),
 			}
@@ -109,6 +109,16 @@ func TestRestartDeployment(t *testing.T) {
 				cscalls++
 				fw := watch.NewFake()
 				deployment1.Status = appsv1.DeploymentStatus{
+					Replicas:            1,
+					UpdatedReplicas:     1,
+					ReadyReplicas:       1,
+					AvailableReplicas:   1,
+					UnavailableReplicas: 0,
+					Conditions: []appsv1.DeploymentCondition{{
+						Type: appsv1.DeploymentAvailable,
+					}},
+				}
+				deployment2.Status = appsv1.DeploymentStatus{
 					Replicas:            1,
 					UpdatedReplicas:     1,
 					ReadyReplicas:       1,
@@ -150,7 +160,7 @@ func TestRestartDeployment(t *testing.T) {
 				require.Contains(t, term.Output(), "Listing the pods to be deleted")
 				require.Contains(t, term.Output(), "Starting to delete the pods")
 				actual := &appsv1.Deployment{}
-				AssertObjectHasContent(t, fakeClient, namespacedName, actual, func() {
+				AssertObjectHasContent(t, fakeClient, namespacedName1, actual, func() {
 					require.NotNil(t, actual.Spec.Replicas)
 					assert.Equal(t, int32(1), *actual.Spec.Replicas)
 					require.NotNil(t, actual.Annotations["restartedAt"])
@@ -164,9 +174,10 @@ func TestRestartDeployment(t *testing.T) {
 				require.Contains(t, term.Output(), "Checking the status of the rolled out deployment")
 				require.Contains(t, term.Output(), "Running the Rollout status to check the status of the deployment")
 			} else if tc.labelValue == "codeready-toolchain" {
-				require.Error(t, err)
+				require.Error(t, err, "no operator based deployment restart happened as operator deployment found in namespace")
 			} else if tc.labelValue == "kubesaw-controller-manager" {
 				require.Contains(t, term.Output(), "No Non-operator deployment restart happened as Non-Operator deployment found in namespace")
+				assert.Equal(t, 1, cscalls)
 			}
 
 		})
