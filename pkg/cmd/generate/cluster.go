@@ -2,7 +2,6 @@ package generate
 
 import (
 	"github.com/kubesaw/ksctl/pkg/configuration"
-	"k8s.io/utils/strings/slices"
 )
 
 type clusterContext struct {
@@ -16,7 +15,7 @@ type clusterContext struct {
 func ensureServiceAccounts(ctx *clusterContext, objsCache objectsCache) error {
 	ctx.Infof("-> Ensuring ServiceAccounts and its RoleBindings...")
 	for _, sa := range ctx.kubeSawAdmins.ServiceAccounts {
-		if ctx.specificKMemberName != "" && slices.Contains(sa.Selector.SkipMembers, ctx.specificKMemberName) {
+		if sa.Selector.ShouldBeSkippedForMember(ctx.specificKMemberName) {
 			continue
 		}
 
@@ -46,7 +45,7 @@ func ensureServiceAccounts(ctx *clusterContext, objsCache objectsCache) error {
 func ensureUsers(ctx *clusterContext, objsCache objectsCache) error {
 	ctx.Infof("-> Ensuring Users and their RoleBindings...")
 	for _, user := range ctx.kubeSawAdmins.Users {
-		if ctx.specificKMemberName != "" && slices.Contains(user.Selector.SkipMembers, ctx.specificKMemberName) {
+		if user.Selector.ShouldBeSkippedForMember(ctx.specificKMemberName) {
 			continue
 		}
 		m := &permissionsManager{

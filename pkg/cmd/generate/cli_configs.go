@@ -22,7 +22,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/utils/pointer"
-	"k8s.io/utils/strings/slices"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -185,7 +184,7 @@ func generateForCluster(ctx *generateContext, clusterType configuration.ClusterT
 	tokenPerSAName := tokenPerSA{}
 
 	for _, sa := range ctx.kubeSawAdmins.ServiceAccounts {
-		if slices.Contains(sa.Selector.SkipMembers, clusterName) {
+		if clusterType == configuration.Member && sa.Selector.ShouldBeSkippedForMember(clusterName) {
 			continue
 		}
 		for saClusterType := range sa.PermissionsPerClusterType {
