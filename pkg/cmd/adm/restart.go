@@ -83,14 +83,15 @@ func restart(ctx *clicontext.CommandContext, clusterNames ...string) error {
 	return restartDeployment(ctx, cl, cfg.OperatorNamespace, factory, ioStreams)
 }
 
+// This function has the whole logic of getting the list of operator and non-operator based deployment, then proceed on restarting/deleting accordingly
 func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
-	ctx.Printlnf("Fetching the current OLM and non-OLM deployments of the operator in %s namespace", ns)
 
+	ctx.Printlnf("Fetching the current Operator and non-Operator deployments of the operator in %s namespace", ns)
 	operatorDeploymentList, nonOperatorDeploymentList, err := getExistingDeployments(ctx, cl, ns)
 	if err != nil {
 		return err
 	}
-
+	//if there is no operator deployment, no need for restart
 	if len(operatorDeploymentList.Items) == 0 {
 		return fmt.Errorf("no operator based deployment restart happened as operator deployment found in namespace %s is 0", ns)
 	} else {
@@ -124,6 +125,7 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 				}
 			}
 		} else {
+			//if there are no non-operator deployments
 			ctx.Printlnf("No Non-operator deployment restart happened as Non-Operator deployment found in namespace %s is 0", ns)
 		}
 	}
@@ -165,7 +167,7 @@ func restartNonOlmDeployments(ctx *clicontext.CommandContext, deployment appsv1.
 	if err := o.Validate(); err != nil {
 		panic(err)
 	}
-	ctx.Printlnf("Running the rollout restart command for non-olm deployment %v", deployment.Name)
+	ctx.Printlnf("Running the rollout restart command for non-Operator deployment %v", deployment.Name)
 	return o.RunRestart()
 }
 

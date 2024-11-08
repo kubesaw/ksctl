@@ -29,15 +29,17 @@ func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	err := UnregisterMemberCluster(ctx, "member1")
 
 	// then
-	require.Error(t, err)
+	require.Error(t, err) // since we have not set up http client required for restart(),it will throw an error.
+	// also the restart functionality is being test in restart_test.go, not deuplicating the test,
+	//just a assertion to make sure that restart is started
 	AssertToolchainClusterDoesNotExist(t, fakeClient, toolchainCluster)
 	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
 	assert.NotContains(t, term.Output(), "THIS COMMAND WILL CAUSE UNREGISTER MEMBER CLUSTER FORM HOST CLUSTER. MAKE SURE THERE IS NO USERS LEFT IN THE MEMBER CLUSTER BEFORE UNREGISTERING IT")
 	assert.Contains(t, term.Output(), "Delete Member cluster stated above from the Host cluster?")
 	assert.Contains(t, term.Output(), "The deletion of the Toolchain member cluster from the Host cluster has been triggered")
 	assert.NotContains(t, term.Output(), "cool-token")
-
 	AssertDeploymentHasReplicas(t, fakeClient, hostDeploymentName, 1)
+	require.Contains(t, term.Output(), "Fetching the current Operator and non-Operator deployments of the operator in")
 }
 
 func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {

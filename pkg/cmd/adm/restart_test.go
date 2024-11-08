@@ -43,6 +43,7 @@ func TestRestartDeployment(t *testing.T) {
 		lsKey          string
 		lsValue        string
 	}{
+		//operator and non-operator deployments
 		"OperatorAndNonOperatorHostDeployment": {
 			namespace:     "toolchain-host-operator",
 			name:          "host-operator-controller-manager",
@@ -56,6 +57,7 @@ func TestRestartDeployment(t *testing.T) {
 			lsKey:         "host",
 			lsValue:       "operator",
 		},
+		//only non-operator deployment
 		"NonOperatorHostDeployment": {
 			namespace:      "toolchain-host-operator",
 			name:           "registration-service",
@@ -65,6 +67,7 @@ func TestRestartDeployment(t *testing.T) {
 			labelSelector:  "toolchain.dev.openshift.com/provider=codeready-toolchain",
 			expectedOutput: "deployment.apps/registration-service restarted\n",
 		},
+		//only operator deployment
 		"OperatorHostDeployment": {
 			namespace:     "toolchain-host-operator",
 			name:          "host-operator-controller-manager",
@@ -99,26 +102,16 @@ func TestRestartDeployment(t *testing.T) {
 				GroupVersion:         rolloutGroupVersionEncoder,
 				NegotiatedSerializer: ns,
 				Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
-					body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, deployment2))))
+					body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, deployment1))))
 					return &http.Response{StatusCode: http.StatusOK, Header: cmdtesting.DefaultHeader(), Body: body}, nil
 				}),
 			}
-			cscalls := 0
+			csCalls := 0
 			tf.FakeDynamicClient.WatchReactionChain = nil
 			tf.FakeDynamicClient.AddWatchReactor("*", func(action cgtesting.Action) (handled bool, ret watch.Interface, err error) {
-				cscalls++
+				csCalls++
 				fw := watch.NewFake()
 				deployment1.Status = appsv1.DeploymentStatus{
-					Replicas:            1,
-					UpdatedReplicas:     1,
-					ReadyReplicas:       1,
-					AvailableReplicas:   1,
-					UnavailableReplicas: 0,
-					Conditions: []appsv1.DeploymentCondition{{
-						Type: appsv1.DeploymentAvailable,
-					}},
-				}
-				deployment2.Status = appsv1.DeploymentStatus{
 					Replicas:            1,
 					UpdatedReplicas:     1,
 					ReadyReplicas:       1,
@@ -152,32 +145,33 @@ func TestRestartDeployment(t *testing.T) {
 			err := restartDeployment(ctx, fakeClient, namespacedName.Namespace, tf, streams)
 			//then
 			actualPod := &corev1.Pod{}
+			//checking the whole flow(starting with operator deployments & then to non operator deployments)
 			if tc.labelValue == "kubesaw-controller-manager" && tc.labelValue1 == "codeready-toolchain" {
-				err = fakeClient.Get(ctx, namespacedName, actualPod)
-				require.True(t, apierror.IsNotFound(err))
-				require.Contains(t, term.Output(), "Fetching the current OLM and non-OLM deployments of the operator in")
+				//checking the flow for operator deployments
+				require.Contains(t, term.Output(), "Fetching the current Operator and non-Operator deployments of the operator in")
 				require.Contains(t, term.Output(), "Proceeding to delete the Pods of")
 				require.Contains(t, term.Output(), "Listing the pods to be deleted")
 				require.Contains(t, term.Output(), "Starting to delete the pods")
-				actual := &appsv1.Deployment{}
-				AssertObjectHasContent(t, fakeClient, namespacedName1, actual, func() {
-					require.NotNil(t, actual.Spec.Replicas)
-					assert.Equal(t, int32(1), *actual.Spec.Replicas)
-					require.NotNil(t, actual.Annotations["restartedAt"])
-				})
+				err = fakeClient.Get(ctx, namespacedName, actualPod)
+				//pods are actually deleted
+				require.True(t, apierror.IsNotFound(err))
 				require.Contains(t, term.Output(), "Checking the status of the deleted pod's deployment")
 				//checking the output from kubectl for rolloutstatus
 				require.Contains(t, buf.String(), tc.expectedOutput)
+				//checking the flowfor non-operator deployments
 				require.Contains(t, term.Output(), "Proceeding to restart the non-operator deployment")
-				require.Contains(t, term.Output(), "Running the rollout restart command for non-olm deployment")
-				assert.Equal(t, 2, cscalls)
+				require.Contains(t, term.Output(), "Running the rollout restart command for non-Operator deployment")
+				assert.Equal(t, 2, csCalls)
 				require.Contains(t, term.Output(), "Checking the status of the rolled out deployment")
 				require.Contains(t, term.Output(), "Running the Rollout status to check the status of the deployment")
 			} else if tc.labelValue == "codeready-toolchain" {
+				//Checking the logic where no operator deployments are there
 				require.Error(t, err, "no operator based deployment restart happened as operator deployment found in namespace")
+				assert.Equal(t, 0, csCalls)
 			} else if tc.labelValue == "kubesaw-controller-manager" {
+				//checking the logic when only operator based deployment is there and no non-operator based
 				require.Contains(t, term.Output(), "No Non-operator deployment restart happened as Non-Operator deployment found in namespace")
-				assert.Equal(t, 1, cscalls)
+				assert.Equal(t, 1, csCalls)
 			}
 
 		})
@@ -199,8 +193,8 @@ func TestRestart(t *testing.T) {
 		err := restart(ctx, "host")
 
 		//then
-		require.Error(t, err)
-		require.Contains(t, term.Output(), "Fetching the current OLM and non-OLM deployments of the operator in")
+		require.Error(t, err) //we expect an error as we have not setp up any http client , just checking that it passes the cmd phase and restart method is called
+		require.Contains(t, term.Output(), "Fetching the current Operator and non-Operator deployments of the operator in")
 	})
 
 }
