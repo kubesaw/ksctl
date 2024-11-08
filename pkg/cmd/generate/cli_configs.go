@@ -40,7 +40,7 @@ func NewCliConfigsCmd() *cobra.Command {
 		Long:  `Generate ksctl.yaml files, that is used by ksctl, for every ServiceAccount defined in the given kubesaw-admins.yaml file`,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			return generate(term, f, DefaultNewExternalClientFromConfig)
 		},
 	}
@@ -98,7 +98,7 @@ func generate(term ioutils.Terminal, flags generateFlags, newExternalClient NewR
 	// use host API either from the kubesaw-admins.yaml or from kubeconfig if --dev flag was used
 	hostSpec := kubeSawAdmins.Clusters.Host
 	if flags.dev {
-		term.Printlnf("Using kubeconfig located at '%s' for retrieving the host cluster information...", flags.kubeconfigs[0])
+		term.Infof("Using kubeconfig located at '%s' for retrieving the host cluster information...", flags.kubeconfigs[0])
 		kubeconfig, err := clientcmd.BuildConfigFromFlags("", flags.kubeconfigs[0])
 		if err != nil {
 			return errs.Wrapf(err, "unable to build kubeconfig")
@@ -150,7 +150,7 @@ func writeKsctlConfigs(term ioutils.Terminal, configDirPath string, ksctlConfigs
 		if err := os.WriteFile(path, content, 0600); err != nil {
 			return err
 		}
-		term.Printlnf("ksctl.yaml file for %s was stored in %s", name, path)
+		term.Infof("ksctl.yaml file for %s was stored in %s", name, path)
 	}
 	return nil
 }
@@ -167,7 +167,7 @@ type generateContext struct {
 type tokenPerSA map[string]string
 
 func generateForCluster(ctx *generateContext, clusterType configuration.ClusterType, clusterName string, clusterSpec assets.ClusterConfig, ksctlConfigsPerName map[string]configuration.KsctlConfig) error {
-	ctx.PrintContextSeparatorf("Generating the content of the ksctl.yaml files for %s cluster running at %s", clusterName, clusterSpec.API)
+	ctx.Infof("Generating the content of the ksctl.yaml files for %s cluster running at %s", clusterName, clusterSpec.API)
 
 	// find config we can build client for the cluster from
 	externalClient, err := buildClientFromKubeconfigFiles(ctx, clusterSpec.API, ctx.kubeconfigPaths, defaultSAsNamespace(ctx.kubeSawAdmins, clusterType))
@@ -195,7 +195,7 @@ func generateForCluster(ctx *generateContext, clusterType configuration.ClusterT
 			if sa.Namespace != "" {
 				saNamespace = sa.Namespace
 			}
-			ctx.Printlnf("Getting token for SA '%s' in namespace '%s'", sa.Name, saNamespace)
+			ctx.Infof("Getting token for SA '%s' in namespace '%s'", sa.Name, saNamespace)
 			token, err := GetServiceAccountToken(externalClient, types.NamespacedName{
 				Namespace: saNamespace,
 				Name:      sa.Name}, ctx.tokenExpirationDays)
@@ -217,25 +217,25 @@ func buildClientFromKubeconfigFiles(ctx *generateContext, API string, kubeconfig
 	for _, kubeconfigPath := range kubeconfigPaths {
 		kubeconfig, err := clientcmd.BuildConfigFromFlags(API, kubeconfigPath)
 		if err != nil {
-			ctx.Printlnf("Unable to build config from kubeconfig file located at '%s' for the cluster '%s': %s", kubeconfigPath, API, err.Error())
-			ctx.Printlnf("trying next one...")
+			ctx.Infof("Unable to build config from kubeconfig file located at '%s' for the cluster '%s': %s", kubeconfigPath, API, err.Error())
+			ctx.Infof("trying next one...")
 			continue
 		}
 		externalCl, err := ctx.newRESTClient(kubeconfig)
 		if err != nil {
-			ctx.Printlnf("Unable to build config from kubeconfig file located at '%s' for the cluster '%s': %s", kubeconfigPath, API, err.Error())
-			ctx.Printlnf("trying next one...")
+			ctx.Infof("Unable to build config from kubeconfig file located at '%s' for the cluster '%s': %s", kubeconfigPath, API, err.Error())
+			ctx.Infof("trying next one...")
 			continue
 		}
 		sas := &v1.ServiceAccountList{}
 		if err := externalCl.Get().
 			AbsPath(fmt.Sprintf("api/v1/namespaces/%s/serviceaccounts/", saNamespace)).
 			Do(context.TODO()).Into(sas); err != nil {
-			ctx.Printlnf("Unable to use restclient built with kubeconfig file located at '%s' for the cluster '%s': %s", kubeconfigPath, API, err.Error())
-			ctx.Printlnf("trying next one...")
+			ctx.Infof("Unable to use restclient built with kubeconfig file located at '%s' for the cluster '%s': %s", kubeconfigPath, API, err.Error())
+			ctx.Infof("trying next one...")
 			continue
 		}
-		ctx.Printlnf("Using kubeconfig file located at '%s' for the cluster '%s'", kubeconfigPath, API)
+		ctx.Infof("Using kubeconfig file located at '%s' for the cluster '%s'", kubeconfigPath, API)
 		return externalCl, nil
 	}
 	return nil, fmt.Errorf("could not setup client from any of the provided kubeconfig files for the '%s' cluster", API)

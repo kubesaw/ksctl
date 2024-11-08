@@ -1,13 +1,17 @@
 package adm
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/charmbracelet/log"
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
 	"github.com/stretchr/testify/assert"
@@ -32,14 +36,14 @@ func TestRestartDeployment(t *testing.T) {
 			Namespace: namespace,
 			Name:      "cool-deployment",
 		}
-		term := NewFakeTerminalWithResponse("Y")
-
 		t.Run("restart is successful for "+clusterName, func(t *testing.T) {
 			// given
 			deployment := newDeployment(namespacedName, 3)
 			newClient, fakeClient := NewFakeClients(t, deployment)
 			numberOfUpdateCalls := 0
 			fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -57,7 +61,8 @@ func TestRestartDeployment(t *testing.T) {
 			newClient, fakeClient := NewFakeClients(t, deployment)
 			numberOfUpdateCalls := 0
 			fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -67,8 +72,8 @@ func TestRestartDeployment(t *testing.T) {
 			require.EqualError(t, err, "at least one deployment name is required, include one or more of the above deployments to restart")
 			AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 3)
 			assert.Equal(t, 0, numberOfUpdateCalls)
-			assert.Contains(t, term.Output(), fmt.Sprintf("Existing deployments in toolchain-%s-operator namespace", clusterType))
-			assert.Contains(t, term.Output(), "cool-deployment")
+			assert.Contains(t, buffy.String(), fmt.Sprintf("Existing deployments in the 'toolchain-%s-operator' namespace:", clusterType))
+			assert.Contains(t, buffy.String(), "- cool-deployment")
 		})
 
 		t.Run("restart fails - cannot get the deployment for "+clusterName, func(t *testing.T) {
@@ -80,6 +85,8 @@ func TestRestartDeployment(t *testing.T) {
 			fakeClient.MockGet = func(ctx context.Context, key runtimeclient.ObjectKey, obj runtimeclient.Object, opts ...runtimeclient.GetOption) error {
 				return fmt.Errorf("some error")
 			}
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -98,7 +105,8 @@ func TestRestartDeployment(t *testing.T) {
 			newClient, fakeClient := NewFakeClients(t, deployment)
 			numberOfUpdateCalls := 0
 			fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -108,9 +116,9 @@ func TestRestartDeployment(t *testing.T) {
 			require.NoError(t, err)
 			AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 3)
 			assert.Equal(t, 0, numberOfUpdateCalls)
-			assert.Contains(t, term.Output(), "ERROR: The given deployment 'wrong-deployment' wasn't found.")
-			assert.Contains(t, term.Output(), fmt.Sprintf("Existing deployments in toolchain-%s-operator namespace", clusterType))
-			assert.Contains(t, term.Output(), "cool-deployment")
+			assert.Contains(t, buffy.String(), "The 'wrong-deployment' Deployment could not be found")
+			assert.Contains(t, buffy.String(), fmt.Sprintf("Existing deployments in the 'toolchain-%s-operator' namespace:", clusterType))
+			assert.Contains(t, buffy.String(), "- cool-deployment")
 		})
 	}
 }
@@ -133,11 +141,12 @@ func TestRestartDeploymentWithInsufficientPermissions(t *testing.T) {
 		newClient, fakeClient := NewFakeClients(t, deployment)
 		numberOfUpdateCalls := 0
 		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 3, &numberOfUpdateCalls)
-		term := NewFakeTerminalWithResponse("Y")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
-		err := restart(ctx, clusterName, "cool-deployment")
+		err := restart(ctx, "cool-deployment")
 
 		// then
 		require.Error(t, err)
@@ -149,8 +158,8 @@ func TestRestartDeploymentWithInsufficientPermissions(t *testing.T) {
 func TestRestartHostOperator(t *testing.T) {
 	// given
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("") // it should not read the input
-	cfg, err := configuration.LoadClusterConfig(term, "host")
+	logger := log.New(&strings.Builder{})
+	cfg, err := configuration.LoadClusterConfig(logger, "host")
 	require.NoError(t, err)
 	namespacedName := types.NamespacedName{
 		Namespace: "toolchain-host-operator",
@@ -164,6 +173,8 @@ func TestRestartHostOperator(t *testing.T) {
 		newClient, fakeClient := NewFakeClients(t, deployment)
 		numberOfUpdateCalls := 0
 		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -181,6 +192,8 @@ func TestRestartHostOperator(t *testing.T) {
 		newClient, fakeClient := NewFakeClients(t, deployment)
 		numberOfUpdateCalls := 0
 		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -201,6 +214,8 @@ func TestRestartHostOperator(t *testing.T) {
 		newClient, fakeClient := NewFakeClients(t, deployment, deployment2)
 		numberOfUpdateCalls := 0
 		fakeClient.MockUpdate = requireDeploymentBeingUpdated(t, fakeClient, namespacedName, 1, &numberOfUpdateCalls)
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when

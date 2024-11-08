@@ -1,15 +1,15 @@
 package ioutils
 
 import (
-	"bufio"
 	"fmt"
 	"io"
-	"log"
-	"strings"
+	"time"
 
+	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/log"
 	"github.com/ghodss/yaml"
 	errs "github.com/pkg/errors"
-	"golang.org/x/term"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -17,139 +17,105 @@ import (
 // AssumeYes automatically answers yes for all questions.
 var AssumeYes bool
 
-// Terminal a wrapper around a Cobra command, with extra methods
-// to display messages.
-type Terminal interface {
-	InOrStdin() io.Reader
-	OutOrStdout() io.Writer
-	AskForConfirmation(msg ConfirmationMessage) bool
-	Println(msg string)
-	Printlnf(msg string, args ...interface{})
-	PrintContextSeparatorf(context string, args ...interface{})
-	PrintContextSeparatorWithBodyf(body, context string, args ...interface{})
-	PrintObject(object runtime.Object, title string) error
+type Terminal struct {
+	input  io.Reader
+	output io.Writer
+	*log.Logger
+	defaultConfirm *bool
 }
 
-// NewTerminal returns a new terminal with the given funcs to
-// access the `in` reader and `out` writer
-func NewTerminal(in func() io.Reader, out func() io.Writer) Terminal {
-	return &DefaultTerminal{
-		in:  in,
-		out: out,
+func NewTerminal(input io.Reader, output io.Writer, options ...TerminalOption) Terminal {
+	logger := log.NewWithOptions(output, log.Options{
+		TimeFormat: time.Kitchen,
+		Level:      log.InfoLevel,
+	})
+	t := Terminal{
+		input:  input,
+		output: output,
+		Logger: logger,
+	}
+	for _, apply := range options {
+		apply(&t)
+	}
+	return t
+}
+
+type TerminalOption func(t *Terminal)
+
+func WithDefaultConfirm(v bool) TerminalOption {
+	return func(t *Terminal) {
+		t.defaultConfirm = &v
 	}
 }
 
-// DefaultTerminal a wrapper around a Cobra command, with extra methods
-// to display messages.
-type DefaultTerminal struct {
-	in  func() io.Reader
-	out func() io.Writer
+func WithVerbose(verbose bool) TerminalOption {
+	return func(t *Terminal) {
+		if verbose {
+			t.Logger.SetLevel(log.DebugLevel)
+		}
+	}
 }
 
-// InOrStdin returns an `io.Reader` to read the user's input
-func (t *DefaultTerminal) InOrStdin() io.Reader {
-	return t.in()
+func WithTee(w io.Writer) TerminalOption {
+	return func(t *Terminal) {
+		t.Logger.SetOutput(io.MultiWriter(t.output, w))
+
+	}
 }
 
-// OutOrStdout returns an `io.Writer` to write messages in the console
-func (t *DefaultTerminal) OutOrStdout() io.Writer {
-	return t.out()
+func (t Terminal) Confirm(msg string, args ...any) (bool, error) {
+	if t.defaultConfirm != nil {
+		return *t.defaultConfirm, nil
+	}
+	var answer bool
+	confirm := huh.NewConfirm().Title(fmt.Sprintf(msg, args...)).Value(&answer)
+	if err := huh.NewForm(huh.NewGroup(confirm)).WithInput(t.input).Run(); err != nil {
+		return false, err
+	}
+	return answer, nil
 }
 
-// Println prints the given message and appends a line feed
-func (t *DefaultTerminal) Println(msg string) {
-	fmt.Fprintln(t.OutOrStdout(), msg)
-}
-
-// Printf prints the given message with arguments
-func (t *DefaultTerminal) Printf(format string, args ...interface{}) {
-	fmt.Fprintf(t.OutOrStdout(), format, args...)
-}
-
-// Printlnf prints the given message with arguments and appends a line feed
-func (t *DefaultTerminal) Printlnf(format string, args ...interface{}) {
-	fmt.Fprintf(t.OutOrStdout(), format+"\n", args...)
-}
-
-// PrintContextSeparatorf prints the context separator (only)
-func (t *DefaultTerminal) PrintContextSeparatorf(context string, args ...interface{}) {
-	t.PrintContextSeparatorWithBodyf("", context, args...)
-}
-
-// PrintContextSeparatorWithBodyf prints the context separator and a message
-func (t *DefaultTerminal) PrintContextSeparatorWithBodyf(body, context string, args ...interface{}) {
-	width, _, err := term.GetSize(0)
+func (t Terminal) PrintObject(title string, object runtime.Object) error {
+	t.Info(title)
+	r, err := glamour.NewTermRenderer(
+		// detect background color and pick either the default dark or light theme
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(120),
+		glamour.WithStylesFromJSONBytes([]byte(`
+		{ 
+			"document": { 
+				"margin": 0,
+				"block_prefix": "",
+				"block_suffix": "",
+				"prefix": ""
+			},
+			"code_block": {
+				"margin": 0, 
+				"block_prefix": "",
+				"block_suffix": "",
+				"prefix": "",
+				"suffix": ""
+			} 
+		}`)),
+	)
 	if err != nil {
-		width = 60
+		return err
 	}
-	line := strings.Repeat("-", width)
-	fmt.Fprintln(t.OutOrStdout(), "\n"+line)
-	fmt.Fprintln(t.OutOrStdout(), " "+fmt.Sprintf(context, args...))
-	if body != "" {
-		fmt.Fprintln(t.OutOrStdout(), line)
-		fmt.Fprintln(t.OutOrStdout(), body)
-	}
-	fmt.Fprintln(t.OutOrStdout(), line)
-}
-
-// PrintObject prints the given object
-func (t *DefaultTerminal) PrintObject(object runtime.Object, title string) error {
-	toPrint := object.DeepCopyObject()
-	toPrintMeta, err := meta.Accessor(toPrint)
+	obj := object.DeepCopyObject()
+	m, err := meta.Accessor(obj)
 	if err != nil {
 		return errs.Wrapf(err, "cannot get metadata from %+v", object)
 	}
-	toPrintMeta.SetManagedFields(nil)
-	result, err := yaml.Marshal(toPrint)
+	m.SetManagedFields(nil)
+	result, err := yaml.Marshal(obj)
 	if err != nil {
 		return errs.Wrapf(err, "unable to unmarshal %+v", object)
 	}
-	t.PrintContextSeparatorWithBodyf(string(result), "%s", title)
+	o, err := r.Render(fmt.Sprintf("```yaml\n%s\n```", string(result)))
+	if err != nil {
+		return err
+	}
+	t.Print(o)
 	return nil
-}
 
-func WithDangerZoneMessagef(consequence, action string, args ...interface{}) ConfirmationMessage {
-	return ConfirmationMessage(fmt.Sprintf(`
-###################################
-####                           ####
-####   !!!  DANGER ZONE  !!!   ####
-####                           ####
-###################################
-
-THIS COMMAND WILL CAUSE %s
-%s`, strings.ToUpper(consequence), WithMessagef(action, args...)))
-}
-
-func WithMessagef(action string, args ...interface{}) ConfirmationMessage {
-	return ConfirmationMessage(fmt.Sprintf(`
-Are you sure that you want to %s`, fmt.Sprintf(action, args...)))
-}
-
-type ConfirmationMessage string
-
-func (t *DefaultTerminal) AskForConfirmation(msg ConfirmationMessage) bool {
-	reader := bufio.NewReader(t.InOrStdin())
-	t.Printlnf(string(msg))
-	t.Printlnf("===============================")
-	t.Printf("[y/n] -> ")
-	text := ""
-	var err error
-	if AssumeYes {
-		text = "y"
-	} else {
-		text, err = reader.ReadString('\n')
-		if err != nil {
-			log.Fatal("unable to read from input: ", err)
-		}
-	}
-	text = strings.ReplaceAll(text, "\n", "")
-	t.Printlnf("response: '%s'", text)
-	switch text {
-	case "y", "Y":
-		return true
-	case "n", "N":
-		return false
-	default:
-		return t.AskForConfirmation("answer y or n")
-	}
 }

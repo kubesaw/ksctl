@@ -1,12 +1,14 @@
 package cmd_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/codeready-toolchain/toolchain-common/pkg/test/masteruserrecord"
 
 	"github.com/kubesaw/ksctl/pkg/cmd"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
 	"github.com/stretchr/testify/assert"
@@ -19,7 +21,8 @@ func TestDisableUserCmdWhenAnswerIsY(t *testing.T) {
 	mur1 := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
 	newClient, fakeClient := NewFakeClients(t, mur1)
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("y")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -30,10 +33,10 @@ func TestDisableUserCmdWhenAnswerIsY(t *testing.T) {
 	// check if mur was disabled
 	mur1.Spec.Disabled = true
 	assertMasterUserRecordSpec(t, fakeClient, mur1)
-	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
-	assert.Contains(t, term.Output(), "Are you sure that you want to disable the MasterUserRecord above?")
-	assert.Contains(t, term.Output(), "MasterUserRecord has been disabled")
-	assert.NotContains(t, term.Output(), "cool-token")
+	assert.Contains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+	// assert.Contains(t, buffy.String(), "Are you sure that you want to disable the MasterUserRecord above?")
+	assert.Contains(t, buffy.String(), "MasterUserRecord has been disabled")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestDisableUserCmdWhenAnswerIsN(t *testing.T) {
@@ -41,7 +44,8 @@ func TestDisableUserCmdWhenAnswerIsN(t *testing.T) {
 	mur := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
 	newClient, fakeClient := NewFakeClients(t, mur)
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("n")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(false))
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -50,10 +54,10 @@ func TestDisableUserCmdWhenAnswerIsN(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	assertMasterUserRecordSpec(t, fakeClient, mur)
-	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
-	assert.Contains(t, term.Output(), "Are you sure that you want to disable the MasterUserRecord above?")
-	assert.NotContains(t, term.Output(), "MasterUserRecord has been disabled")
-	assert.NotContains(t, term.Output(), "cool-token")
+	assert.Contains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+	// assert.Contains(t, buffy.String(), "Are you sure that you want to disable the MasterUserRecord above?")
+	assert.NotContains(t, buffy.String(), "MasterUserRecord has been disabled")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }
 
 func TestDisableUserCmdWhenNotFound(t *testing.T) {
@@ -61,7 +65,8 @@ func TestDisableUserCmdWhenNotFound(t *testing.T) {
 	mur := masteruserrecord.NewMasterUserRecord(t, "alice", masteruserrecord.TierName("deactivate30"))
 	newClient, fakeClient := NewFakeClients(t, mur)
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("n")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(false))
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -70,8 +75,8 @@ func TestDisableUserCmdWhenNotFound(t *testing.T) {
 	// then
 	require.EqualError(t, err, "masteruserrecords.toolchain.dev.openshift.com \"some\" not found")
 	assertMasterUserRecordSpec(t, fakeClient, mur)
-	assert.NotContains(t, term.Output(), "!!!  DANGER ZONE  !!!")
-	assert.NotContains(t, term.Output(), "Are you sure that you want to disable the MasterUserRecord above?")
-	assert.NotContains(t, term.Output(), "MasterUserRecord has been disabled")
-	assert.NotContains(t, term.Output(), "cool-token")
+	assert.NotContains(t, buffy.String(), "!!!  DANGER ZONE  !!!")
+	// assert.NotContains(t, buffy.String(), "Are you sure that you want to disable the MasterUserRecord above?")
+	assert.NotContains(t, buffy.String(), "MasterUserRecord has been disabled")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }

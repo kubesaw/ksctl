@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/charmbracelet/log"
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	commonclient "github.com/codeready-toolchain/toolchain-common/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
@@ -15,7 +16,6 @@ import (
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/ghodss/yaml"
 	configv1 "github.com/openshift/api/config/v1"
 	projectv1 "github.com/openshift/api/project/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -119,7 +119,7 @@ func newTlsVerifySkippingTransport() http.RoundTripper {
 }
 
 func PatchUserSignup(ctx *clicontext.CommandContext, name string, changeUserSignup func(*toolchainv1alpha1.UserSignup) (bool, error), afterMessage string) error {
-	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+	cfg, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName)
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func PatchUserSignup(ctx *clicontext.CommandContext, name string, changeUserSign
 		return err
 	}
 
-	ctx.Printlnf(afterMessage)
+	ctx.Info(afterMessage)
 	return nil
 }
 
@@ -156,7 +156,7 @@ func GetUserSignup(cl runtimeclient.Client, namespace, name string) (*toolchainv
 }
 
 func PatchMasterUserRecord(ctx *clicontext.CommandContext, name string, changeMasterUserRecord func(*toolchainv1alpha1.MasterUserRecord) (bool, error), afterMessage string) error {
-	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+	cfg, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName)
 	if err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func PatchMasterUserRecord(ctx *clicontext.CommandContext, name string, changeMa
 		return err
 	}
 
-	ctx.Printlnf(afterMessage)
+	ctx.Info(afterMessage)
 	return nil
 }
 
@@ -193,7 +193,7 @@ func GetMasterUserRecord(cl runtimeclient.Client, namespace, name string) (*tool
 }
 
 func PatchSpace(ctx *clicontext.CommandContext, name string, changeSpace func(*toolchainv1alpha1.Space) (bool, error), afterMessage string) error {
-	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+	cfg, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName)
 	if err != nil {
 		return err
 	}
@@ -213,7 +213,7 @@ func PatchSpace(ctx *clicontext.CommandContext, name string, changeSpace func(*t
 		return err
 	}
 
-	ctx.Printlnf(afterMessage)
+	ctx.Info(afterMessage)
 	return nil
 }
 
@@ -290,25 +290,23 @@ func Ensure(term ioutils.Terminal, cl runtimeclient.Client, obj runtimeclient.Ob
 }
 
 func ensure(term ioutils.Terminal, cl runtimeclient.Client, namespacedName types.NamespacedName, obj runtimeclient.Object) (bool, error) {
-	content, err := yaml.Marshal(obj)
-	if err != nil {
-		return false, err
-	}
 	resourceKind := obj.GetObjectKind().GroupVersionKind().Kind
 	// if GVK is not defined in the given object, then let's use its type
 	if resourceKind == "" {
 		resourceKind = reflect.TypeOf(obj).Elem().Name()
 	}
-	term.PrintContextSeparatorWithBodyf(string(content), "Using %s resource:", resourceKind)
+	if err := term.PrintObject(fmt.Sprintf("Using %s resource:", resourceKind), obj); err != nil {
+		return false, err
+	}
 
 	existing := obj.DeepCopyObject().(runtimeclient.Object)
 	if err := cl.Get(context.TODO(), namespacedName, existing); err != nil && !apierrors.IsNotFound(err) {
 		return false, err
 	} else if err == nil {
-		term.Printlnf("There is an already existing %s with the same name: %s", resourceKind, namespacedName)
-		if !term.AskForConfirmation(ioutils.WithDangerZoneMessagef(
-			"update of the already created "+resourceKind, "update the %s with the hard-coded version?", resourceKind)) {
-			return false, nil
+		term.Warnf("!!!  DANGER ZONE  !!!")
+		term.Warnf("There is already a %s named '%s'", resourceKind, namespacedName)
+		if confirm, err := term.Confirm("update the existing %s with the hard-coded version?", resourceKind); err != nil || !confirm {
+			return confirm, err
 		}
 		metaNew, err := meta.Accessor(obj)
 		if err != nil {
@@ -328,45 +326,45 @@ func ensure(term ioutils.Terminal, cl runtimeclient.Client, namespacedName types
 		if err := cl.Update(context.TODO(), obj); err != nil {
 			return false, err
 		}
-		term.Printlnf("\nThe '%s' %s has been updated", namespacedName.Name, resourceKind)
+		term.Infof("The '%s' %s has been updated", namespacedName.Name, resourceKind)
 		return true, nil
 	}
 
-	if !term.AskForConfirmation(ioutils.WithMessagef("create the %s resource with the name %s ?", resourceKind, namespacedName)) {
-		return false, nil
+	if confirm, err := term.Confirm("Create the %s resource with the name %s ?", resourceKind, namespacedName); err != nil || !confirm {
+		return confirm, err
 	}
 	if err := cl.Create(context.TODO(), obj); err != nil {
 		return false, err
 	}
-	term.Printlnf("\nThe '%s' %s has been created", namespacedName, resourceKind)
+	term.Infof("The '%s' %s has been created", namespacedName, resourceKind)
 	return true, nil
 }
 
 // Create creates the resource only if it does not exist yet (ie, if a resource of the same kind in the same namespace/name doesn't exist yet)
-func Create(term ioutils.Terminal, cl runtimeclient.Client, obj runtimeclient.Object) error {
+func Create(ctx context.Context, logger *log.Logger, cl runtimeclient.Client, obj runtimeclient.Object) error {
 	namespacedName := types.NamespacedName{
 		Namespace: obj.GetNamespace(),
 		Name:      obj.GetName(),
 	}
 	objCopy := obj.DeepCopyObject().(runtimeclient.Object)
-	if err := cl.Get(context.TODO(), namespacedName, objCopy); err != nil && !apierrors.IsNotFound(err) {
+	if err := cl.Get(ctx, namespacedName, objCopy); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	} else if apierrors.IsNotFound(err) {
-		if err := cl.Create(context.TODO(), obj); err != nil {
+		if err := cl.Create(ctx, obj); err != nil {
 			return err
 		}
-		term.Printlnf("\nThe '%s' %s has been created", namespacedName, reflect.TypeOf(obj).Elem().Name())
+		logger.Infof("The '%s' %s has been created", namespacedName, reflect.TypeOf(obj).Elem().Name())
 		return nil
 	}
-	term.Printlnf("\nThe '%s' %s already exists", namespacedName, reflect.TypeOf(obj).Elem().Name())
+	logger.Warnf("The '%s' %s already exists", namespacedName, reflect.TypeOf(obj).Elem().Name())
 	return nil
 }
 
 // GetRouteURL return the scheme+host of the route with the given namespaced name.
 // Since routes may take a bit of time to be available, this func uses a wait loop
 // to make sure that the route was created, or fails after a timeout.
-func GetRouteURL(term ioutils.Terminal, cl runtimeclient.Client, namespacedName types.NamespacedName) (string, error) {
-	term.Printlnf("Waiting for '%s' route to be available...", namespacedName.Name)
+func GetRouteURL(logger *log.Logger, cl runtimeclient.Client, namespacedName types.NamespacedName) (string, error) {
+	logger.Infof("Waiting for '%s' route to be available...", namespacedName.Name)
 	route := routev1.Route{}
 	if err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 		if err := cl.Get(context.TODO(), namespacedName, &route); err != nil && !apierrors.IsNotFound(err) {

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kubesaw/ksctl/pkg/ioutils"
+	"github.com/charmbracelet/log"
 	"github.com/kubesaw/ksctl/pkg/utils"
 
 	"github.com/mitchellh/go-homedir"
@@ -26,7 +26,7 @@ type KsctlConfig struct {
 }
 
 // Load reads in config file and ENV variables if set.
-func Load(term ioutils.Terminal) (KsctlConfig, error) {
+func Load(logger *log.Logger) (KsctlConfig, error) {
 	path := ConfigFileFlag
 	if path == "" {
 		// Find home directory.
@@ -45,9 +45,7 @@ func Load(term ioutils.Terminal) (KsctlConfig, error) {
 		return KsctlConfig{}, fmt.Errorf("the '%s' is not file but a directory", path)
 	}
 
-	if Verbose {
-		term.Printlnf("Using config file: '%s'", path)
-	}
+	logger.Debugf("Using config file: '%s'", path)
 
 	bytes, err := os.ReadFile(path)
 	if err != nil {
@@ -99,8 +97,8 @@ type ClusterAccessDefinition struct {
 type ClusterNamespaces map[string]string
 
 // LoadClusterAccessDefinition loads ClusterAccessDefinition object from the config file and checks that all required parameters are set
-func LoadClusterAccessDefinition(term ioutils.Terminal, clusterName string) (ClusterAccessDefinition, error) {
-	ksctlConfig, err := Load(term)
+func LoadClusterAccessDefinition(logger *log.Logger, clusterName string) (ClusterAccessDefinition, error) {
+	ksctlConfig, err := Load(logger)
 	if err != nil {
 		return ClusterAccessDefinition{}, err
 	}
@@ -151,8 +149,8 @@ type ClusterConfig struct {
 
 // LoadClusterConfig loads ClusterConfig object from the config file and checks that all required parameters are set
 // as well as the token for the given name
-func LoadClusterConfig(term ioutils.Terminal, clusterName string) (ClusterConfig, error) {
-	ksctlConfig, err := Load(term)
+func LoadClusterConfig(logger *log.Logger, clusterName string) (ClusterConfig, error) {
+	ksctlConfig, err := Load(logger)
 	if err != nil {
 		return ClusterConfig{}, err
 	}
@@ -176,10 +174,8 @@ func LoadClusterConfig(term ioutils.Terminal, clusterName string) (ClusterConfig
 		}
 	}
 
-	if Verbose {
-		term.Printlnf("Using '%s' configuration for '%s' cluster running at '%s' and in namespace '%s'\n",
-			clusterName, clusterDef.ServerName, clusterDef.ServerAPI, operatorNamespace)
-	}
+	logger.Debugf("Using '%s' configuration for '%s' cluster running at '%s' and in namespace '%s'\n", clusterName, clusterDef.ServerName, clusterDef.ServerAPI, operatorNamespace)
+
 	return ClusterConfig{
 		ClusterAccessDefinition: clusterDef,
 		AllClusterNames:         getAllClusterNames(ksctlConfig),
@@ -201,8 +197,8 @@ func (c ClusterConfig) GetNamespaceParam() string {
 
 // GetMemberClusterName returns the full name of the member cluster (used in ToolchainCluster CRs)
 // for the provided shot cluster name such as member-1 (used in ksctl.yaml)
-func GetMemberClusterName(term ioutils.Terminal, ctlClusterName string) (string, error) {
-	memberClusterConfig, err := LoadClusterConfig(term, ctlClusterName)
+func GetMemberClusterName(logger *log.Logger, ctlClusterName string) (string, error) {
+	memberClusterConfig, err := LoadClusterConfig(logger, ctlClusterName)
 	if err != nil {
 		return "", err
 	}

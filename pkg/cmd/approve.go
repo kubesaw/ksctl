@@ -38,7 +38,7 @@ only one parameter which is the name of the UserSignup to be approved`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			switch {
 			case usersignupName != "":
@@ -87,7 +87,7 @@ func ByEmailAddress(emailAddress string) LookupUserSignup {
 }
 
 func Approve(ctx *clicontext.CommandContext, lookupUserSignup LookupUserSignup, skipPhone bool, targetCluster string) error {
-	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+	cfg, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName)
 	if err != nil {
 		return err
 	}
@@ -108,17 +108,17 @@ func Approve(ctx *clicontext.CommandContext, lookupUserSignup LookupUserSignup, 
 		return fmt.Errorf(`UserSignup "%s" is missing a phone hash label - the user may not have provided a phone number for verification. In most cases, the user should be asked to attempt the phone verification process. For exceptions, skip this check using the --skip-phone-check parameter`, userSignup.Name)
 	}
 
-	if err := ctx.PrintObject(userSignup, "UserSignup to be approved"); err != nil {
+	if err := ctx.PrintObject("UserSignup to be approved:", userSignup); err != nil {
 		return err
 	}
-	if !ctx.AskForConfirmation(ioutils.WithMessagef("approve the UserSignup above?")) {
-		return nil
+	if confirm, err := ctx.Confirm("Approve the UserSignup above?"); err != nil || !confirm {
+		return err
 	}
 	states.SetVerificationRequired(userSignup, false)
 	states.SetDeactivated(userSignup, false)
 	states.SetApprovedManually(userSignup, true)
 	if targetCluster != "" {
-		userSignup.Spec.TargetCluster, err = configuration.GetMemberClusterName(ctx, targetCluster)
+		userSignup.Spec.TargetCluster, err = configuration.GetMemberClusterName(ctx.Logger, targetCluster)
 		if err != nil {
 			return err
 		}
@@ -126,6 +126,6 @@ func Approve(ctx *clicontext.CommandContext, lookupUserSignup LookupUserSignup, 
 	if err := cl.Update(context.TODO(), userSignup); err != nil {
 		return err
 	}
-	ctx.Printlnf("UserSignup has been approved")
+	ctx.Infof("UserSignup has been approved")
 	return nil
 }

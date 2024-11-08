@@ -24,9 +24,8 @@ func NewRemoveSpaceUsersCmd() *cobra.Command {
 one or more users specified by their MasterUserRecord name.`,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
-
 			return RemoveSpaceUsers(ctx, spaceName, users)
 		},
 	}
@@ -39,7 +38,7 @@ one or more users specified by their MasterUserRecord name.`,
 }
 
 func RemoveSpaceUsers(ctx *clicontext.CommandContext, spaceName string, usersToRemove []string) error {
-	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName) // uses the same token as add-space-users
+	cfg, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName) // uses the same token as add-space-users
 	if err != nil {
 		return err
 	}
@@ -49,7 +48,7 @@ func RemoveSpaceUsers(ctx *clicontext.CommandContext, spaceName string, usersToR
 	}
 
 	// get Space
-	ctx.Println("Checking space...")
+	ctx.Info("Checking space...")
 	space, err := client.GetSpace(cl, cfg.OperatorNamespace, spaceName)
 	if err != nil {
 		return err
@@ -71,16 +70,13 @@ func RemoveSpaceUsers(ctx *clicontext.CommandContext, spaceName string, usersToR
 	}
 
 	// confirmation before SpaceBinding deletion
-	if err := ctx.PrintObject(space, "Space"); err != nil {
+	if err := ctx.PrintObject("Space:", space); err != nil {
 		return err
 	}
-	confirmation := ctx.AskForConfirmation(ioutils.WithMessagef(
-		"remove users from the above Space?"))
-	if !confirmation {
-		return nil
+	if confirm, err := ctx.Confirm("Remove users from the Space above?"); err != nil || !confirm {
+		return err
 	}
-
-	ctx.Println("Deleting SpaceBinding(s)...")
+	ctx.Info("Deleting SpaceBinding(s)...")
 	// delete SpaceBindings
 	for _, sb := range spaceBindingsToDelete {
 		if err := cl.Delete(context.TODO(), sb); err != nil {
@@ -88,6 +84,6 @@ func RemoveSpaceUsers(ctx *clicontext.CommandContext, spaceName string, usersToR
 		}
 	}
 
-	ctx.Printlnf("\nAll SpaceBinding(s) successfully deleted")
+	ctx.Info("All SpaceBinding(s) successfully deleted")
 	return nil
 }

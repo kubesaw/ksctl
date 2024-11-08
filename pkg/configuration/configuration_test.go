@@ -1,11 +1,13 @@
 package configuration_test
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/log"
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	. "github.com/kubesaw/ksctl/pkg/test"
@@ -41,12 +43,14 @@ func TestLoadClusterConfig(t *testing.T) {
 						// given
 						SetFileConfig(t, clusterConfigParam)
 						namespaceName := fmt.Sprintf("toolchain-%s-operator", clusterConfigParam.ClusterType)
-						term := NewFakeTerminal()
-						term.Tee(os.Stdout)
+						buffy := bytes.NewBuffer(nil)
+						logger := log.NewWithOptions(buffy, log.Options{
+							Level: log.DebugLevel,
+						})
 						configuration.Verbose = true
 
 						// when
-						cfg, err := configuration.LoadClusterConfig(term, clusterName)
+						cfg, err := configuration.LoadClusterConfig(logger, clusterName)
 
 						// then
 						require.NoError(t, err)
@@ -59,25 +63,26 @@ func TestLoadClusterConfig(t *testing.T) {
 						assert.Equal(t, "cool-server.com", cfg.ServerName)
 						assert.Len(t, cfg.AllClusterNames, 1)
 						assert.Contains(t, cfg.AllClusterNames, utils.CamelCaseToKebabCase(clusterName))
-						assert.Contains(t, term.Output(), fmt.Sprintf("Using config file: '%s'", configuration.ConfigFileFlag))
-						assert.Contains(t, term.Output(), fmt.Sprintf("Using '%s' configuration for '%s' cluster running at '%s' and in namespace '%s'",
+						assert.Contains(t, buffy.String(), fmt.Sprintf("Using config file: '%s'", configuration.ConfigFileFlag))
+						assert.Contains(t, buffy.String(), fmt.Sprintf("Using '%s' configuration for '%s' cluster running at '%s' and in namespace '%s'",
 							cfg.ClusterName, cfg.ServerName, cfg.ServerAPI, cfg.OperatorNamespace))
 					})
 
 					t.Run("without verbose logs", func(t *testing.T) {
 						// given
 						SetFileConfig(t, clusterConfigParam)
-						term := NewFakeTerminal()
+						buffy := bytes.NewBuffer(nil)
+						logger := log.New(buffy)
 						configuration.Verbose = false
 
 						// when
-						cfg, err := configuration.LoadClusterConfig(term, clusterName)
+						cfg, err := configuration.LoadClusterConfig(logger, clusterName)
 
 						// then
 						require.NoError(t, err)
 						// don't repeat assertions above, just check that logs do NOT contain the following messages
-						assert.NotContains(t, term.Output(), fmt.Sprintf("Using config file: '%s'", configuration.ConfigFileFlag))
-						assert.NotContains(t, term.Output(), fmt.Sprintf("Using '%s' configuration for '%s' cluster running at '%s' and in namespace '%s'",
+						assert.NotContains(t, buffy.String(), fmt.Sprintf("Using config file: '%s'", configuration.ConfigFileFlag))
+						assert.NotContains(t, buffy.String(), fmt.Sprintf("Using '%s' configuration for '%s' cluster running at '%s' and in namespace '%s'",
 							cfg.ClusterType, cfg.ServerName, cfg.ServerAPI, cfg.OperatorNamespace))
 					})
 				})
@@ -92,10 +97,10 @@ func TestLoadClusterConfig(t *testing.T) {
 					restore := test.SetEnvVarAndRestore(t, strings.ToUpper(clusterConfigParam.ClusterType.String())+"_OPERATOR_NAMESPACE", "custom-namespace")
 					t.Cleanup(restore)
 					SetFileConfig(t, WithValues(clusterConfigParam))
-					term := NewFakeTerminal()
+					logger := log.New(&strings.Builder{})
 
 					// when
-					cfg, err := configuration.LoadClusterConfig(term, clusterName)
+					cfg, err := configuration.LoadClusterConfig(logger, clusterName)
 
 					// then
 					require.NoError(t, err, "ksctl command failed: The kubeSaw namespace is not set for the cluster "+clusterConfigParam.ClusterName)
@@ -110,10 +115,10 @@ func TestLoadClusterConfig(t *testing.T) {
 				t.Run("when clusterType is not set for "+clusterConfigParam.ClusterName, func(t *testing.T) {
 					// given
 					SetFileConfig(t, WithValues(clusterConfigParam, ClusterType("")))
-					term := NewFakeTerminal()
+					logger := log.New(&strings.Builder{})
 
 					// when
-					cfg, err := configuration.LoadClusterConfig(term, clusterName)
+					cfg, err := configuration.LoadClusterConfig(logger, clusterName)
 
 					// then
 					require.EqualError(t, err, "ksctl command failed: 'cluster type' is not set for cluster '"+clusterConfigParam.ClusterName+"'")
@@ -128,10 +133,10 @@ func TestLoadClusterConfig(t *testing.T) {
 				t.Run("when token is not set for "+clusterName, func(t *testing.T) {
 					// given
 					SetFileConfig(t, clusterConfigParam)
-					term := NewFakeTerminal()
+					logger := log.New(&strings.Builder{})
 
 					// when
-					cfg, err := configuration.LoadClusterConfig(term, clusterName)
+					cfg, err := configuration.LoadClusterConfig(logger, clusterName)
 
 					// then
 					require.EqualError(t, err, "ksctl command failed: the token in your ksctl.yaml file is missing")
@@ -146,10 +151,10 @@ func TestLoadClusterConfig(t *testing.T) {
 				t.Run("when server api is not set for "+clusterName, func(t *testing.T) {
 					// given
 					SetFileConfig(t, WithValues(clusterConfigParam, ServerAPI("")))
-					term := NewFakeTerminal()
+					logger := log.New(&strings.Builder{})
 
 					// when
-					cfg, err := configuration.LoadClusterConfig(term, clusterName)
+					cfg, err := configuration.LoadClusterConfig(logger, clusterName)
 
 					// then
 					require.EqualError(t, err, "ksctl command failed: The server API is not set for the cluster "+clusterName)
@@ -164,10 +169,10 @@ func TestLoadClusterConfig(t *testing.T) {
 				t.Run("when server name is not set for "+clusterName, func(t *testing.T) {
 					// given
 					SetFileConfig(t, WithValues(clusterConfigParam, ServerName("")))
-					term := NewFakeTerminal()
+					logger := log.New(&strings.Builder{})
 
 					// when
-					cfg, err := configuration.LoadClusterConfig(term, clusterName)
+					cfg, err := configuration.LoadClusterConfig(logger, clusterName)
 
 					// then
 					require.EqualError(t, err, "ksctl command failed: The server name is not set for the cluster "+clusterName)
@@ -178,10 +183,10 @@ func TestLoadClusterConfig(t *testing.T) {
 			t.Run("when no cluster name is defined", func(t *testing.T) {
 				// given
 				SetFileConfig(t)
-				term := NewFakeTerminal()
+				logger := log.New(&strings.Builder{})
 
 				// when
-				_, err := configuration.LoadClusterConfig(term, "dummy")
+				_, err := configuration.LoadClusterConfig(logger, "dummy")
 
 				// then
 				require.Error(t, err)
@@ -195,10 +200,10 @@ func TestLoadClusterConfig(t *testing.T) {
 				t.Run("when multiple cluster names are defined", func(t *testing.T) {
 					// given
 					SetFileConfig(t, Host(), Member(), Member(ClusterName("member2")))
-					term := NewFakeTerminal()
+					logger := log.New(&strings.Builder{})
 
 					// when
-					cfg, err := configuration.LoadClusterConfig(term, clusterName)
+					cfg, err := configuration.LoadClusterConfig(logger, clusterName)
 
 					// then
 					require.NoError(t, err)
@@ -215,10 +220,10 @@ func TestLoadClusterConfig(t *testing.T) {
 func TestLoadingClusterConfigWithNonexistentClusterName(t *testing.T) {
 	// given
 	SetFileConfig(t, Host(), Member())
-	term := NewFakeTerminal()
+	logger := log.New(&strings.Builder{})
 
 	// when
-	cfg, err := configuration.LoadClusterConfig(term, "dummy")
+	cfg, err := configuration.LoadClusterConfig(logger, "dummy")
 
 	// then
 	require.Error(t, err)
@@ -232,34 +237,38 @@ func TestLoad(t *testing.T) {
 
 	t.Run("with verbose messages", func(t *testing.T) {
 		// given
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		logger := log.NewWithOptions(buffy, log.Options{
+			Level: log.DebugLevel,
+		})
 		SetFileConfig(t, Host(), Member())
 		configuration.Verbose = true
 
 		// when
-		ksctlConfig, err := configuration.Load(term)
+		ksctlConfig, err := configuration.Load(logger)
 
 		// then
 		require.NoError(t, err)
 		expectedConfig := NewKsctlConfig(Host(), Member())
 		assert.Equal(t, expectedConfig, ksctlConfig)
-		assert.Contains(t, term.Output(), "Using config file")
+		assert.Contains(t, buffy.String(), "Using config file")
 	})
 
 	t.Run("without verbose messages", func(t *testing.T) {
 		// given
-		term := NewFakeTerminal()
+		buffy := bytes.NewBuffer(nil)
+		logger := log.New(buffy)
 		SetFileConfig(t, Host(), Member())
 		configuration.Verbose = false
 
 		// when
-		ksctlConfig, err := configuration.Load(term)
+		ksctlConfig, err := configuration.Load(logger)
 
 		// then
 		require.NoError(t, err)
 		expectedConfig := NewKsctlConfig(Host(), Member())
 		assert.Equal(t, expectedConfig, ksctlConfig)
-		assert.NotContains(t, term.Output(), "Using config file")
+		assert.NotContains(t, buffy.String(), "Using config file")
 	})
 
 }
@@ -267,11 +276,11 @@ func TestLoad(t *testing.T) {
 func TestLoadFails(t *testing.T) {
 	t.Run("file does not exist", func(t *testing.T) {
 		// given
-		term := NewFakeTerminal()
+		logger := log.New(&strings.Builder{})
 		configuration.ConfigFileFlag = "/tmp/should-not-exist.yaml"
 
 		// when
-		_, err := configuration.Load(term)
+		_, err := configuration.Load(logger)
 
 		// then
 		require.Error(t, err)
@@ -279,11 +288,11 @@ func TestLoadFails(t *testing.T) {
 
 	t.Run("file is directory", func(t *testing.T) {
 		// given
-		term := NewFakeTerminal()
+		logger := log.New(&strings.Builder{})
 		configuration.ConfigFileFlag = os.TempDir()
 
 		// when
-		_, err := configuration.Load(term)
+		_, err := configuration.Load(logger)
 
 		// then
 		require.Error(t, err)

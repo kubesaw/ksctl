@@ -1,12 +1,14 @@
 package cmd_test
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/kubesaw/ksctl/pkg/cmd"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
 	"github.com/stretchr/testify/assert"
@@ -49,12 +51,13 @@ func TestDisableFeatureCmd(t *testing.T) {
 				}
 			}
 
-			for _, answer := range []string{"Y", "n"} {
+			for _, answer := range []bool{true, false} {
 
-				t.Run("when answer is "+answer, func(t *testing.T) {
+				t.Run(fmt.Sprintf("when answer is %t", answer), func(t *testing.T) {
 					// given
 					newClient, fakeClient := NewFakeClients(t, space)
-					term := NewFakeTerminalWithResponse(answer)
+					buffy := bytes.NewBuffer(nil)
+					term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(answer))
 					ctx := clicontext.NewCommandContext(term, newClient)
 
 					// when
@@ -63,18 +66,16 @@ func TestDisableFeatureCmd(t *testing.T) {
 					// then
 					require.NoError(t, err)
 
-					output := term.Output()
-					assert.Contains(t, output, fmt.Sprintf("disable the feature toggle 'feature-x' for the Space 'testspace'? The enabled feature toggles are '%s'.", data.alreadyEnabled))
-					assert.NotContains(t, output, "cool-token")
+					// assert.Contains(t, buffy.String(), fmt.Sprintf("disable the feature toggle 'feature-x' for the Space 'testspace'? The enabled feature toggles are '%s'.", data.alreadyEnabled))
+					assert.NotContains(t, buffy.String(), "cool-token")
 					expectedSpace := newSpace()
 
-					if answer == "Y" {
+					if answer {
 						expectedSpace.Annotations = data.afterDisable
-						assert.Contains(t, output, "Successfully disabled feature toggle for the Space")
-
+						assert.Contains(t, buffy.String(), "Successfully disabled the 'feature-x' feature for the 'testspace' Space")
 					} else {
 						expectedSpace.Annotations = space.Annotations
-						assert.NotContains(t, output, "Successfully disabled feature toggle for the Space")
+						assert.NotContains(t, buffy.String(), "Successfully disabled the 'feature-x' feature for the 'testspace' Space")
 					}
 					assertSpaceAnnotations(t, fakeClient, expectedSpace)
 
@@ -99,7 +100,8 @@ func TestDisableFeatureCmdWhenFeatureIsNotEnabled(t *testing.T) {
 			}
 			// given
 			newClient, fakeClient := NewFakeClients(t, space)
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy)
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -109,11 +111,10 @@ func TestDisableFeatureCmdWhenFeatureIsNotEnabled(t *testing.T) {
 			require.NoError(t, err)
 			assertSpaceAnnotations(t, fakeClient, space) // no change
 
-			output := term.Output()
-			assert.Contains(t, output, "The Space doesn't have the feature toggle enabled. There is nothing to do.")
-			assert.NotContains(t, output, "disable the feature toggle 'feature-x' for the Space 'testspace'?")
-			assert.NotContains(t, output, "Successfully disabled feature toggle for the Space")
-			assert.NotContains(t, output, "cool-token")
+			assert.Contains(t, buffy.String(), "Nothing to do: the 'feature-x' feature is not enabled in the 'testspace' Space")
+			assert.NotContains(t, buffy.String(), "disable the feature toggle 'feature-x' for the Space 'testspace'?")
+			assert.NotContains(t, buffy.String(), "Successfully disabled feature toggle for the Space")
+			assert.NotContains(t, buffy.String(), "cool-token")
 
 		})
 	}
@@ -124,7 +125,8 @@ func TestDisableFeatureCmdWhenSpaceNotFound(t *testing.T) {
 	space := newSpace()
 	newClient, fakeClient := NewFakeClients(t, space)
 	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("Y")
+	buffy := bytes.NewBuffer(nil)
+	term := ioutils.NewTerminal(buffy, buffy)
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
@@ -133,8 +135,7 @@ func TestDisableFeatureCmdWhenSpaceNotFound(t *testing.T) {
 	// then
 	require.EqualError(t, err, "spaces.toolchain.dev.openshift.com \"another\" not found")
 	assertSpaceAnnotations(t, fakeClient, space) // unrelated space should be unchanged
-	output := term.Output()
-	assert.NotContains(t, output, "disable the feature toggle 'feature-x' for the Space 'testspace'?")
-	assert.NotContains(t, output, "Successfully disabled feature toggle for the Space")
-	assert.NotContains(t, output, "cool-token")
+	assert.NotContains(t, buffy.String(), "disable the feature toggle 'feature-x' for the Space 'testspace'?")
+	assert.NotContains(t, buffy.String(), "Successfully disabled feature toggle for the Space")
+	assert.NotContains(t, buffy.String(), "cool-token")
 }

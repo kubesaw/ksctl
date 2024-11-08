@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/kubesaw/ksctl/pkg/client"
+	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 	"k8s.io/utils/strings/slices"
@@ -20,7 +22,7 @@ func NewDisableFeatureCmd() *cobra.Command {
 parameters - the first one is the Space name and the second is the name of the feature toggle that should be disabled for the Space.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return DisableFeature(ctx, args[0], args[1])
 		},
@@ -34,31 +36,26 @@ func DisableFeature(ctx *clicontext.CommandContext, spaceName, featureToggleName
 		if currentFeatures != "" {
 			enabledFeatures = strings.Split(currentFeatures, ",")
 		}
-		if err := ctx.PrintObject(space, "The current Space"); err != nil {
+		if err := ctx.PrintObject("Current Space:", space); err != nil {
 			return false, err
 		}
 
 		if !slices.Contains(enabledFeatures, featureToggleName) {
-			ctx.Println("")
-			ctx.Println("The Space doesn't have the feature toggle enabled. There is nothing to do.")
-			ctx.Println("")
+			ctx.Warnf("Nothing to do: the '%s' feature is not enabled in the '%s' Space", featureToggleName, spaceName)
 			return false, nil
 		}
 
-		confirmation := ctx.AskForConfirmation(ioutils.WithMessagef(
-			"disable the feature toggle '%s' for the Space '%s'? The enabled feature toggles are '%s'.",
-			featureToggleName, spaceName, currentFeatures))
-
-		if confirmation {
-			index := slices.Index(enabledFeatures, featureToggleName)
-			enabledFeatures = append(enabledFeatures[:index], enabledFeatures[index+1:]...)
-			if len(enabledFeatures) == 0 {
-				delete(space.Annotations, toolchainv1alpha1.FeatureToggleNameAnnotationKey)
-			} else {
-				space.Annotations[toolchainv1alpha1.FeatureToggleNameAnnotationKey] = strings.Join(enabledFeatures, ",")
-			}
-			return true, nil
+		ctx.Infof("Currently enabled features for the '%s' Space are: '%s'", spaceName, currentFeatures)
+		if confirm, err := ctx.Confirm("Disable the '%s' feature for the '%s' Space? ", featureToggleName, spaceName); err != nil || !confirm {
+			return confirm, err
 		}
-		return false, nil
-	}, "Successfully disabled feature toggle for the Space")
+		index := slices.Index(enabledFeatures, featureToggleName)
+		enabledFeatures = append(enabledFeatures[:index], enabledFeatures[index+1:]...)
+		if len(enabledFeatures) == 0 {
+			delete(space.Annotations, toolchainv1alpha1.FeatureToggleNameAnnotationKey)
+		} else {
+			space.Annotations[toolchainv1alpha1.FeatureToggleNameAnnotationKey] = strings.Join(enabledFeatures, ",")
+		}
+		return true, nil
+	}, fmt.Sprintf("Successfully disabled the '%s' feature for the '%s' Space", featureToggleName, spaceName))
 }

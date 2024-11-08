@@ -21,7 +21,7 @@ func NewUnregisterMemberCmd() *cobra.Command {
 		Long:  `Deletes the member cluster from the host cluster. It doesn't touch the member cluster itself. Make sure there is no users left in the member cluster before unregistering it.`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 			return UnregisterMemberCluster(ctx, args[0])
 		},
@@ -29,7 +29,7 @@ func NewUnregisterMemberCmd() *cobra.Command {
 }
 
 func UnregisterMemberCluster(ctx *clicontext.CommandContext, clusterName string) error {
-	hostClusterConfig, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+	hostClusterConfig, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName)
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func UnregisterMemberCluster(ctx *clicontext.CommandContext, clusterName string)
 		return err
 	}
 
-	clusterDef, err := configuration.LoadClusterAccessDefinition(ctx, clusterName)
+	clusterDef, err := configuration.LoadClusterAccessDefinition(ctx.Logger, clusterName)
 	if err != nil {
 		return err
 	}
@@ -48,19 +48,21 @@ func UnregisterMemberCluster(ctx *clicontext.CommandContext, clusterName string)
 	if err := hostClusterClient.Get(context.TODO(), types.NamespacedName{Namespace: hostClusterConfig.OperatorNamespace, Name: clusterResourceName}, toolchainCluster); err != nil {
 		return err
 	}
-	if err := ctx.PrintObject(toolchainCluster, "Toolchain Member cluster"); err != nil {
+	if err := ctx.PrintObject("Toolchain Member cluster:", toolchainCluster); err != nil {
 		return err
 	}
-	confirmation := ctx.AskForConfirmation(ioutils.WithDangerZoneMessagef("unregistering member cluster form host cluster. Make sure there is no users left in the member cluster before unregistering it.",
-		"Delete Member cluster stated above from the Host cluster?"))
-	if !confirmation {
-		return nil
+
+	ctx.Warn("!!!  DANGER ZONE  !!!")
+	ctx.Warn("Unregistering member cluster form host cluster")
+	ctx.Warn("Make sure there is no users left in the member cluster before unregistering it")
+	if confirm, err := ctx.Confirm("Delete Member cluster above from the Host cluster?"); err != nil || !confirm {
+		return err
 	}
 
 	if err := hostClusterClient.Delete(context.TODO(), toolchainCluster); err != nil {
 		return err
 	}
-	ctx.Printlnf("\nThe deletion of the Toolchain member cluster from the Host cluster has been triggered")
+	ctx.Info("The deletion of the Toolchain member cluster from the Host cluster has been triggered")
 
 	return restartHostOperator(ctx, hostClusterClient, hostClusterConfig.OperatorNamespace)
 }

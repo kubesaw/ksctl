@@ -27,7 +27,7 @@ func NewAddSpaceUsersCmd() *cobra.Command {
 one or more users specified by their MasterUserRecord name. One SpaceBinding will be created for each user.`,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
+			term := ioutils.NewTerminal(cmd.InOrStdin(), cmd.OutOrStdout(), ioutils.WithVerbose(configuration.Verbose))
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
 
 			return AddSpaceUsers(ctx, spaceName, role, users)
@@ -44,7 +44,7 @@ one or more users specified by their MasterUserRecord name. One SpaceBinding wil
 }
 
 func AddSpaceUsers(ctx *clicontext.CommandContext, spaceName, role string, usersToAdd []string) error {
-	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
+	cfg, err := configuration.LoadClusterConfig(ctx.Logger, configuration.HostName)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func AddSpaceUsers(ctx *clicontext.CommandContext, spaceName, role string, users
 	}
 
 	// get Space
-	ctx.Println("Checking space...")
+	ctx.Info("Checking space...")
 	space, err := client.GetSpace(cl, cfg.OperatorNamespace, spaceName)
 	if err != nil {
 		return err
@@ -82,7 +82,7 @@ func AddSpaceUsers(ctx *clicontext.CommandContext, spaceName, role string, users
 	}
 
 	// get MasterUserRecords
-	ctx.Println("Checking users...")
+	ctx.Info("Checking users...")
 	spaceBindingsToCreate := []*toolchainv1alpha1.SpaceBinding{}
 	for _, murName := range usersToAdd {
 		mur, err := client.GetMasterUserRecord(cl, cfg.OperatorNamespace, murName)
@@ -93,16 +93,14 @@ func AddSpaceUsers(ctx *clicontext.CommandContext, spaceName, role string, users
 	}
 
 	// confirmation before SpaceBinding creation
-	if err := ctx.PrintObject(space, "Targeted Space"); err != nil {
+	if err := ctx.PrintObject("Targeted Space:", space); err != nil {
 		return err
 	}
-	confirmation := ctx.AskForConfirmation(ioutils.WithMessagef(
-		"add users to the above Space?"))
-	if !confirmation {
-		return nil
+	if confirm, err := ctx.Confirm("Add users to the above Space?"); err != nil || !confirm {
+		return err
 	}
 
-	ctx.Println("Creating SpaceBinding(s)...")
+	ctx.Info("Creating SpaceBinding(s)...")
 	// create SpaceBindings
 	for _, sb := range spaceBindingsToCreate {
 		if err := cl.Create(context.TODO(), sb); err != nil {
@@ -110,6 +108,6 @@ func AddSpaceUsers(ctx *clicontext.CommandContext, spaceName, role string, users
 		}
 	}
 
-	ctx.Printlnf("\nSpaceBinding(s) successfully created")
+	ctx.Infof("SpaceBinding(s) successfully created")
 	return nil
 }

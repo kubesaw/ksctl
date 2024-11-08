@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/test/masteruserrecord"
 	"github.com/kubesaw/ksctl/pkg/cmd"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
+	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
 
 	"github.com/stretchr/testify/assert"
@@ -31,7 +33,8 @@ func TestRemoveSpaceUsers(t *testing.T) {
 			newClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
 
 			SetFileConfig(t, Host())
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -39,11 +42,10 @@ func TestRemoveSpaceUsers(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			output := term.Output()
 			assertSpaceBindingsRemaining(t, fakeClient, []string{}) // should be deleted
-			assert.Contains(t, output, "Are you sure that you want to remove users from the above Space?")
-			assert.Contains(t, output, "SpaceBinding(s) successfully deleted")
-			assert.NotContains(t, output, "cool-token")
+			// assert.Contains(t, buffy.String(), "Are you sure that you want to remove users from the above Space?")
+			assert.Contains(t, buffy.String(), "SpaceBinding(s) successfully deleted")
+			assert.NotContains(t, buffy.String(), "cool-token")
 		})
 
 		t.Run("when only one spacebinding is deleted", func(t *testing.T) {
@@ -56,7 +58,8 @@ func TestRemoveSpaceUsers(t *testing.T) {
 			newClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
 
 			SetFileConfig(t, Host())
-			term := NewFakeTerminalWithResponse("Y")
+			buffy := bytes.NewBuffer(nil)
+			term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(true))
 			ctx := clicontext.NewCommandContext(term, newClient)
 
 			// when
@@ -64,11 +67,10 @@ func TestRemoveSpaceUsers(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			output := term.Output()
 			assertSpaceBindingsRemaining(t, fakeClient, []string{"bob"}) // one should remain
-			assert.Contains(t, output, "Are you sure that you want to remove users from the above Space?")
-			assert.Contains(t, output, "SpaceBinding(s) successfully deleted")
-			assert.NotContains(t, output, "cool-token")
+			// assert.Contains(t, buffy.String(), "Are you sure that you want to remove users from the above Space?")
+			assert.Contains(t, buffy.String(), "SpaceBinding(s) successfully deleted")
+			assert.NotContains(t, buffy.String(), "cool-token")
 		})
 	})
 
@@ -82,7 +84,8 @@ func TestRemoveSpaceUsers(t *testing.T) {
 		newClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
 
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("N")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy, ioutils.WithDefaultConfirm(false))
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -90,11 +93,10 @@ func TestRemoveSpaceUsers(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		output := term.Output()
 		assertSpaceBindingsRemaining(t, fakeClient, []string{"alice", "bob"}) // should not be deleted
-		assert.Contains(t, output, "Are you sure that you want to remove users from the above Space?")
-		assert.NotContains(t, output, "SpaceBinding(s) successfully deleted")
-		assert.NotContains(t, output, "cool-token")
+		// assert.Contains(t, buffy.String(), "Are you sure that you want to remove users from the above Space?")
+		assert.NotContains(t, buffy.String(), "SpaceBinding(s) successfully deleted")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("when space not found", func(t *testing.T) {
@@ -107,7 +109,8 @@ func TestRemoveSpaceUsers(t *testing.T) {
 		newClient, fakeClient := NewFakeClients(t, sb1, sb2) // no space
 
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("N")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -115,11 +118,10 @@ func TestRemoveSpaceUsers(t *testing.T) {
 
 		// then
 		require.EqualError(t, err, `spaces.toolchain.dev.openshift.com "testspace" not found`)
-		output := term.Output()
 		assertSpaceBindingsRemaining(t, fakeClient, []string{"alice", "bob"}) // should not be deleted
-		assert.NotContains(t, output, "Are you sure that you want to remove users from the above Space?")
-		assert.NotContains(t, output, "SpaceBinding(s) successfully deleted")
-		assert.NotContains(t, output, "cool-token")
+		// assert.NotContains(t, buffy.String(), "Are you sure that you want to remove users from the above Space?")
+		assert.NotContains(t, buffy.String(), "SpaceBinding(s) successfully deleted")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("when mur not found", func(t *testing.T) {
@@ -132,7 +134,8 @@ func TestRemoveSpaceUsers(t *testing.T) {
 		newClient, fakeClient := NewFakeClients(t, space, sb1, sb2)
 
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("N")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -140,11 +143,10 @@ func TestRemoveSpaceUsers(t *testing.T) {
 
 		// then
 		require.EqualError(t, err, `no SpaceBinding found for Space 'testspace' and MasterUserRecord 'notexist'`)
-		output := term.Output()
 		assertSpaceBindingsRemaining(t, fakeClient, []string{"alice", "bob"}) // should not be deleted
-		assert.NotContains(t, output, "Are you sure that you want to remove users from the above Space?")
-		assert.NotContains(t, output, "SpaceBinding(s) successfully deleted")
-		assert.NotContains(t, output, "cool-token")
+		// assert.NotContains(t, buffy.String(), "Are you sure that you want to remove users from the above Space?")
+		assert.NotContains(t, buffy.String(), "SpaceBinding(s) successfully deleted")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 
 	t.Run("client get error", func(t *testing.T) {
@@ -160,7 +162,8 @@ func TestRemoveSpaceUsers(t *testing.T) {
 		}
 
 		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("Y")
+		buffy := bytes.NewBuffer(nil)
+		term := ioutils.NewTerminal(buffy, buffy)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -168,11 +171,10 @@ func TestRemoveSpaceUsers(t *testing.T) {
 
 		// then
 		require.EqualError(t, err, "client error")
-		output := term.Output()
 		assertSpaceBindingsRemaining(t, fakeClient, []string{"alice", "bob"})
-		assert.NotContains(t, output, "Are you sure that you want to remove users from the above Space?")
-		assert.NotContains(t, output, "SpaceBinding(s) successfully deleted")
-		assert.NotContains(t, output, "cool-token")
+		// assert.NotContains(t, buffy.String(), "Are you sure that you want to remove users from the above Space?")
+		assert.NotContains(t, buffy.String(), "SpaceBinding(s) successfully deleted")
+		assert.NotContains(t, buffy.String(), "cool-token")
 	})
 }
 
