@@ -123,6 +123,7 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 						return err
 					}
 				}
+				ctx.Printlnf("No Non-operator deployment restart happened as Non-Operator deployment is autoscaling-buffer found in namespace %s", ns)
 			}
 		} else {
 			//if there are no non-operator deployments

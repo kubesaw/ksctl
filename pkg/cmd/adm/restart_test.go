@@ -57,6 +57,21 @@ func TestRestartDeployment(t *testing.T) {
 			lsKey:         "host",
 			lsValue:       "operator",
 		},
+		//operator and non-operator deployments, checking for autoscaler deployments,
+		//it should be treated as no non-operator deployment available
+		"OperatorAndNonOperatorWithAutoscalerDeployment": {
+			namespace:     "toolchain-member-operator",
+			name:          "member-operator-controller-manager",
+			name1:         "autoscaling-buffer",
+			labelKey:      "kubesaw-control-plane",
+			labelValue:    "kubesaw-controller-manager",
+			labelKey1:     "toolchain.dev.openshift.com/provider",
+			labelValue1:   "codeready-toolchain",
+			expectedMsg:   "deployment \"member-operator-controller-manager\" successfully rolled out\n",
+			labelSelector: "kubesaw-control-plane=kubesaw-controller-manager",
+			lsKey:         "host",
+			lsValue:       "operator",
+		},
 		//only non-operator deployment
 		"NonOperatorHostDeployment": {
 			namespace:      "toolchain-host-operator",
@@ -146,7 +161,7 @@ func TestRestartDeployment(t *testing.T) {
 			//then
 			actualPod := &corev1.Pod{}
 			//checking the whole flow(starting with operator deployments & then to non operator deployments)
-			if tc.labelValue == "kubesaw-controller-manager" && tc.labelValue1 == "codeready-toolchain" {
+			if tc.labelValue == "kubesaw-controller-manager" && tc.labelValue1 == "codeready-toolchain" && tc.name1 != "autoscaling-buffer" {
 				//checking the flow for operator deployments
 				require.Contains(t, term.Output(), "Fetching the current Operator and non-Operator deployments of the operator in")
 				require.Contains(t, term.Output(), "Proceeding to delete the Pods of")
@@ -158,9 +173,15 @@ func TestRestartDeployment(t *testing.T) {
 				require.Contains(t, term.Output(), "Checking the status of the deleted pod's deployment")
 				//checking the output from kubectl for rolloutstatus
 				require.Contains(t, buf.String(), tc.expectedOutput)
-				//checking the flowfor non-operator deployments
+				//checking the flow for non-operator deployments
 				require.Contains(t, term.Output(), "Proceeding to restart the non-operator deployment")
 				require.Contains(t, term.Output(), "Running the rollout restart command for non-Operator deployment")
+				actual := &appsv1.Deployment{}
+				AssertObjectHasContent(t, fakeClient, namespacedName, actual, func() {
+					require.NotNil(t, actual.Spec.Replicas)
+					assert.Equal(t, int32(1), *actual.Spec.Replicas)
+					require.NotNil(t, actual.Annotations["restartedAt"])
+				})
 				assert.Equal(t, 2, csCalls)
 				require.Contains(t, term.Output(), "Checking the status of the rolled out deployment")
 				require.Contains(t, term.Output(), "Running the Rollout status to check the status of the deployment")
@@ -168,9 +189,12 @@ func TestRestartDeployment(t *testing.T) {
 				//Checking the logic where no operator deployments are there
 				require.Error(t, err, "no operator based deployment restart happened as operator deployment found in namespace")
 				assert.Equal(t, 0, csCalls)
-			} else if tc.labelValue == "kubesaw-controller-manager" {
+			} else if tc.labelValue == "kubesaw-controller-manager" && tc.name1 != "autoscaling-buffer" {
 				//checking the logic when only operator based deployment is there and no non-operator based
 				require.Contains(t, term.Output(), "No Non-operator deployment restart happened as Non-Operator deployment found in namespace")
+				assert.Equal(t, 1, csCalls)
+			} else if tc.name1 == "autoscaling-buffer" {
+				require.Contains(t, term.Output(), "No Non-operator deployment restart happened as Non-Operator deployment is autoscaling-buffer found in namespace")
 				assert.Equal(t, 1, csCalls)
 			}
 
