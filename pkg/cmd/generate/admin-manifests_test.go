@@ -34,7 +34,10 @@ func TestAdminManifests(t *testing.T) {
 				WithSkippedMembers("member2"),
 			Sa("bob", "",
 				HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("edit")),
-				MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("edit")))),
+				MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("edit"))),
+			Sa("jenny", "",
+				MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("view"))).
+				WithSelectedMembers("member2")),
 		Users(
 			User("john-user", []string{"12345"}, false, "crtadmins-view",
 				HostRoleBindings("toolchain-host-operator", Role("register-cluster"), ClusterRole("edit")),
@@ -42,7 +45,10 @@ func TestAdminManifests(t *testing.T) {
 				WithSkippedMembers("member2"),
 			User("bob-crtadmin", []string{"67890"}, false, "crtadmins-exec",
 				HostRoleBindings("toolchain-host-operator", Role("restart-deployment"), ClusterRole("admin")),
-				MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("admin")))))
+				MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("admin"))),
+			User("jenny-crtadmin", []string{"98765"}, false, "crtadmins-exec",
+				MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("view"))).
+				WithSelectedMembers("member2")))
 	kubeSawAdmins.DefaultServiceAccountsNamespace.Host = "kubesaw-sre-host"
 	kubeSawAdminsContent, err := yaml.Marshal(kubeSawAdmins)
 	require.NoError(t, err)
@@ -274,6 +280,11 @@ func verifyServiceAccounts(t *testing.T, outDir, expectedRootDir string, cluster
 			assertSa(saNs, "john").
 			hasRole(roleNs, clusterType.AsSuffix("install-operator"), clusterType.AsSuffix("install-operator-john")).
 			hasNsClusterRole(roleNs, "admin", clusterType.AsSuffix("clusterrole-admin-john"))
+	} else {
+		inKStructure(t, outDir, expectedRootDir).
+			assertSa(saNs, "jenny").
+			hasRole(roleNs, clusterType.AsSuffix("restart-deployment"), clusterType.AsSuffix("restart-deployment-jenny")).
+			hasNsClusterRole(roleNs, "view", clusterType.AsSuffix("clusterrole-view-jenny"))
 	}
 	inKStructure(t, outDir, expectedRootDir).
 		assertSa(saNs, "bob").
@@ -302,6 +313,14 @@ func verifyUsers(t *testing.T, outDir, expectedRootDir string, clusterType confi
 
 		// crtadmins-view group is not generated for member2 at all
 		bobsExtraGroupsUserIsNotPartOf = extraGroupsUserIsNotPartOf("crtadmins-view")
+	} else {
+		inKStructure(t, outDir, rootDir).
+			assertUser("jenny-crtadmin").
+			hasIdentity("98765")
+
+		newPermissionAssertion(storageAssertion, "", "jenny-crtadmin", "User").
+			hasRole(ns, clusterType.AsSuffix("restart-deployment"), clusterType.AsSuffix("restart-deployment-jenny-crtadmin")).
+			hasNsClusterRole(ns, "view", clusterType.AsSuffix("clusterrole-view-jenny-crtadmin"))
 	}
 
 	inKStructure(t, outDir, rootDir).

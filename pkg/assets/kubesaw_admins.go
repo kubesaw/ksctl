@@ -1,5 +1,7 @@
 package assets
 
+import "k8s.io/utils/strings/slices"
+
 type KubeSawAdmins struct {
 	Clusters                        Clusters                        `yaml:"clusters"`
 	ServiceAccounts                 []ServiceAccount                `yaml:"serviceAccounts"`
@@ -43,6 +45,21 @@ type ServiceAccount struct {
 type Selector struct {
 	// SkipMembers can contain a list of member cluster names the entity shouldn't be applied for
 	SkipMembers []string `yaml:"skipMembers,omitempty"`
+	// MemberClusters defines a list of member cluster names the entity should be applied for
+	MemberClusters []string `yaml:"memberClusters,omitempty"`
+}
+
+func (s Selector) ShouldBeSkippedForMember(memberName string) bool {
+	// should be skipped if the specific member cluster name is provided
+	//   and
+	// the name is listed in the skipped members
+	if memberName != "" && slices.Contains(s.SkipMembers, memberName) {
+		return true
+	}
+	// should be skipped if there is at least one selected member cluster
+	//   and
+	// the name is either empty or is not specified in the selected member clusters
+	return len(s.MemberClusters) > 0 && (memberName == "" || !slices.Contains(s.MemberClusters, memberName))
 }
 
 type User struct {
