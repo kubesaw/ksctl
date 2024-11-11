@@ -7,8 +7,8 @@ require (
 	github.com/codeready-toolchain/toolchain-common v0.0.0-20240911094752-38ba816bff59
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
-	// using latest commit from 'github.com/openshift/api branch release-4.12'
-	github.com/openshift/api v0.0.0-20240304080513-3e8192a10b13
+	// using latest commit from 'github.com/openshift/api branch release-4.14'
+	github.com/openshift/api v0.0.0-20241031180523-b1c90a6cf9a3
 	github.com/operator-framework/api v0.13.0
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.8.0
@@ -141,6 +141,6 @@ require (
 )
 
 replace (
-	github.com/codeready-toolchain/api v0.0.0-20240909145803-3b27dcfb3ded => github.com/ranakan19/api v0.0.0-20240923151833-647d61ba6f05
-	github.com/codeready-toolchain/toolchain-common v0.0.0-20240911094752-38ba816bff59 => github.com/ranakan19/toolchain-common v0.0.0-20240923152117-007ae28d1744
+	github.com/codeready-toolchain/api v0.0.0-20240909145803-3b27dcfb3ded => github.com/ranakan19/api v0.0.0-20241108053314-93842107015c
+	github.com/codeready-toolchain/toolchain-common v0.0.0-20240911094752-38ba816bff59 => github.com/ranakan19/toolchain-common v0.0.0-20241111060318-c3e2d61d824c
 )
