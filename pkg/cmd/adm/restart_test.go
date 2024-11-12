@@ -282,7 +282,7 @@ func TestOperator(t *testing.T) {
 		err := restartDeployment(ctx, fakeClient, "toolchain-host-operator", nil, testIOStreams,
 			func(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
 				require.Equal(t, testIOStreams, ioStreams)
-				require.Equal(t, nil, f)
+				require.Nil(t, f)
 				return nil
 			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
 				require.Equal(t, testIOStreams, ioStreams)
