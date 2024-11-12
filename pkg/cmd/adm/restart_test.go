@@ -286,7 +286,7 @@ func TestOperator(t *testing.T) {
 				return nil
 			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
 				require.Equal(t, testIOStreams, ioStreams)
-				require.Equal(t, nil, f)
+				require.Nil(t, f)
 				return nil
 			})
 
@@ -303,11 +303,11 @@ func TestOperator(t *testing.T) {
 		err := restartDeployment(ctx, fakeClient, "toolchain-host-operator", nil, testIOStreams,
 			func(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
 				require.Equal(t, testIOStreams, ioStreams)
-				require.Equal(t, nil, f)
+				require.Nil(t, f)
 				return nil
 			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
 				require.Equal(t, testIOStreams, ioStreams)
-				require.Equal(t, nil, f)
+				require.Nil(t, f)
 				return expectedErr
 			})
 
@@ -334,6 +334,21 @@ func TestOperator(t *testing.T) {
 	t.Run("error in rollout status of the deleted pods(operator)", func(t *testing.T) {
 		//given
 		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment)
+		ctx := clicontext.NewCommandContext(term, newClient)
+		expectedErr := fmt.Errorf("Could not check the status of the deployment")
+		//when
+		err := restartDeployment(ctx, fakeClient, "toolchain-host-operator", nil, genericclioptions.NewTestIOStreamsDiscard(),
+			func(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
+				return expectedErr
+			}, nil)
+
+		//then
+		require.EqualError(t, err, expectedErr.Error())
+	})
+
+	t.Run("error in rollout status of the Non operator deployments", func(t *testing.T) {
+		//given
+		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment, regServDeployment)
 		ctx := clicontext.NewCommandContext(term, newClient)
 		expectedErr := fmt.Errorf("Could not check the status of the deployment")
 		//when
