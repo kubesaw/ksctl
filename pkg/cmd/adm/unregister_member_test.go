@@ -29,9 +29,9 @@ func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	err := UnregisterMemberCluster(ctx, "member1")
 
 	// then
-	require.Error(t, err) // since we have not set up http client required for restart(),it will throw an error.
+	require.ErrorContains(t, err, "no such host") // since we have not set up http client required for restart(),it will throw an error.
 	// also the restart functionality is being test in restart_test.go, not deuplicating the test,
-	//just a assertion to make sure that restart is started
+	//just a assertion to make sure that restart is called and started
 	AssertToolchainClusterDoesNotExist(t, fakeClient, toolchainCluster)
 	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
 	assert.NotContains(t, term.Output(), "THIS COMMAND WILL CAUSE UNREGISTER MEMBER CLUSTER FORM HOST CLUSTER. MAKE SURE THERE IS NO USERS LEFT IN THE MEMBER CLUSTER BEFORE UNREGISTERING IT")

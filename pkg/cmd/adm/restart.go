@@ -18,6 +18,10 @@ import (
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type NonOperatorDeploymentsRestarterFunc func(ctx *clicontext.CommandContext, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error
+
+type RolloutStatusCheckerFunc func(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error
+
 // NewRestartCmd() is a function to restart the whole operator, it relies on the target cluster and fetches the cluster config
 // 1.  If the command is run for host operator, it restart the whole host operator.(it deletes olm based pods(host-operator pods),
 // waits for the new pods to come up, then uses rollout-restart command for non-olm based - registration-service)
@@ -80,11 +84,11 @@ func restart(ctx *clicontext.CommandContext, clusterNames ...string) error {
 		return nil
 	}
 
-	return restartDeployment(ctx, cl, cfg.OperatorNamespace, factory, ioStreams)
+	return restartDeployment(ctx, cl, cfg.OperatorNamespace, factory, ioStreams, checkRolloutStatus, restartNonOperatorDeployments)
 }
 
 // This function has the whole logic of getting the list of operator and non-operator based deployment, then proceed on restarting/deleting accordingly
-func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
+func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, checker RolloutStatusCheckerFunc, restarter NonOperatorDeploymentsRestarterFunc) error {
 
 	ctx.Printlnf("Fetching the current Operator and non-Operator deployments of the operator in %s namespace", ns)
 	operatorDeploymentList, nonOperatorDeploymentList, err := getExistingDeployments(ctx, cl, ns)
@@ -93,43 +97,45 @@ func restartDeployment(ctx *clicontext.CommandContext, cl runtimeclient.Client, 
 	}
 	//if there is no operator deployment, no need for restart
 	if len(operatorDeploymentList.Items) == 0 {
-		return fmt.Errorf("no operator based deployment restart happened as operator deployment found in namespace %s is 0", ns)
-	} else {
-		for _, operatorDeployment := range operatorDeploymentList.Items {
-			ctx.Printlnf("Proceeding to delete the Pods of %v", operatorDeployment.Name)
+		return fmt.Errorf("no operator based deployment found in namespace %s , hence no restart happened", ns)
+	}
+	//Deleting the pods of the operator based deployment  and then checking the status
+	for _, operatorDeployment := range operatorDeploymentList.Items {
+		ctx.Printlnf("Proceeding to delete the Pods of %v", operatorDeployment.Name)
 
-			if err := deleteAndWaitForPods(ctx, cl, operatorDeployment); err != nil {
-				return err
-			}
-
-			ctx.Printlnf("Checking the status of the deleted pod's deployment %v", operatorDeployment.Name)
-			//check the rollout status
-			if err := checkRolloutStatus(ctx, f, ioStreams, "kubesaw-control-plane=kubesaw-controller-manager"); err != nil {
-				return err
-			}
+		if err := deleteAndWaitForPods(ctx, cl, operatorDeployment); err != nil {
+			return err
 		}
 
-		if len(nonOperatorDeploymentList.Items) != 0 {
-			for _, nonOperatorDeployment := range nonOperatorDeploymentList.Items {
-				if nonOperatorDeployment.Name != "autoscaling-buffer" {
-					ctx.Printlnf("Proceeding to restart the non-operator deployment %v", nonOperatorDeployment.Name)
-
-					if err := restartNonOlmDeployments(ctx, nonOperatorDeployment, f, ioStreams); err != nil {
-						return err
-					}
-					//check the rollout status
-					ctx.Printlnf("Checking the status of the rolled out deployment %v", nonOperatorDeployment.Name)
-					if err := checkRolloutStatus(ctx, f, ioStreams, "toolchain.dev.openshift.com/provider=codeready-toolchain"); err != nil {
-						return err
-					}
-				}
-				ctx.Printlnf("No Non-operator deployment restart happened as Non-Operator deployment is autoscaling-buffer found in namespace %s", ns)
-			}
-		} else {
-			//if there are no non-operator deployments
-			ctx.Printlnf("No Non-operator deployment restart happened as Non-Operator deployment found in namespace %s is 0", ns)
+		ctx.Printlnf("Checking the status of the deleted pod's deployment %v", operatorDeployment.Name)
+		//check the rollout status
+		if err := checker(ctx, f, ioStreams, "kubesaw-control-plane=kubesaw-controller-manager"); err != nil {
+			return err
 		}
 	}
+
+	if len(nonOperatorDeploymentList.Items) == 0 {
+		// if there are no non-operator deployments
+		ctx.Printlnf("No Non-operator deployment found in namespace %s, hence no restart happened", ns)
+		return nil
+	}
+	for _, nonOperatorDeployment := range nonOperatorDeploymentList.Items {
+		if nonOperatorDeployment.Name != "autoscaling-buffer" {
+			ctx.Printlnf("Proceeding to restart the non-operator deployment %v", nonOperatorDeployment.Name)
+
+			if err := restarter(ctx, nonOperatorDeployment, f, ioStreams); err != nil {
+				return err
+			}
+			//check the rollout status
+			ctx.Printlnf("Checking the status of the rolled out deployment %v", nonOperatorDeployment.Name)
+			if err := checker(ctx, f, ioStreams, "toolchain.dev.openshift.com/provider=codeready-toolchain"); err != nil {
+				return err
+			}
+			return nil
+		}
+		ctx.Printlnf("Found only autoscaling-buffer deployment in namespace %s , which is not required to be restarted", ns)
+	}
+
 	return nil
 }
 
@@ -155,7 +161,7 @@ func deleteAndWaitForPods(ctx *clicontext.CommandContext, cl runtimeclient.Clien
 
 }
 
-func restartNonOlmDeployments(ctx *clicontext.CommandContext, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
+func restartNonOperatorDeployments(ctx *clicontext.CommandContext, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
 
 	o := kubectlrollout.NewRolloutRestartOptions(ioStreams)
 
@@ -173,6 +179,7 @@ func restartNonOlmDeployments(ctx *clicontext.CommandContext, deployment appsv1.
 }
 
 func checkRolloutStatus(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
+
 	cmd := kubectlrollout.NewRolloutStatusOptions(ioStreams)
 
 	if err := cmd.Complete(f, []string{"deployment"}); err != nil {
