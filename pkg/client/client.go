@@ -368,7 +368,7 @@ func Create(term ioutils.Terminal, cl runtimeclient.Client, obj runtimeclient.Ob
 func GetRouteURL(term ioutils.Terminal, cl runtimeclient.Client, namespacedName types.NamespacedName) (string, error) {
 	term.Printlnf("Waiting for '%s' route to be available...", namespacedName.Name)
 	route := routev1.Route{}
-	if err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+	if err := wait.PollUntilContextTimeout(context.TODO(), retryInterval, timeout, false, func(ctx context.Context) (done bool, err error) {
 		if err := cl.Get(context.TODO(), namespacedName, &route); err != nil && !apierrors.IsNotFound(err) {
 			return false, err
 		}

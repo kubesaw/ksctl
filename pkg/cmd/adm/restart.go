@@ -133,7 +133,7 @@ func scaleToZero(cl runtimeclient.Client, namespacedName types.NamespacedName) (
 }
 
 func scaleBack(term ioutils.Terminal, cl runtimeclient.Client, namespacedName types.NamespacedName, originalReplicas int32) error {
-	return wait.Poll(500*time.Millisecond, 10*time.Second, func() (done bool, err error) {
+	return wait.PollUntilContextTimeout(context.TODO(), 500*time.Millisecond, 10*time.Second, false, func(ctx context.Context) (done bool, err error) {
 		term.Println("")
 		term.Printlnf("Trying to scale the deployment back to '%d'", originalReplicas)
 		// get the updated

@@ -553,7 +553,7 @@ func TestGetRoute(t *testing.T) {
 			})
 			// then
 			require.Error(t, err)
-			require.EqualError(t, err, "unable to get route to openshift-monitoring/thanos-querier: timed out waiting for the condition")
+			require.EqualError(t, err, "unable to get route to openshift-monitoring/thanos-querier: context deadline exceeded")
 		})
 	})
 }

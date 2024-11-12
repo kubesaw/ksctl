@@ -274,7 +274,7 @@ func generateKubeConfig(token, apiEndpoint, namespace string, insecureSkipTLSVer
 
 // waitForToolchainClusterSA waits for the toolchaincluster service account to be present
 func waitForToolchainClusterSA(ctx *clicontext.CommandContext, cl runtimeclient.Client, toolchainClusterKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
-	return wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.TODO(), 2*time.Second, waitForReadyTimeout, true, func(ctx2 context.Context) (bool, error) {
 		ctx.Printlnf("waiting for ToolchainCluster SA %s to become ready", toolchainClusterKey)
 		tc := &v1.ServiceAccount{}
 		if err := cl.Get(ctx, toolchainClusterKey, tc); err != nil {
@@ -291,7 +291,7 @@ func waitForToolchainClusterSA(ctx *clicontext.CommandContext, cl runtimeclient.
 }
 
 func waitUntilToolchainClusterReady(ctx *clicontext.CommandContext, cl runtimeclient.Client, toolchainClusterKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
-	return wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.TODO(), 2*time.Second, waitForReadyTimeout, true, func(ctx2 context.Context) (bool, error) {
 		ctx.Printlnf("waiting for ToolchainCluster %s to become ready", toolchainClusterKey)
 		tc := &toolchainv1alpha1.ToolchainCluster{}
 		if err := cl.Get(ctx, toolchainClusterKey, tc); err != nil {
