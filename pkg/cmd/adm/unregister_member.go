@@ -14,6 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+type restartFunc func(ctx *clicontext.CommandContext, clusterNames ...string) error
+
 func NewUnregisterMemberCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "unregister-member <member-name>",
@@ -23,12 +25,12 @@ func NewUnregisterMemberCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
-			return UnregisterMemberCluster(ctx, args[0])
+			return UnregisterMemberCluster(ctx, args[0], restart)
 		},
 	}
 }
 
-func UnregisterMemberCluster(ctx *clicontext.CommandContext, clusterName string) error {
+func UnregisterMemberCluster(ctx *clicontext.CommandContext, clusterName string, restart restartFunc) error {
 	hostClusterConfig, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
 	if err != nil {
 		return err

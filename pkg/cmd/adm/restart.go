@@ -51,7 +51,6 @@ func NewRestartCmd() *cobra.Command {
 func restart(ctx *clicontext.CommandContext, clusterNames ...string) error {
 	clusterName := clusterNames[0]
 	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
-	factory := cmdutil.NewFactory(cmdutil.NewMatchVersionFlags(kubeConfigFlags))
 	ioStreams := genericclioptions.IOStreams{
 		In:     os.Stdin,
 		Out:    os.Stdout,
@@ -73,6 +72,7 @@ func restart(ctx *clicontext.CommandContext, clusterNames ...string) error {
 		return err
 	}
 	kubeConfigFlags.KubeConfig = &kubeconfig
+	factory := cmdutil.NewFactory(cmdutil.NewMatchVersionFlags(kubeConfigFlags))
 
 	cl, err := ctx.NewClient(cfg.Token, cfg.ServerAPI)
 	if err != nil {

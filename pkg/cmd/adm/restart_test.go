@@ -29,7 +29,7 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 )
 
-func TestRestartDeployment(t *testing.T) {
+func TestRolloutKubectlFunctionality(t *testing.T) {
 	// given
 	tests := map[string]struct {
 		namespace      string
@@ -197,7 +197,7 @@ func TestRestartDeployment(t *testing.T) {
 	}
 }
 
-func TestOperator(t *testing.T) {
+func TestRestartDeployment(t *testing.T) {
 	//given
 	testIOStreams := genericclioptions.NewTestIOStreamsDiscard()
 	SetFileConfig(t, Host())
@@ -209,6 +209,7 @@ func TestOperator(t *testing.T) {
 	regServDeployment.Labels = make(map[string]string)
 	regServDeployment.Labels["toolchain.dev.openshift.com/provider"] = "codeready-toolchain"
 	hostPod := newPod(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"))
+	noisePod := newPod(test.NamespacedName("toolchain-host-operator", "noise"))
 	memberDeployment := newDeployment(test.NamespacedName("toolchain-member-operator", "member-operator-controller-manager"), 1)
 	memberDeployment.Labels = make(map[string]string)
 	memberDeployment.Labels["kubesaw-control-plane"] = "kubesaw-controller-manager"
@@ -242,7 +243,7 @@ func TestOperator(t *testing.T) {
 	})
 	t.Run("restart deployment works successfully with whole operator(operator, non operator)", func(t *testing.T) {
 		//given
-		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment, hostPod, regServDeployment)
+		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment, hostPod, regServDeployment, noisePod)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
@@ -334,21 +335,6 @@ func TestOperator(t *testing.T) {
 	t.Run("error in rollout status of the deleted pods(operator)", func(t *testing.T) {
 		//given
 		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment)
-		ctx := clicontext.NewCommandContext(term, newClient)
-		expectedErr := fmt.Errorf("Could not check the status of the deployment")
-		//when
-		err := restartDeployment(ctx, fakeClient, "toolchain-host-operator", nil, genericclioptions.NewTestIOStreamsDiscard(),
-			func(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
-				return expectedErr
-			}, nil)
-
-		//then
-		require.EqualError(t, err, expectedErr.Error())
-	})
-
-	t.Run("error in rollout status of the Non operator deployments", func(t *testing.T) {
-		//given
-		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment, regServDeployment)
 		ctx := clicontext.NewCommandContext(term, newClient)
 		expectedErr := fmt.Errorf("Could not check the status of the deployment")
 		//when

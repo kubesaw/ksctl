@@ -1,6 +1,7 @@
 package adm
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
@@ -26,12 +27,12 @@ func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1")
+	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterNames ...string) error {
+		return nil
+	})
 
 	// then
-	require.ErrorContains(t, err, "no such host") // since we have not set up http client required for restart(),it will throw an error.
-	// also the restart functionality is being test in restart_test.go, not deuplicating the test,
-	//just a assertion to make sure that restart is called and started
+	require.NoError(t, err)
 	AssertToolchainClusterDoesNotExist(t, fakeClient, toolchainCluster)
 	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
 	assert.NotContains(t, term.Output(), "THIS COMMAND WILL CAUSE UNREGISTER MEMBER CLUSTER FORM HOST CLUSTER. MAKE SURE THERE IS NO USERS LEFT IN THE MEMBER CLUSTER BEFORE UNREGISTERING IT")
@@ -39,7 +40,30 @@ func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	assert.Contains(t, term.Output(), "The deletion of the Toolchain member cluster from the Host cluster has been triggered")
 	assert.NotContains(t, term.Output(), "cool-token")
 	AssertDeploymentHasReplicas(t, fakeClient, hostDeploymentName, 1)
-	require.Contains(t, term.Output(), "Fetching the current Operator and non-Operator deployments of the operator in")
+}
+
+func TestUnregisterMemberWhenRestartError(t *testing.T) {
+	// given
+	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
+	hostDeploymentName := test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager")
+	deployment := newDeployment(hostDeploymentName, 1)
+	deployment.Labels = map[string]string{"kubesaw-control-plane": "kubesaw-controller-manager"}
+
+	newClient, fakeClient := NewFakeClients(t, toolchainCluster, deployment)
+	numberOfUpdateCalls := 0
+	fakeClient.MockUpdate = whenDeploymentThenUpdated(t, fakeClient, hostDeploymentName, 1, &numberOfUpdateCalls)
+
+	SetFileConfig(t, Host(), Member())
+	term := NewFakeTerminalWithResponse("y")
+	ctx := clicontext.NewCommandContext(term, newClient)
+
+	// when
+	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterNames ...string) error {
+		return fmt.Errorf("restart did not happen")
+	})
+
+	// then
+	require.EqualError(t, err, "restart did not happen")
 }
 
 func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {
@@ -51,7 +75,9 @@ func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1")
+	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterNames ...string) error {
+		return nil
+	})
 
 	// then
 	require.NoError(t, err)
@@ -72,7 +98,9 @@ func TestUnregisterMemberWhenNotFound(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1")
+	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterNames ...string) error {
+		return nil
+	})
 
 	// then
 	require.EqualError(t, err, "toolchainclusters.toolchain.dev.openshift.com \"member-cool-server.com\" not found")
@@ -93,7 +121,9 @@ func TestUnregisterMemberWhenUnknownClusterName(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "some")
+	err := UnregisterMemberCluster(ctx, "some", func(ctx *clicontext.CommandContext, clusterNames ...string) error {
+		return nil
+	})
 
 	// then
 	require.Error(t, err)
@@ -116,7 +146,9 @@ func TestUnregisterMemberLacksPermissions(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1")
+	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterNames ...string) error {
+		return nil
+	})
 
 	// then
 	require.EqualError(t, err, "ksctl command failed: the token in your ksctl.yaml file is missing")
