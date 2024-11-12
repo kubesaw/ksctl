@@ -38,6 +38,11 @@ func TestNewClientOK(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, cl)
 }
+func TestNewClientFromRestConfigError(t *testing.T) {
+	cl, err := client.NewClientFromRestConfig(nil)
+	require.EqualError(t, err, "cannot create client: must provide non-nil rest.Config to client.New")
+	require.Nil(t, cl)
+}
 
 func TestNewClientFail(t *testing.T) {
 	// when
