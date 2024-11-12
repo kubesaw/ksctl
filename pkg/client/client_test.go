@@ -51,10 +51,14 @@ func TestNewClientFail(t *testing.T) {
 			Namespace: "default",
 		},
 	}
+	// no specific reason to check if object is namespaced, ANY request to the actual api would trigger error indicating incorrect configuration of client
 	_, err = cl.IsObjectNamespaced(testObj)
 	require.Error(t, err)
 	// actual error is "failed to get restmapping: failed to get server groups: Get \"https://fail-cluster.com/api?timeout=1m0s\": dial tcp: lookup fail-cluster.com: no such host"
-	require.ErrorContains(t, err, "dial tcp: lookup fail-cluster.com: no such host")
+	require.ErrorContains(t, err, "dial tcp: lookup fail-cluster.com")
+	// for ci the error message is dial tcp: lookup fail-cluster.com on 127.0.0.53:53: no such host, could go the regex way or string submatching with wildcards
+	// having two separate checks for different substrings is an easy fix
+	require.ErrorContains(t, err, "no such host")
 }
 
 func TestPatchUserSignup(t *testing.T) {
