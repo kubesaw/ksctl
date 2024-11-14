@@ -21,7 +21,7 @@ import (
 
 type (
 	NonOperatorDeploymentsRestarterFunc func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error
-	RolloutStatusCheckerFunc            func(ctx *clicontext.CommandContext, labelSelector string) error
+	RolloutStatusCheckerFunc            func(ctx *clicontext.CommandContext, labelSelector string, deployment appsv1.Deployment) error
 )
 
 // NewRestartCmd() is a function to restart the whole operator, it relies on the target cluster and fetches the cluster config
@@ -86,8 +86,8 @@ func restart(ctx *clicontext.CommandContext, clusterName string) error {
 	}
 
 	//return restartDeployment(ctx, cl, cfg.OperatorNamespace, factory, ioStreams, checkRolloutStatus, restartNonOperatorDeployments)
-	return restartDeployments(ctx, cl, cfg.OperatorNamespace, func(ctx *clicontext.CommandContext, labelSelector string) error {
-		return checkRolloutStatus(ctx, factory, ioStreams, labelSelector)
+	return restartDeployments(ctx, cl, cfg.OperatorNamespace, func(ctx *clicontext.CommandContext, labelSelector string, deployment appsv1.Deployment) error {
+		return checkRolloutStatus(ctx, factory, ioStreams, labelSelector, deployment)
 	}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 		return restartNonOlmDeployments(ctx, deployment, factory, ioStreams)
 	})
@@ -117,7 +117,7 @@ func restartDeployments(ctx *clicontext.CommandContext, cl runtimeclient.Client,
 
 		ctx.Printlnf("Checking the status of the deleted pod's deployment %v", olmOperatorDeployment.Name)
 		//check the rollout status
-		if err := checker(ctx, "kubesaw-control-plane=kubesaw-controller-manager"); err != nil {
+		if err := checker(ctx, "kubesaw-control-plane=kubesaw-controller-manager", olmOperatorDeployment); err != nil {
 			return err
 		}
 	}
@@ -140,7 +140,7 @@ func restartDeployments(ctx *clicontext.CommandContext, cl runtimeclient.Client,
 			}
 			//check the rollout status
 			ctx.Printlnf("Checking the status of the rolled out deployment %v", nonOlmDeployment.Name)
-			if err := checker(ctx, "toolchain.dev.openshift.com/provider=codeready-toolchain"); err != nil {
+			if err := checker(ctx, "toolchain.dev.openshift.com/provider=codeready-toolchain", nonOlmDeployment); err != nil {
 				return err
 			}
 			return nil
@@ -192,15 +192,15 @@ func restartNonOlmDeployments(ctx *clicontext.CommandContext, deployment appsv1.
 	return o.RunRestart()
 }
 
-func checkRolloutStatus(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
+func checkRolloutStatus(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string, deployment appsv1.Deployment) error {
 
 	cmd := kubectlrollout.NewRolloutStatusOptions(ioStreams)
 
-	if err := cmd.Complete(f, []string{"deployment"}); err != nil {
+	if err := cmd.Complete(f, []string{"deployment/" + deployment.Name}); err != nil {
 		return err
 	}
 
-	cmd.LabelSelector = labelSelector
+	//cmd.LabelSelector = labelSelector
 	if err := cmd.Validate(); err != nil {
 		return err
 	}
