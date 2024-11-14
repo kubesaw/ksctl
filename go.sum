@@ -129,6 +129,10 @@ github.com/cockroachdb/datadriven v0.0.0-20190809214429-80d97fb3cbaa/go.mod h1:z
 github.com/cockroachdb/datadriven v0.0.0-20200714090401-bf6692d28da5/go.mod h1:h6jFvWxBdQXxjopDMZyH2UVceIRfR84bdzbkoKrsWNo=
 github.com/cockroachdb/errors v1.2.4/go.mod h1:rQD95gz6FARkaKkQXUksEje/d9a6wBJoCr5oaCLELYA=
 github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f/go.mod h1:i/u985jwjWRlyHXQbwatDASoW0RMlZ/3i9yJHE2xLkI=
+github.com/codeready-toolchain/api v0.0.0-20241114213029-44333bf24bcf h1:tOHKd4PT6gnV8lLh3kmqqK9YONvL6oFKHpi0kGzfsvw=
+github.com/codeready-toolchain/api v0.0.0-20241114213029-44333bf24bcf/go.mod h1:DUq1ffy9Mbersdgji48i/cm9Y+6NMwAdAQJNlfOrPRo=
+github.com/codeready-toolchain/toolchain-common v0.0.0-20241114215157-a6a85252b2f5 h1:vW0C32c6sI9ZUGcUw3e9ftE9hqJ/bMo+TtRHp84Hung=
+github.com/codeready-toolchain/toolchain-common v0.0.0-20241114215157-a6a85252b2f5/go.mod h1:wx/d4HVbDPOadwpbxn28ZGClC5OmzelIK8p4wupDJVI=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
 github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/coreos/etcd v3.3.13+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
@@ -581,10 +585,6 @@ github.com/prometheus/procfs v0.6.0/go.mod h1:cz+aTbrPOrUb4q7XlbU9ygM+/jj0fzG6c1
 github.com/prometheus/procfs v0.10.1 h1:kYK1Va/YMlutzCGazswoHKo//tZVlFpKYh+PymziUAg=
 github.com/prometheus/procfs v0.10.1/go.mod h1:nwNm2aOCAYw8uTR/9bWRREkZFxAUcWzPHWJq+XBB/FM=
 github.com/prometheus/tsdb v0.7.1/go.mod h1:qhTCs0VvXwvX/y3TZrWD7rabWM+ijKTux40TwIPHuXU=
-github.com/ranakan19/api v0.0.0-20241108053314-93842107015c h1:agALJXbm/xEWKHTMWQFnfhQXR7mvXHA34PmhXTpCgHg=
-github.com/ranakan19/api v0.0.0-20241108053314-93842107015c/go.mod h1:DUq1ffy9Mbersdgji48i/cm9Y+6NMwAdAQJNlfOrPRo=
-github.com/ranakan19/toolchain-common v0.0.0-20241111060318-c3e2d61d824c h1:tp0grBkxns4xM20HbTJyc4ucHbyiJPIadRX1bvYluko=
-github.com/ranakan19/toolchain-common v0.0.0-20241111060318-c3e2d61d824c/go.mod h1:3ATGZSAA4mkyq46eh2q2CoHxu9+3VWkMdSC7hmFLo50=
 github.com/redhat-cop/operator-utils v1.3.8 h1:xhoMBg2snSzNdcxT53lSBr7PRXxrzP1cDi51NPBLaT4=
 github.com/redhat-cop/operator-utils v1.3.8/go.mod h1:s4R0YY8lVlHkC78GLV20PPuZmywjSbTwZKCHwWUQ3P8=
 github.com/rivo/uniseg v0.1.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
