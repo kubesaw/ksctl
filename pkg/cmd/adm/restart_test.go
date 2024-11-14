@@ -25,197 +25,153 @@ import (
 	"k8s.io/client-go/rest/fake"
 	cgtesting "k8s.io/client-go/testing"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
-	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/scheme"
 )
 
-func TestRolloutKubectlFunctionality(t *testing.T) {
-	// given
-	tests := map[string]struct {
-		namespace      string
-		name           string
-		name1          string
-		labelKey       string
-		labelValue     string
-		labelKey1      string
-		labelValue1    string
-		expectedMsg    string
-		labelSelector  string
-		expectedOutput string
-		lsKey          string
-		lsValue        string
-	}{
-		//operator and non-operator deployments
-		"OperatorAndNonOperatorHostDeployment": {
-			namespace:     "toolchain-host-operator",
-			name:          "host-operator-controller-manager",
-			name1:         "registration-service",
-			labelKey:      "kubesaw-control-plane",
-			labelValue:    "kubesaw-controller-manager",
-			labelKey1:     "toolchain.dev.openshift.com/provider",
-			labelValue1:   "codeready-toolchain",
-			expectedMsg:   "deployment \"host-operator-controller-manager\" successfully rolled out\n",
-			labelSelector: "kubesaw-control-plane=kubesaw-controller-manager",
-			lsKey:         "host",
-			lsValue:       "operator",
-		},
-		//operator and non-operator deployments, checking for autoscaler deployments,
-		//it should be treated as no non-operator deployment available
-		"OperatorAndNonOperatorWithAutoscalerDeployment": {
-			namespace:     "toolchain-member-operator",
-			name:          "member-operator-controller-manager",
-			name1:         "autoscaling-buffer",
-			labelKey:      "kubesaw-control-plane",
-			labelValue:    "kubesaw-controller-manager",
-			labelKey1:     "toolchain.dev.openshift.com/provider",
-			labelValue1:   "codeready-toolchain",
-			expectedMsg:   "deployment \"member-operator-controller-manager\" successfully rolled out\n",
-			labelSelector: "kubesaw-control-plane=kubesaw-controller-manager",
-			lsKey:         "host",
-			lsValue:       "operator",
-		},
-		//only non-operator deployment
-		"NonOperatorHostDeployment": {
-			namespace:      "toolchain-host-operator",
-			name:           "registration-service",
-			labelKey:       "toolchain.dev.openshift.com/provider",
-			labelValue:     "codeready-toolchain",
-			expectedMsg:    "deployment \"registration-service\" successfully rolled out\n",
-			labelSelector:  "toolchain.dev.openshift.com/provider=codeready-toolchain",
-			expectedOutput: "deployment.apps/registration-service restarted\n",
-		},
-		//only operator deployment
-		"OperatorHostDeployment": {
-			namespace:     "toolchain-host-operator",
-			name:          "host-operator-controller-manager",
-			labelKey:      "kubesaw-control-plane",
-			labelValue:    "kubesaw-controller-manager",
-			expectedMsg:   "deployment \"host-operator-controller-manager\" successfully rolled out\n",
-			labelSelector: "kubesaw-control-plane=kubesaw-controller-manager",
-			lsKey:         "host",
-			lsValue:       "operator",
-		},
+func TestKubectlRolloutFunctionality(t *testing.T) {
+
+	HostNamespacedName := types.NamespacedName{
+		Namespace: "toolchain-host-operator",
+		Name:      "host-operator-controller-manager",
 	}
-	for k, tc := range tests {
-		t.Run(k, func(t *testing.T) {
-			//given
-			namespacedName := types.NamespacedName{
-				Namespace: tc.namespace,
-				Name:      tc.name,
-			}
-			namespacedName1 := types.NamespacedName{
-				Namespace: tc.namespace,
-				Name:      tc.name1,
-			}
-			var rolloutGroupVersionEncoder = schema.GroupVersion{Group: "apps", Version: "v1"}
-			deployment1 := newDeployment(namespacedName, 1)
-			deployment2 := newDeployment(namespacedName1, 1)
-			ns := scheme.Codecs.WithoutConversion()
-			tf := cmdtesting.NewTestFactory().WithNamespace(namespacedName.Namespace)
-			tf.ClientConfigVal = cmdtesting.DefaultClientConfig()
-			info, _ := runtime.SerializerInfoForMediaType(ns.SupportedMediaTypes(), runtime.ContentTypeJSON)
-			encoder := ns.EncoderForVersion(info.Serializer, rolloutGroupVersionEncoder)
-			tf.Client = &fake.RESTClient{
-				GroupVersion:         rolloutGroupVersionEncoder,
-				NegotiatedSerializer: ns,
-				Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
-					body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, deployment1))))
-					return &http.Response{StatusCode: http.StatusOK, Header: cmdtesting.DefaultHeader(), Body: body}, nil
-				}),
-			}
-			csCalls := 0
-			tf.FakeDynamicClient.WatchReactionChain = nil
-			tf.FakeDynamicClient.AddWatchReactor("*", func(action cgtesting.Action) (handled bool, ret watch.Interface, err error) {
-				csCalls++
-				fw := watch.NewFake()
-				deployment1.Status = appsv1.DeploymentStatus{
-					Replicas:            1,
-					UpdatedReplicas:     1,
-					ReadyReplicas:       1,
-					AvailableReplicas:   1,
-					UnavailableReplicas: 0,
-					Conditions: []appsv1.DeploymentCondition{{
-						Type: appsv1.DeploymentAvailable,
-					}},
-				}
-				c, err := runtime.DefaultUnstructuredConverter.ToUnstructured(deployment1.DeepCopyObject())
-				if err != nil {
-					t.Errorf("unexpected err %s", err)
-				}
-				u := &unstructured.Unstructured{}
-				u.SetUnstructuredContent(c)
-				go fw.Add(u)
-				return true, fw, nil
-			})
+	RegNamespacedName := types.NamespacedName{
+		Namespace: "toolchain-host-operator",
+		Name:      "registration-service",
+	}
+	var rolloutGroupVersionEncoder = schema.GroupVersion{Group: "apps", Version: "v1"}
+	hostDep := newDeployment(HostNamespacedName, 1)
+	regDep := newDeployment(RegNamespacedName, 1)
+	ns := scheme.Codecs.WithoutConversion()
+	tf := cmdtesting.NewTestFactory().WithNamespace(HostNamespacedName.Namespace)
+	tf.ClientConfigVal = cmdtesting.DefaultClientConfig()
+	info, _ := runtime.SerializerInfoForMediaType(ns.SupportedMediaTypes(), runtime.ContentTypeJSON)
+	encoder := ns.EncoderForVersion(info.Serializer, rolloutGroupVersionEncoder)
+	tf.Client = &fake.RESTClient{
+		GroupVersion:         rolloutGroupVersionEncoder,
+		NegotiatedSerializer: ns,
+		Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
+			body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, hostDep))))
+			return &http.Response{StatusCode: http.StatusOK, Header: cmdtesting.DefaultHeader(), Body: body}, nil
+		}),
+	}
+	csCalls := 0
+	tf.FakeDynamicClient.WatchReactionChain = nil
+	tf.FakeDynamicClient.AddWatchReactor("*", func(action cgtesting.Action) (handled bool, ret watch.Interface, err error) {
+		csCalls++
+		fw := watch.NewFake()
+		hostDep.Status = appsv1.DeploymentStatus{
+			Replicas:            1,
+			UpdatedReplicas:     1,
+			ReadyReplicas:       1,
+			AvailableReplicas:   1,
+			UnavailableReplicas: 0,
+			Conditions: []appsv1.DeploymentCondition{{
+				Type: appsv1.DeploymentAvailable,
+			}},
+		}
+		c, err := runtime.DefaultUnstructuredConverter.ToUnstructured(hostDep.DeepCopyObject())
+		if err != nil {
+			t.Errorf("unexpected err %s", err)
+		}
+		u := &unstructured.Unstructured{}
+		u.SetUnstructuredContent(c)
+		go fw.Add(u)
+		return true, fw, nil
+	})
 
-			streams, _, buf, _ := genericclioptions.NewTestIOStreams()
-			term := NewFakeTerminalWithResponse("Y")
-			pod := newPod(test.NamespacedName(namespacedName.Namespace, namespacedName.Name))
-			deployment1.Labels = make(map[string]string)
-			deployment1.Labels[tc.labelKey] = tc.labelValue
-			deployment2.Labels = make(map[string]string)
-			deployment2.Labels[tc.labelKey1] = tc.labelValue1
-			newClient, fakeClient := NewFakeClients(t, deployment1, deployment2, pod)
-			ctx := clicontext.NewCommandContext(term, newClient)
+	streams, _, buf, _ := genericclioptions.NewTestIOStreams()
+	term := NewFakeTerminalWithResponse("Y")
+	pod := newPod(test.NamespacedName(hostDep.Namespace, hostDep.Name))
+	hostDep.Labels = map[string]string{"kubesaw-control-plane": "kubesaw-controller-manager"}
+	regDep.Labels = map[string]string{"toolchain.dev.openshift.com/provider": "codeready-toolchain"}
 
-			//when
-			err := restartDeployment(ctx, fakeClient, namespacedName.Namespace, tf, streams, checkRolloutStatus, restartNonOperatorDeployments)
+	t.Run("Rollout Restart and Rollout Status works successfuly", func(t *testing.T) {
+		csCalls = 0
+		newClient, fakeClient := NewFakeClients(t, hostDep, regDep, pod)
+		ctx := clicontext.NewCommandContext(term, newClient)
 
-			//then
-
-			//checking the whole flow(starting with operator deployments & then to non operator deployments)
-			if tc.labelValue == "kubesaw-controller-manager" && tc.labelValue1 == "codeready-toolchain" && tc.name1 != "autoscaling-buffer" {
-				require.Contains(t, term.Output(), "Checking the status of the deleted pod's deployment")
-				//checking the output from kubectl for rolloutstatus
-				require.Contains(t, buf.String(), tc.expectedOutput)
-				//checking the flow for non-operator deployments
-				require.Contains(t, term.Output(), "Proceeding to restart the non-operator deployment")
-				require.Contains(t, term.Output(), "Running the rollout restart command for non-Operator deployment")
-				actual := &appsv1.Deployment{}
-				AssertObjectHasContent(t, fakeClient, namespacedName, actual, func() {
-					require.NotNil(t, actual.Spec.Replicas)
-					assert.Equal(t, int32(1), *actual.Spec.Replicas)
-					require.NotNil(t, actual.Annotations["restartedAt"])
-				})
-				assert.Equal(t, 2, csCalls)
-				require.Contains(t, term.Output(), "Checking the status of the rolled out deployment")
-				require.Contains(t, term.Output(), "Running the Rollout status to check the status of the deployment")
-			} else if tc.labelValue == "codeready-toolchain" {
-				//Checking the logic where no operator deployments are there
-				require.Error(t, err, "no operator based deployment found in namespace toolchain-host-operator , hence no restart happened")
-				assert.Equal(t, 0, csCalls)
-			} else if tc.labelValue == "kubesaw-controller-manager" && tc.name1 != "autoscaling-buffer" {
-				//checking the logic when only operator based deployment is there and no non-operator based
-				require.Contains(t, term.Output(), "No Non-operator deployment found in namespace", tc.namespace, ", hence no restart happened")
-				assert.Equal(t, 1, csCalls)
-			} else if tc.name1 == "autoscaling-buffer" {
-				require.Contains(t, term.Output(), "Found only autoscaling-buffer deployment in namespace toolchain-member-operator , which is not required to be restarted")
-				assert.Equal(t, 1, csCalls)
-			}
-
+		//when
+		err := restartDeployments(ctx, fakeClient, HostNamespacedName.Namespace, func(ctx *clicontext.CommandContext, labelSelector string) error {
+			return checkRolloutStatus(ctx, tf, streams, labelSelector)
+		}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			return restartNonOlmDeployments(ctx, deployment, tf, streams)
 		})
-	}
-}
 
+		//then
+		require.NoError(t, err)
+		require.Contains(t, term.Output(), "Checking the status of the deleted pod's deployment")
+		//checking the output from kubectl for rolloutstatus
+		require.Contains(t, buf.String(), "deployment.apps/host-operator-controller-manager restarted\n")
+		//checking the flow for non-operator deployments
+		require.Contains(t, term.Output(), "Proceeding to restart the non-olm deployment")
+		require.Contains(t, term.Output(), "Running the rollout restart command for non-Olm deployment")
+		actual := &appsv1.Deployment{}
+		AssertObjectHasContent(t, fakeClient, HostNamespacedName, actual, func() {
+			require.NotNil(t, actual.Spec.Replicas)
+			assert.Equal(t, int32(1), *actual.Spec.Replicas)
+			require.NotNil(t, actual.Annotations["restartedAt"])
+		})
+		assert.Equal(t, 2, csCalls)
+		require.Contains(t, term.Output(), "Checking the status of the rolled out deployment")
+		require.Contains(t, term.Output(), "Running the Rollout status to check the status of the deployment")
+
+	})
+
+	t.Run("Error No OLM deployment", func(t *testing.T) {
+		csCalls = 0
+		newClient, fakeClient := NewFakeClients(t, regDep)
+		ctx := clicontext.NewCommandContext(term, newClient)
+
+		//when
+		err := restartDeployments(ctx, fakeClient, HostNamespacedName.Namespace, func(ctx *clicontext.CommandContext, labelSelector string) error {
+			return checkRolloutStatus(ctx, tf, streams, labelSelector)
+		}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			return restartNonOlmDeployments(ctx, deployment, tf, streams)
+		})
+
+		//then
+		require.Error(t, err, "no operator based deployment found in namespace toolchain-host-operator , hence no restart happened")
+		assert.Equal(t, 0, csCalls)
+
+	})
+	t.Run("No Non-OLM deployment", func(t *testing.T) {
+		csCalls = 0
+		newClient, fakeClient := NewFakeClients(t, hostDep, pod)
+		ctx := clicontext.NewCommandContext(term, newClient)
+
+		//when
+		err := restartDeployments(ctx, fakeClient, HostNamespacedName.Namespace, func(ctx *clicontext.CommandContext, labelSelector string) error {
+			return checkRolloutStatus(ctx, tf, streams, labelSelector)
+		}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			return restartNonOlmDeployments(ctx, deployment, tf, streams)
+		})
+
+		//then
+		require.NoError(t, err)
+		//checking the logic when only operator based deployment is there and no non-operator based
+		require.Contains(t, term.Output(), "No Non-OLM deployment found in namespace toolchain-host-operator, hence no restart happened")
+		assert.Equal(t, 1, csCalls)
+
+	})
+
+}
 func TestRestartDeployment(t *testing.T) {
 	//given
-	testIOStreams := genericclioptions.NewTestIOStreamsDiscard()
-	SetFileConfig(t, Host())
+	SetFileConfig(t, Host(), Member())
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("host"))
+
+	//OLM-deployments
+	//host
 	hostDeployment := newDeployment(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"), 1)
-	hostDeployment.Labels = make(map[string]string)
-	hostDeployment.Labels["kubesaw-control-plane"] = "kubesaw-controller-manager"
-	regServDeployment := newDeployment(test.NamespacedName("toolchain-host-operator", "registration-service"), 1)
-	regServDeployment.Labels = make(map[string]string)
-	regServDeployment.Labels["toolchain.dev.openshift.com/provider"] = "codeready-toolchain"
+	hostDeployment.Labels = map[string]string{"kubesaw-control-plane": "kubesaw-controller-manager"}
 	hostPod := newPod(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"))
-	noisePod := newPod(test.NamespacedName("toolchain-host-operator", "noise"))
-	memberDeployment := newDeployment(test.NamespacedName("toolchain-member-operator", "member-operator-controller-manager"), 1)
-	memberDeployment.Labels = make(map[string]string)
-	memberDeployment.Labels["kubesaw-control-plane"] = "kubesaw-controller-manager"
-	autoscalarDeployment := newDeployment(test.NamespacedName("toolchain-member-operator", "autoscaling-buffer"), 1)
-	autoscalarDeployment.Labels = make(map[string]string)
-	autoscalarDeployment.Labels["toolchain.dev.openshift.com/provider"] = "codeready-toolchain"
+	extraPod := newPod(test.NamespacedName("toolchain-host-operator", "extra"))
+
+	//Non-OLM deployments
+	//reg-svc
+	regServDeployment := newDeployment(test.NamespacedName("toolchain-host-operator", "registration-service"), 1)
+	regServDeployment.Labels = map[string]string{"toolchain.dev.openshift.com/provider": "codeready-toolchain"}
+
 	actualPod := &corev1.Pod{}
 	term := NewFakeTerminalWithResponse("Y")
 
@@ -225,52 +181,44 @@ func TestRestartDeployment(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
-		err := restartDeployment(ctx, fakeClient, "toolchain-host-operator", nil, testIOStreams,
-			func(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
-				require.Equal(t, testIOStreams, ioStreams)
-				require.Nil(t, f)
+		err := restartDeployments(ctx, fakeClient, "toolchain-host-operator",
+			func(ctx *clicontext.CommandContext, labelSelector string) error {
 				require.Equal(t, "toolchain.dev.openshift.com/provider=codeready-toolchain", labelSelector)
 				return nil
-			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
+			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 				require.Equal(t, regServDeployment, deployment)
-				require.Equal(t, testIOStreams, ioStreams)
-				require.Nil(t, f)
 				return nil
 			})
 
 		//then
-		require.Error(t, err, "no operator based deployment found in namespace toolchain-host-operator , hence no restart happened")
+		require.Error(t, err, "no operator based deployment found in namespace toolchain-host-operator , it is required for the operator deployment to be running so the command can proceed with restarting the KubeSaw components")
 	})
+
 	t.Run("restart deployment works successfully with whole operator(operator, non operator)", func(t *testing.T) {
 		//given
-		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment, hostPod, regServDeployment, noisePod)
+		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment, hostPod, regServDeployment, extraPod)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
-		err := restartDeployment(ctx, fakeClient, "toolchain-host-operator", nil, testIOStreams,
-			func(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
-				require.Equal(t, testIOStreams, ioStreams)
-				require.Nil(t, f)
+		err := restartDeployments(ctx, fakeClient, "toolchain-host-operator",
+			func(ctx *clicontext.CommandContext, labelSelector string) error {
 				return nil
-			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
-				require.Equal(t, testIOStreams, ioStreams)
-				require.Nil(t, f)
+			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 				return nil
 			})
 
 		//then
 		require.NoError(t, err)
 		//checking the flow for operator deployments
-		require.Contains(t, term.Output(), "Fetching the current Operator and non-Operator deployments of the operator in")
+		require.Contains(t, term.Output(), "Fetching the current OLM and non-OLM deployments of the operator in toolchain-host-operator namespace")
 		require.Contains(t, term.Output(), "Proceeding to delete the Pods of")
-		require.Contains(t, term.Output(), "Listing the pods to be deleted")
-		require.Contains(t, term.Output(), "Starting to delete the pods")
+		require.Contains(t, term.Output(), "Deleting pod: host-operator-controller-manager")
 		err = fakeClient.Get(ctx, test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"), actualPod)
 		//pods are actually deleted
 		require.True(t, apierror.IsNotFound(err))
 		require.Contains(t, term.Output(), "Checking the status of the deleted pod's deployment")
 		//checking the flow for non-operator deployments
-		require.Contains(t, term.Output(), "Proceeding to restart the non-operator deployment")
+		require.Contains(t, term.Output(), "Proceeding to restart the non-olm deployment")
 		require.Contains(t, term.Output(), "Checking the status of the rolled out deployment")
 	})
 
@@ -280,35 +228,28 @@ func TestRestartDeployment(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
-		err := restartDeployment(ctx, fakeClient, "toolchain-host-operator", nil, testIOStreams,
-			func(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
-				require.Equal(t, testIOStreams, ioStreams)
-				require.Nil(t, f)
+		err := restartDeployments(ctx, fakeClient, "toolchain-host-operator",
+			func(ctx *clicontext.CommandContext, labelSelector string) error {
 				return nil
-			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
-				require.Equal(t, testIOStreams, ioStreams)
-				require.Nil(t, f)
+			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 				return nil
 			})
 
 		//then
 		require.NoError(t, err)
-		require.Contains(t, term.Output(), "No Non-operator deployment found in namespace toolchain-host-operator, hence no restart happened")
+		require.Contains(t, term.Output(), "No Non-OLM deployment found in namespace toolchain-host-operator, hence no restart happened")
 	})
+
 	t.Run("rollout restart returns an error", func(t *testing.T) {
 		//given
 		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment, regServDeployment, hostPod)
 		ctx := clicontext.NewCommandContext(term, newClient)
 		expectedErr := fmt.Errorf("Could not do rollout restart of the deployment")
 		//when
-		err := restartDeployment(ctx, fakeClient, "toolchain-host-operator", nil, testIOStreams,
-			func(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
-				require.Equal(t, testIOStreams, ioStreams)
-				require.Nil(t, f)
+		err := restartDeployments(ctx, fakeClient, "toolchain-host-operator",
+			func(ctx *clicontext.CommandContext, labelSelector string) error {
 				return nil
-			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) error {
-				require.Equal(t, testIOStreams, ioStreams)
-				require.Nil(t, f)
+			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 				return expectedErr
 			})
 
@@ -322,9 +263,8 @@ func TestRestartDeployment(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
-		err := restartDeployment(ctx, fakeClient, "toolchain-host-operator", nil, testIOStreams,
-			func(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
-				require.Equal(t, testIOStreams, ioStreams)
+		err := restartDeployments(ctx, fakeClient, "toolchain-host-operator",
+			func(ctx *clicontext.CommandContext, labelSelector string) error {
 				return nil
 			}, nil)
 
@@ -338,8 +278,8 @@ func TestRestartDeployment(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 		expectedErr := fmt.Errorf("Could not check the status of the deployment")
 		//when
-		err := restartDeployment(ctx, fakeClient, "toolchain-host-operator", nil, genericclioptions.NewTestIOStreamsDiscard(),
-			func(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
+		err := restartDeployments(ctx, fakeClient, "toolchain-host-operator",
+			func(ctx *clicontext.CommandContext, labelSelector string) error {
 				return expectedErr
 			}, nil)
 
@@ -347,44 +287,40 @@ func TestRestartDeployment(t *testing.T) {
 		require.EqualError(t, err, expectedErr.Error())
 	})
 
+}
+
+func TestRestartAutoScalerDeployment(t *testing.T) {
+	//given
+	SetFileConfig(t, Host(), Member())
+	toolchainCluster := NewToolchainCluster(ToolchainClusterName("host"))
+
+	//OLM-deployments
+	//member
+	memberDeployment := newDeployment(test.NamespacedName("toolchain-member-operator", "member-operator-controller-manager"), 1)
+	memberDeployment.Labels = map[string]string{"kubesaw-control-plane": "kubesaw-controller-manager"}
+
+	//Non-OLM deployments
+	//autoscaler
+	autoscalerDeployment := newDeployment(test.NamespacedName("toolchain-member-operator", "autoscaling-buffer"), 1)
+	autoscalerDeployment.Labels = map[string]string{"toolchain.dev.openshift.com/provider": "codeready-toolchain"}
+
+	term := NewFakeTerminalWithResponse("Y")
+
 	t.Run("autoscalling deployment should not restart", func(t *testing.T) {
 		//given
-		newClient, fakeClient := NewFakeClients(t, toolchainCluster, memberDeployment, autoscalarDeployment)
+		newClient, fakeClient := NewFakeClients(t, toolchainCluster, memberDeployment, autoscalerDeployment)
 		ctx := clicontext.NewCommandContext(term, newClient)
 		//when
-		err := restartDeployment(ctx, fakeClient, "toolchain-member-operator", nil, genericclioptions.NewTestIOStreamsDiscard(),
-			func(ctx *clicontext.CommandContext, f cmdutil.Factory, ioStreams genericclioptions.IOStreams, labelSelector string) error {
+		err := restartDeployments(ctx, fakeClient, "toolchain-member-operator",
+			func(ctx *clicontext.CommandContext, labelSelector string) error {
 				return nil
-			}, nil)
+			}, mockRolloutRestartInterceptor())
 
 		//then
 		require.NoError(t, err)
 		require.Contains(t, term.Output(), "Found only autoscaling-buffer deployment in namespace toolchain-member-operator , which is not required to be restarted")
+		require.NotContains(t, term.Output(), "Proceeding to restart the non-olm deployment")
 	})
-
-}
-
-func TestRestart(t *testing.T) {
-
-	t.Run("restart should start with y response", func(t *testing.T) {
-		//given
-		SetFileConfig(t, Host())
-		toolchainCluster := NewToolchainCluster(ToolchainClusterName("host"))
-		deployment := newDeployment(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"), 1)
-		deployment.Labels = make(map[string]string)
-		deployment.Labels["kubesaw-control-plane"] = "kubesaw-controller-manager"
-		term := NewFakeTerminalWithResponse("Y")
-		newClient, _ := NewFakeClients(t, toolchainCluster, deployment)
-		ctx := clicontext.NewCommandContext(term, newClient)
-
-		//when
-		err := restart(ctx, "host")
-
-		//then
-		require.ErrorContains(t, err, "no such host") //we expect an error as we have not set up any http client , just checking that it passes the cmd phase and restartdeployment method is called
-		require.Contains(t, term.Output(), "Fetching the current Operator and non-Operator deployments of the operator in")
-	})
-
 }
 
 func newDeployment(namespacedName types.NamespacedName, replicas int32) *appsv1.Deployment { //nolint:unparam
@@ -395,7 +331,7 @@ func newDeployment(namespacedName types.NamespacedName, replicas int32) *appsv1.
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
-			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"host": "controller"}},
+			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"dummy-key": "controller"}},
 		},
 	}
 }
@@ -409,7 +345,7 @@ func newPod(namespacedName types.NamespacedName) *corev1.Pod { //nolint:unparam
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespacedName.Namespace,
 			Name:      namespacedName.Name,
-			Labels:    map[string]string{"host": "controller"},
+			Labels:    map[string]string{"dummy-key": "controller"},
 		},
 		Spec: corev1.PodSpec{},
 		Status: corev1.PodStatus{
@@ -432,4 +368,13 @@ func checkDeploymentBeingUpdated(t *testing.T, fakeClient *test.FakeClient, name
 		assert.Equal(t, currentReplicas, *deployment.Spec.Replicas)
 	}
 	*numberOfUpdateCalls++
+}
+
+func mockRolloutRestartInterceptor() func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+	return func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+		if deployment.Name == "autoscaling-buffer" {
+			return fmt.Errorf("autoscalling deployment found")
+		}
+		return nil
+	}
 }

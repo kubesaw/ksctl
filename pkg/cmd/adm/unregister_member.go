@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-type restartFunc func(ctx *clicontext.CommandContext, clusterNames ...string) error
+type restartFunc func(ctx *clicontext.CommandContext, clusterName string) error
 
 func NewUnregisterMemberCmd() *cobra.Command {
 	return &cobra.Command{

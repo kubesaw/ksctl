@@ -27,7 +27,7 @@ func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterNames ...string) error {
+	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterName string) error {
 		return nil
 	})
 
@@ -58,12 +58,36 @@ func TestUnregisterMemberWhenRestartError(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterNames ...string) error {
+	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterName string) error {
 		return fmt.Errorf("restart did not happen")
 	})
 
 	// then
 	require.EqualError(t, err, "restart did not happen")
+}
+
+func TestUnregisterMemberCallsRestart(t *testing.T) {
+	// given
+	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
+	hostDeploymentName := test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager")
+	deployment := newDeployment(hostDeploymentName, 1)
+	deployment.Labels = map[string]string{"kubesaw-control-plane": "kubesaw-controller-manager"}
+
+	newClient, fakeClient := NewFakeClients(t, toolchainCluster, deployment)
+	numberOfUpdateCalls := 0
+	fakeClient.MockUpdate = whenDeploymentThenUpdated(t, fakeClient, hostDeploymentName, 1, &numberOfUpdateCalls)
+
+	SetFileConfig(t, Host(), Member())
+	term := NewFakeTerminalWithResponse("y")
+	ctxAct := clicontext.NewCommandContext(term, newClient)
+
+	// when
+	err := UnregisterMemberCluster(ctxAct, "member1", func(ctx *clicontext.CommandContext, restartClusterName string) error {
+		return mockRestart(ctx, restartClusterName)
+	})
+
+	// then
+	require.NoError(t, err)
 }
 
 func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {
@@ -75,7 +99,7 @@ func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterNames ...string) error {
+	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterName string) error {
 		return nil
 	})
 
@@ -98,7 +122,7 @@ func TestUnregisterMemberWhenNotFound(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterNames ...string) error {
+	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterName string) error {
 		return nil
 	})
 
@@ -121,7 +145,7 @@ func TestUnregisterMemberWhenUnknownClusterName(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "some", func(ctx *clicontext.CommandContext, clusterNames ...string) error {
+	err := UnregisterMemberCluster(ctx, "some", func(ctx *clicontext.CommandContext, clusterName string) error {
 		return nil
 	})
 
@@ -146,11 +170,18 @@ func TestUnregisterMemberLacksPermissions(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterNames ...string) error {
+	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterName string) error {
 		return nil
 	})
 
 	// then
 	require.EqualError(t, err, "ksctl command failed: the token in your ksctl.yaml file is missing")
 	AssertToolchainClusterSpec(t, fakeClient, toolchainCluster)
+}
+
+func mockRestart(ctx *clicontext.CommandContext, clusterName string) error {
+	if clusterName == "host" && ctx != nil {
+		return nil
+	}
+	return fmt.Errorf("cluster name is wrong")
 }
