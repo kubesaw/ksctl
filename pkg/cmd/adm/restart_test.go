@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
+	"github.com/h2non/gock"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	"github.com/stretchr/testify/assert"
@@ -85,7 +86,7 @@ func TestKubectlRolloutFunctionality(t *testing.T) {
 	hostDep.Labels = map[string]string{"kubesaw-control-plane": "kubesaw-controller-manager"}
 	regDep.Labels = map[string]string{"toolchain.dev.openshift.com/provider": "codeready-toolchain"}
 
-	t.Run("Rollout Restart and Rollout Status works successfuly", func(t *testing.T) {
+	t.Run("Rollout Restart and Rollout Status works successfully", func(t *testing.T) {
 		csCalls = 0
 		newClient, fakeClient := NewFakeClients(t, hostDep, regDep, pod)
 		ctx := clicontext.NewCommandContext(term, newClient)
@@ -320,6 +321,55 @@ func TestRestartAutoScalerDeployment(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, term.Output(), "Found only autoscaling-buffer deployment in namespace toolchain-member-operator , which is not required to be restarted")
 		require.NotContains(t, term.Output(), "Proceeding to restart the non-olm deployment")
+	})
+}
+
+func TestRestart(t *testing.T) {
+	//given
+	t.Cleanup(gock.OffAll)
+	gock.New("https://cool-server.com").
+		Get("api").
+		Persist().
+		Reply(200).
+		BodyString("{}")
+	SetFileConfig(t, Host(), Member())
+	toolchainCluster := NewToolchainCluster(ToolchainClusterName("host"))
+
+	///OLM-deployments
+	//host
+	hostDeployment := newDeployment(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"), 1)
+	hostDeployment.Labels = map[string]string{"kubesaw-control-plane": "kubesaw-controller-manager"}
+	hostPod := newPod(test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager"))
+
+	//Non-OLM deployments
+	//reg-svc
+	regServDeployment := newDeployment(test.NamespacedName("toolchain-host-operator", "registration-service"), 1)
+	regServDeployment.Labels = map[string]string{"toolchain.dev.openshift.com/provider": "codeready-toolchain"}
+
+	t.Run("No restart when users says NO in confirmaion of restart", func(t *testing.T) {
+		term := NewFakeTerminalWithResponse("N")
+		//given
+		newClient, _ := NewFakeClients(t, toolchainCluster, hostDeployment, hostPod)
+		ctx := clicontext.NewCommandContext(term, newClient)
+		//when
+		err := restart(ctx, "host")
+
+		//then
+		require.NoError(t, err)
+		require.NotContains(t, term.Output(), "Fetching the current OLM and non-OLM deployments of the operator in")
+
+	})
+	t.Run("fails when no factory and stream provided", func(t *testing.T) {
+		term := NewFakeTerminalWithResponse("Y")
+		//given
+		newClient, _ := NewFakeClients(t, toolchainCluster, hostDeployment, hostPod)
+		ctx := clicontext.NewCommandContext(term, newClient)
+		//when
+		err := restart(ctx, "host")
+
+		//then
+		require.Error(t, err, "the server doesn't have a resource type deployment")
+
 	})
 }
 

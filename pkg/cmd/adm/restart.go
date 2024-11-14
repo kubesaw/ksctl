@@ -75,14 +75,14 @@ func restart(ctx *clicontext.CommandContext, clusterName string) error {
 	kubeConfigFlags.KubeConfig = &kubeconfig
 	factory := cmdutil.NewFactory(cmdutil.NewMatchVersionFlags(kubeConfigFlags))
 
-	cl, err := ctx.NewClient(cfg.Token, cfg.ServerAPI)
-	if err != nil {
-		return err
-	}
-
 	if !ctx.AskForConfirmation(
 		ioutils.WithMessagef("restart all the deployments in the cluster  '%s' and namespace '%s' \n", clusterName, cfg.OperatorNamespace)) {
 		return nil
+	}
+
+	cl, err := ctx.NewClient(cfg.Token, cfg.ServerAPI)
+	if err != nil {
+		return err
 	}
 
 	//return restartDeployment(ctx, cl, cfg.OperatorNamespace, factory, ioStreams, checkRolloutStatus, restartNonOperatorDeployments)
