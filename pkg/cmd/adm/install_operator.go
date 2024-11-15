@@ -1,6 +1,7 @@
 package adm
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -209,7 +210,7 @@ func newSubscription(name types.NamespacedName, operatorName, catalogSourceName 
 
 func waitUntilCatalogSourceIsReady(ctx *clicontext.TerminalContext, applyClient *commonclient.ApplyClient, catalogSourceKey runtimeclient.ObjectKey, waitForReadyTimeout time.Duration) error {
 	cs := &olmv1alpha1.CatalogSource{}
-	if err := wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(context.TODO(), 2*time.Second, waitForReadyTimeout, true, func(ctx2 context.Context) (bool, error) {
 		ctx.Printlnf("waiting for CatalogSource %s to become ready", catalogSourceKey)
 		cs = &olmv1alpha1.CatalogSource{}
 		if err := applyClient.Get(ctx, catalogSourceKey, cs); err != nil {
@@ -226,7 +227,7 @@ func waitUntilCatalogSourceIsReady(ctx *clicontext.TerminalContext, applyClient 
 
 func waitUntilInstallPlanIsComplete(ctx *clicontext.TerminalContext, cl runtimeclient.Client, operator, namespace string, waitForReadyTimeout time.Duration) error {
 	plans := &olmv1alpha1.InstallPlanList{}
-	if err := wait.PollImmediate(2*time.Second, waitForReadyTimeout, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(context.TODO(), 2*time.Second, waitForReadyTimeout, true, func(ctx2 context.Context) (bool, error) {
 		ctx.Printlnf("waiting for InstallPlans in namespace %s to complete", namespace)
 		plans = &olmv1alpha1.InstallPlanList{}
 		if err := cl.List(ctx, plans, runtimeclient.InNamespace(namespace),

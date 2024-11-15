@@ -15,7 +15,6 @@ import (
 	uuid "github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/runtime"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -210,7 +209,7 @@ func initAddSpaceUsersTest(t *testing.T, murs ...*toolchainv1alpha1.MasterUserRe
 		TemplateRef: uuid.NewString(),
 	}
 	nsTemplateTier.Spec.SpaceRoles = roles
-	objs := []runtime.Object{space, nsTemplateTier}
+	objs := []runtimeclient.Object{space, nsTemplateTier}
 	for _, mur := range murs {
 		objs = append(objs, mur)
 	}
