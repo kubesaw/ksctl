@@ -38,14 +38,32 @@ func TestNewClientOK(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, cl)
 }
+func TestNewClientFromRestConfigError(t *testing.T) {
+	cl, err := client.NewClientFromRestConfig(nil)
+	require.EqualError(t, err, "cannot create client: must provide non-nil rest.Config to client.New")
+	require.Nil(t, cl)
+}
 
 func TestNewClientFail(t *testing.T) {
 	// when
 	cl, err := client.NewClient("cool-token", "https://fail-cluster.com")
-
+	require.NoError(t, err)
+	assert.NotNil(t, cl)
 	// then
+	testObj := &toolchainv1alpha1.UserSignup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "john-doe",
+			Namespace: "default",
+		},
+	}
+	// no specific reason to check if object is namespaced, ANY request to the actual api would trigger error indicating incorrect configuration of client
+	_, err = cl.IsObjectNamespaced(testObj)
 	require.Error(t, err)
-	assert.Nil(t, cl)
+	// actual error is "failed to get restmapping: failed to get server groups: Get \"https://fail-cluster.com/api?timeout=1m0s\": dial tcp: lookup fail-cluster.com: no such host"
+	require.ErrorContains(t, err, "dial tcp: lookup fail-cluster.com")
+	// for ci the error message is dial tcp: lookup fail-cluster.com on 127.0.0.53:53: no such host, could go the regex way or string submatching with wildcards
+	// having two separate checks for different substrings is an easy fix
+	require.ErrorContains(t, err, "no such host")
 }
 
 func TestPatchUserSignup(t *testing.T) {
@@ -540,7 +558,7 @@ func TestGetRoute(t *testing.T) {
 			})
 			// then
 			require.Error(t, err)
-			require.EqualError(t, err, "unable to get route to openshift-monitoring/thanos-querier: timed out waiting for the condition")
+			require.EqualError(t, err, "unable to get route to openshift-monitoring/thanos-querier: context deadline exceeded")
 		})
 	})
 }
