@@ -1,8 +1,6 @@
 module github.com/kubesaw/ksctl
 
-go 1.21
-
-toolchain go1.23.3
+go 1.20
 
 require (
 	github.com/codeready-toolchain/api v0.0.0-20241114213029-44333bf24bcf
