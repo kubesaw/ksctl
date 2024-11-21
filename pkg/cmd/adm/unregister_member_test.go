@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	"github.com/stretchr/testify/assert"
@@ -14,13 +13,8 @@ import (
 func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	// given
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
-	hostDeploymentName := test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager")
-	deployment := newDeployment(hostDeploymentName, 1)
-	deployment.Labels = map[string]string{"kubesaw-control-plane": "kubesaw-controller-manager"}
 
-	newClient, fakeClient := NewFakeClients(t, toolchainCluster, deployment)
-	numberOfUpdateCalls := 0
-	fakeClient.MockUpdate = whenDeploymentThenUpdated(t, fakeClient, hostDeploymentName, 1, &numberOfUpdateCalls)
+	newClient, fakeClient := NewFakeClients(t, toolchainCluster)
 
 	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("y")
@@ -39,17 +33,13 @@ func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	assert.Contains(t, term.Output(), "Delete Member cluster stated above from the Host cluster?")
 	assert.Contains(t, term.Output(), "The deletion of the Toolchain member cluster from the Host cluster has been triggered")
 	assert.NotContains(t, term.Output(), "cool-token")
-	AssertDeploymentHasReplicas(t, fakeClient, hostDeploymentName, 1)
 }
 
 func TestUnregisterMemberWhenRestartError(t *testing.T) {
 	// given
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
-	hostDeploymentName := test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager")
 
-	newClient, fakeClient := NewFakeClients(t, toolchainCluster)
-	numberOfUpdateCalls := 0
-	fakeClient.MockUpdate = whenDeploymentThenUpdated(t, fakeClient, hostDeploymentName, 1, &numberOfUpdateCalls)
+	newClient, _ := NewFakeClients(t, toolchainCluster)
 
 	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("y")
@@ -67,11 +57,8 @@ func TestUnregisterMemberWhenRestartError(t *testing.T) {
 func TestUnregisterMemberCallsRestart(t *testing.T) {
 	// given
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
-	hostDeploymentName := test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager")
 
-	newClient, fakeClient := NewFakeClients(t, toolchainCluster)
-	numberOfUpdateCalls := 0
-	fakeClient.MockUpdate = whenDeploymentThenUpdated(t, fakeClient, hostDeploymentName, 1, &numberOfUpdateCalls)
+	newClient, _ := NewFakeClients(t, toolchainCluster)
 
 	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("y")
