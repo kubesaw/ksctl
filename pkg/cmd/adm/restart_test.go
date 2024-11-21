@@ -371,22 +371,6 @@ func newPod(namespacedName types.NamespacedName) *corev1.Pod { //nolint:unparam
 	}
 }
 
-func checkDeploymentBeingUpdated(t *testing.T, fakeClient *test.FakeClient, namespacedName types.NamespacedName, currentReplicas int32, numberOfUpdateCalls *int, deployment *appsv1.Deployment) {
-	// on the first call, we should have a deployment with 3 replicas ("current") and request to delete to 0 ("requested")
-	if *numberOfUpdateCalls == 0 {
-		// check the current deployment's replicas field
-		AssertDeploymentHasReplicas(t, fakeClient, namespacedName, currentReplicas)
-		// check the requested deployment's replicas field
-		assert.Equal(t, int32(0), *deployment.Spec.Replicas)
-	} else {
-		// check the current deployment's replicas field
-		AssertDeploymentHasReplicas(t, fakeClient, namespacedName, 0)
-		// check the requested deployment's replicas field
-		assert.Equal(t, currentReplicas, *deployment.Spec.Replicas)
-	}
-	*numberOfUpdateCalls++
-}
-
 func mockRolloutRestartInterceptor() func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 	return func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 		if deployment.Name == "autoscaling-buffer" {
