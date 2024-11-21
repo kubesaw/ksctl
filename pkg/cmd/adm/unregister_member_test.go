@@ -46,10 +46,8 @@ func TestUnregisterMemberWhenRestartError(t *testing.T) {
 	// given
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
 	hostDeploymentName := test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager")
-	deployment := newDeployment(hostDeploymentName, 1)
-	deployment.Labels = map[string]string{"kubesaw-control-plane": "kubesaw-controller-manager"}
 
-	newClient, fakeClient := NewFakeClients(t, toolchainCluster, deployment)
+	newClient, fakeClient := NewFakeClients(t, toolchainCluster)
 	numberOfUpdateCalls := 0
 	fakeClient.MockUpdate = whenDeploymentThenUpdated(t, fakeClient, hostDeploymentName, 1, &numberOfUpdateCalls)
 
@@ -70,24 +68,24 @@ func TestUnregisterMemberCallsRestart(t *testing.T) {
 	// given
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
 	hostDeploymentName := test.NamespacedName("toolchain-host-operator", "host-operator-controller-manager")
-	deployment := newDeployment(hostDeploymentName, 1)
-	deployment.Labels = map[string]string{"kubesaw-control-plane": "kubesaw-controller-manager"}
 
-	newClient, fakeClient := NewFakeClients(t, toolchainCluster, deployment)
+	newClient, fakeClient := NewFakeClients(t, toolchainCluster)
 	numberOfUpdateCalls := 0
 	fakeClient.MockUpdate = whenDeploymentThenUpdated(t, fakeClient, hostDeploymentName, 1, &numberOfUpdateCalls)
 
 	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("y")
 	ctxAct := clicontext.NewCommandContext(term, newClient)
-
+	called := 0
 	// when
 	err := UnregisterMemberCluster(ctxAct, "member1", func(ctx *clicontext.CommandContext, restartClusterName string) error {
+		called++
 		return mockRestart(ctx, restartClusterName)
 	})
 
 	// then
 	require.NoError(t, err)
+	assert.Equal(t, 1, called)
 }
 
 func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {

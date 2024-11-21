@@ -14,14 +14,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	kubectlrollout "k8s.io/kubectl/pkg/cmd/rollout"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type (
-	NonOperatorDeploymentsRestarterFunc func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error
-	RolloutStatusCheckerFunc            func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error
+	RolloutRestartFunc       func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error
+	RolloutStatusCheckerFunc func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error
 )
 
 // NewRestartCmd() is a function to restart the whole operator, it relies on the target cluster and fetches the cluster config
@@ -52,7 +53,7 @@ func NewRestartCmd() *cobra.Command {
 
 func restart(ctx *clicontext.CommandContext, clusterName string) error {
 	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
-	ioStreams := genericclioptions.IOStreams{
+	ioStreams := genericiooptions.IOStreams{
 		In:     os.Stdin,
 		Out:    os.Stdout,
 		ErrOut: os.Stderr,
@@ -85,7 +86,6 @@ func restart(ctx *clicontext.CommandContext, clusterName string) error {
 		return err
 	}
 
-	//return restartDeployment(ctx, cl, cfg.OperatorNamespace, factory, ioStreams, checkRolloutStatus, restartNonOperatorDeployments)
 	return restartDeployments(ctx, cl, cfg.OperatorNamespace, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 		return checkRolloutStatus(ctx, factory, ioStreams, deployment)
 	}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
@@ -94,7 +94,7 @@ func restart(ctx *clicontext.CommandContext, clusterName string) error {
 }
 
 // This function has the whole logic of getting the list of olm and non-olm based deployment, then proceed on restarting/deleting accordingly
-func restartDeployments(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string, checker RolloutStatusCheckerFunc, restarter NonOperatorDeploymentsRestarterFunc) error {
+func restartDeployments(ctx *clicontext.CommandContext, cl runtimeclient.Client, ns string, checker RolloutStatusCheckerFunc, restarter RolloutRestartFunc) error {
 
 	ctx.Printlnf("Fetching the current OLM and non-OLM deployments of the operator in %s namespace", ns)
 	olmDeploymentList, nonOlmDeploymentList, err := getExistingDeployments(ctx, cl, ns)
@@ -143,6 +143,8 @@ func restartDeployments(ctx *clicontext.CommandContext, cl runtimeclient.Client,
 			if err := checker(ctx, nonOlmDeployment); err != nil {
 				return err
 			}
+			//if the deployment is not auto-scaling buffer, it should return from the function and not go to print the message for autoscaling buffer
+			//We do not expect more than 1 non-olm deployment for each OLM deployment and hence returning here
 			return nil
 		}
 		//message if there is a autoscaling buffer, it shouldn't be restarted but successfully exit
@@ -179,11 +181,9 @@ func restartNonOlmDeployments(ctx *clicontext.CommandContext, deployment appsv1.
 
 	o := kubectlrollout.NewRolloutRestartOptions(ioStreams)
 
-	if err := o.Complete(f, nil, []string{"deployment"}); err != nil {
+	if err := o.Complete(f, nil, []string{"deployment/" + deployment.Name}); err != nil {
 		return err
 	}
-
-	o.Resources = []string{"deployment/" + deployment.Name}
 
 	if err := o.Validate(); err != nil {
 		return err

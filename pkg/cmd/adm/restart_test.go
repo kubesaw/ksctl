@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/rest/fake"
 	cgtesting "k8s.io/client-go/testing"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
@@ -79,7 +79,7 @@ func TestKubectlRolloutFunctionality(t *testing.T) {
 		return true, fw, nil
 	})
 
-	streams, _, buf, _ := genericclioptions.NewTestIOStreams()
+	streams, _, buf, _ := genericiooptions.NewTestIOStreams()
 	term := NewFakeTerminalWithResponse("Y")
 	pod := newPod(test.NamespacedName(hostDep.Namespace, hostDep.Name))
 	hostDep.Labels = map[string]string{"kubesaw-control-plane": "kubesaw-controller-manager"}
@@ -158,7 +158,6 @@ func TestKubectlRolloutFunctionality(t *testing.T) {
 func TestRestartDeployment(t *testing.T) {
 	//given
 	SetFileConfig(t, Host(), Member())
-	toolchainCluster := NewToolchainCluster(ToolchainClusterName("host"))
 
 	//OLM-deployments
 	//host
@@ -177,7 +176,7 @@ func TestRestartDeployment(t *testing.T) {
 
 	t.Run("restart deployment returns an error if no operator based deployment found", func(t *testing.T) {
 		//given
-		newClient, fakeClient := NewFakeClients(t, toolchainCluster, regServDeployment)
+		newClient, fakeClient := NewFakeClients(t, regServDeployment)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
@@ -196,7 +195,7 @@ func TestRestartDeployment(t *testing.T) {
 
 	t.Run("restart deployment works successfully with whole operator(operator, non operator)", func(t *testing.T) {
 		//given
-		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment, hostPod, regServDeployment, extraPod)
+		newClient, fakeClient := NewFakeClients(t, hostDeployment, hostPod, regServDeployment, extraPod)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
@@ -224,7 +223,7 @@ func TestRestartDeployment(t *testing.T) {
 
 	t.Run("restart deployment works successfully when only operator based deployment", func(t *testing.T) {
 		//given
-		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment, hostPod)
+		newClient, fakeClient := NewFakeClients(t, hostDeployment, hostPod)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
@@ -242,7 +241,7 @@ func TestRestartDeployment(t *testing.T) {
 
 	t.Run("rollout restart returns an error", func(t *testing.T) {
 		//given
-		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment, regServDeployment, hostPod)
+		newClient, fakeClient := NewFakeClients(t, hostDeployment, regServDeployment, hostPod)
 		ctx := clicontext.NewCommandContext(term, newClient)
 		expectedErr := fmt.Errorf("Could not do rollout restart of the deployment")
 		//when
@@ -259,7 +258,7 @@ func TestRestartDeployment(t *testing.T) {
 
 	t.Run("rollout status for the deleted pods(operator) works", func(t *testing.T) {
 		//given
-		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment)
+		newClient, fakeClient := NewFakeClients(t, hostDeployment)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
@@ -274,7 +273,7 @@ func TestRestartDeployment(t *testing.T) {
 
 	t.Run("error in rollout status of the deleted pods(operator)", func(t *testing.T) {
 		//given
-		newClient, fakeClient := NewFakeClients(t, toolchainCluster, hostDeployment)
+		newClient, fakeClient := NewFakeClients(t, hostDeployment)
 		ctx := clicontext.NewCommandContext(term, newClient)
 		expectedErr := fmt.Errorf("Could not check the status of the deployment")
 		//when
@@ -292,7 +291,6 @@ func TestRestartDeployment(t *testing.T) {
 func TestRestartAutoScalerDeployment(t *testing.T) {
 	//given
 	SetFileConfig(t, Host(), Member())
-	toolchainCluster := NewToolchainCluster(ToolchainClusterName("host"))
 
 	//OLM-deployments
 	//member
@@ -308,7 +306,7 @@ func TestRestartAutoScalerDeployment(t *testing.T) {
 
 	t.Run("autoscalling deployment should not restart", func(t *testing.T) {
 		//given
-		newClient, fakeClient := NewFakeClients(t, toolchainCluster, memberDeployment, autoscalerDeployment)
+		newClient, fakeClient := NewFakeClients(t, memberDeployment, autoscalerDeployment)
 		ctx := clicontext.NewCommandContext(term, newClient)
 		//when
 		err := restartDeployments(ctx, fakeClient, "toolchain-member-operator",
@@ -326,12 +324,11 @@ func TestRestartAutoScalerDeployment(t *testing.T) {
 func TestRestart(t *testing.T) {
 	//given
 	SetFileConfig(t, Host(), Member())
-	toolchainCluster := NewToolchainCluster(ToolchainClusterName("host"))
 
 	t.Run("No restart when users says NO in confirmaion of restart", func(t *testing.T) {
 		term := NewFakeTerminalWithResponse("N")
 		//given
-		newClient, _ := NewFakeClients(t, toolchainCluster)
+		newClient, _ := NewFakeClients(t)
 		ctx := clicontext.NewCommandContext(term, newClient)
 		//when
 		err := restart(ctx, "host")
