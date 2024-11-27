@@ -17,7 +17,6 @@ import (
 	"github.com/kubesaw/ksctl/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -513,15 +512,6 @@ func verifyToolchainClusterSecret(t *testing.T, fakeClient *test.FakeClient, saN
 	assert.Equal(t, ctxNamespace, apiConfig.Contexts["ctx"].Namespace)
 	assert.NotEmpty(t, apiConfig.AuthInfos["auth"].Token)
 	require.Equal(t, fmt.Sprintf("token-secret-for-%s", saName), apiConfig.AuthInfos["auth"].Token)
-}
-
-func whenDeploymentThenUpdated(t *testing.T, fakeClient *test.FakeClient, namespacedName types.NamespacedName, currentReplicas int32, numberOfUpdateCalls *int) func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.UpdateOption) error {
-	return func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.UpdateOption) error {
-		if deployment, ok := obj.(*appsv1.Deployment); ok {
-			checkDeploymentBeingUpdated(t, fakeClient, namespacedName, currentReplicas, numberOfUpdateCalls, deployment)
-		}
-		return fakeClient.Client.Update(ctx, obj, opts...)
-	}
 }
 
 func newFakeClientsFromRestConfig(t *testing.T, initObjs ...runtimeclient.Object) (newClientFromRestConfigFunc, *test.FakeClient) {
