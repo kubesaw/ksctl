@@ -331,7 +331,7 @@ func TestRestart(t *testing.T) {
 		newClient, _ := NewFakeClients(t)
 		ctx := clicontext.NewCommandContext(term, newClient)
 		//when
-		err := restart(ctx, "host")
+		err := restart(ctx, "host", getConfigFlagsAndClient)
 
 		//then
 		require.NoError(t, err)

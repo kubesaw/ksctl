@@ -23,6 +23,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -351,6 +352,7 @@ type registerMemberValidated struct {
 	memberClusterData clusterData
 	warnings          []string
 	errors            []string
+	//restart           func(ctx *clicontext.CommandContext, clusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error
 }
 
 func getApiEndpointAndClient(ctx *extendedCommandContext, kubeConfigPath string) (apiEndpoint string, cl runtimeclient.Client, err error) {
@@ -483,6 +485,11 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 		return err
 	}
 
+	// // restart Host Operator using the restart command
+	// if err := v.restart(ctx.CommandContext, "host", getRegMemConfigFlagsAndClient); err != nil {
+	// 	return err
+	// }
+
 	exampleSPC := &toolchainv1alpha1.SpaceProvisionerConfig{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "SpaceProvisionerConfig",
@@ -507,6 +514,33 @@ of the spaces to the newly registered member cluster. Nothing will be deployed t
 until the SpaceProvisionerConfig.spec.enabled is set to true.
 
 `, v.hostClusterData.apiEndpoint))
+}
+
+func getRegMemConfigFlagsAndClient(ctx *clicontext.CommandContext, clusterName string) (confg configuration.ClusterConfig, kubeConfigFlag *genericclioptions.ConfigFlags, rccl runtimeclient.Client, err error) {
+	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
+
+	kubeConfigFlags.ClusterName = nil  // `cluster` flag is redefined for our own purpose
+	kubeConfigFlags.AuthInfoName = nil // unused here, so we can hide it
+	kubeConfigFlags.Context = nil      // unused here, so we can hide it
+
+	cfg, err := configuration.LoadClusterConfig(ctx, clusterName)
+	if err != nil {
+		return cfg, nil, nil, err
+	}
+	kubeConfigFlags.Namespace = &cfg.OperatorNamespace
+	kubeConfigFlags.APIServer = &cfg.ServerAPI
+	kubeConfigFlags.BearerToken = &cfg.Token
+	kubeconfig, err := client.EnsureKsctlConfigFile()
+	if err != nil {
+		return cfg, nil, nil, err
+	}
+	kubeConfigFlags.KubeConfig = &kubeconfig
+
+	cl, err := ctx.NewClient(cfg.Token, cfg.ServerAPI)
+	if err != nil {
+		return cfg, nil, nil, err
+	}
+	return cfg, kubeConfigFlags, cl, nil
 }
 
 func findToolchainClusterForMember(allToolchainClusters []toolchainv1alpha1.ToolchainCluster, memberAPIEndpoint, memberOperatorNamespace string) *toolchainv1alpha1.ToolchainCluster {
