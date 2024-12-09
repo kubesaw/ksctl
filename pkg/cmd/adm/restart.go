@@ -21,8 +21,9 @@ import (
 )
 
 type (
-	RolloutRestartFunc       func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error
-	RolloutStatusCheckerFunc func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error
+	RolloutRestartFunc             func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error
+	RolloutStatusCheckerFunc       func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error
+	ConfigFlagsAndClientGetterFunc func(ctx *clicontext.CommandContext, clusterName string) (cfg configuration.ClusterConfig, kubeConfigFlag *genericclioptions.ConfigFlags, rccl runtimeclient.Client, err error)
 )
 
 // NewRestartCmd() is a function to restart the whole operator, it relies on the target cluster and fetches the cluster config
@@ -45,35 +46,23 @@ func NewRestartCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
-			return restart(ctx, args[0])
+			return restart(ctx, args[0], getConfigFlagsAndClient)
 		},
 	}
 	return command
 }
 
-func restart(ctx *clicontext.CommandContext, clusterName string) error {
-	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
+func restart(ctx *clicontext.CommandContext, clusterName string, configFlagsClientGetter ConfigFlagsAndClientGetterFunc) error {
 	ioStreams := genericiooptions.IOStreams{
 		In:     os.Stdin,
 		Out:    os.Stdout,
 		ErrOut: os.Stderr,
 	}
-	kubeConfigFlags.ClusterName = nil  // `cluster` flag is redefined for our own purpose
-	kubeConfigFlags.AuthInfoName = nil // unused here, so we can hide it
-	kubeConfigFlags.Context = nil      // unused here, so we can hide it
 
-	cfg, err := configuration.LoadClusterConfig(ctx, clusterName)
+	cfg, kubeConfigFlags, cl, err := configFlagsClientGetter(ctx, clusterName)
 	if err != nil {
 		return err
 	}
-	kubeConfigFlags.Namespace = &cfg.OperatorNamespace
-	kubeConfigFlags.APIServer = &cfg.ServerAPI
-	kubeConfigFlags.BearerToken = &cfg.Token
-	kubeconfig, err := client.EnsureKsctlConfigFile()
-	if err != nil {
-		return err
-	}
-	kubeConfigFlags.KubeConfig = &kubeconfig
 	factory := cmdutil.NewFactory(cmdutil.NewMatchVersionFlags(kubeConfigFlags))
 
 	if !ctx.AskForConfirmation(
@@ -81,16 +70,38 @@ func restart(ctx *clicontext.CommandContext, clusterName string) error {
 		return nil
 	}
 
-	cl, err := ctx.NewClient(cfg.Token, cfg.ServerAPI)
-	if err != nil {
-		return err
-	}
-
 	return restartDeployments(ctx, cl, cfg.OperatorNamespace, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 		return checkRolloutStatus(ctx, factory, ioStreams, deployment)
 	}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 		return restartNonOlmDeployments(ctx, deployment, factory, ioStreams)
 	})
+}
+
+func getConfigFlagsAndClient(ctx *clicontext.CommandContext, clusterName string) (confg configuration.ClusterConfig, kubeConfigFlag *genericclioptions.ConfigFlags, rccl runtimeclient.Client, err error) {
+	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
+
+	kubeConfigFlags.ClusterName = nil  // `cluster` flag is redefined for our own purpose
+	kubeConfigFlags.AuthInfoName = nil // unused here, so we can hide it
+	kubeConfigFlags.Context = nil      // unused here, so we can hide it
+
+	cfg, err := configuration.LoadClusterConfig(ctx, clusterName)
+	if err != nil {
+		return cfg, nil, nil, err
+	}
+	kubeConfigFlags.Namespace = &cfg.OperatorNamespace
+	kubeConfigFlags.APIServer = &cfg.ServerAPI
+	kubeConfigFlags.BearerToken = &cfg.Token
+	kubeconfig, err := client.EnsureKsctlConfigFile()
+	if err != nil {
+		return cfg, nil, nil, err
+	}
+	kubeConfigFlags.KubeConfig = &kubeconfig
+
+	cl, err := ctx.NewClient(cfg.Token, cfg.ServerAPI)
+	if err != nil {
+		return cfg, nil, nil, err
+	}
+	return cfg, kubeConfigFlags, cl, nil
 }
 
 // This function has the whole logic of getting the list of olm and non-olm based deployment, then proceed on restarting/deleting accordingly
