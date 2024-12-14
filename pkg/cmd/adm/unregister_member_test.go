@@ -67,7 +67,7 @@ func TestUnregisterMemberCallsRestart(t *testing.T) {
 	// when
 	err := UnregisterMemberCluster(ctxAct, "member1", func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
 		called++
-		return mockRestart(ctx, restartClusterName, getConfigFlagsAndClient)
+		return mockRestart(ctx, restartClusterName)
 	})
 
 	// then
@@ -164,7 +164,7 @@ func TestUnregisterMemberLacksPermissions(t *testing.T) {
 	AssertToolchainClusterSpec(t, fakeClient, toolchainCluster)
 }
 
-func mockRestart(ctx *clicontext.CommandContext, clusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
+func mockRestart(ctx *clicontext.CommandContext, clusterName string) error {
 	if clusterName == "host" && ctx != nil {
 		return nil
 	}
