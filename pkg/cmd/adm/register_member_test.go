@@ -482,6 +482,22 @@ func TestRegisterMember(t *testing.T) {
 		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(test.MemberOperatorNs)))
 		assert.Empty(t, tcs.Items)
 	})
+
+	t.Run("reports error when host-operator is not restarted", func(t *testing.T) {
+		// given
+		term := NewFakeTerminalWithResponse("Y")
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
+		mockCreateToolchainClusterWithReadyCondition(t, fakeClient)
+		ctx := newExtendedCommandContext(term, newClient)
+
+		// when
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
+			return fmt.Errorf("restart did not happen")
+		})
+
+		// then
+		require.EqualError(t, err, "restart did not happen")
+	})
 }
 
 func mockCreateToolchainClusterInNamespaceWithReadyCondition(t *testing.T, fakeClient *test.FakeClient, namespace string) {

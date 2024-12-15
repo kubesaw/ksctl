@@ -23,7 +23,7 @@ import (
 type (
 	RolloutRestartFunc             func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error
 	RolloutStatusCheckerFunc       func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error
-	ConfigFlagsAndClientGetterFunc func(ctx *clicontext.CommandContext, clusterName string) (cfg configuration.ClusterConfig, kubeConfigFlag *genericclioptions.ConfigFlags, rccl runtimeclient.Client, err error)
+	ConfigFlagsAndClientGetterFunc func(ctx *clicontext.CommandContext, clusterName string) (kubeConfigFlag *genericclioptions.ConfigFlags, rccl runtimeclient.Client, err error)
 )
 
 // NewRestartCmd() is a function to restart the whole operator, it relies on the target cluster and fetches the cluster config
@@ -59,25 +59,25 @@ func restart(ctx *clicontext.CommandContext, clusterName string, configFlagsClie
 		ErrOut: os.Stderr,
 	}
 
-	cfg, kubeConfigFlags, cl, err := configFlagsClientGetter(ctx, clusterName)
+	kubeConfigFlags, cl, err := configFlagsClientGetter(ctx, clusterName)
 	if err != nil {
 		return err
 	}
 	factory := cmdutil.NewFactory(cmdutil.NewMatchVersionFlags(kubeConfigFlags))
 
 	if !ctx.AskForConfirmation(
-		ioutils.WithMessagef("restart all the deployments in the cluster  '%s' and namespace '%s' \n", clusterName, cfg.OperatorNamespace)) {
+		ioutils.WithMessagef("restart all the deployments in the cluster  '%s' and namespace '%s' \n", clusterName, *kubeConfigFlags.Namespace)) {
 		return nil
 	}
 
-	return restartDeployments(ctx, cl, cfg.OperatorNamespace, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+	return restartDeployments(ctx, cl, *kubeConfigFlags.Namespace, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 		return checkRolloutStatus(ctx, factory, ioStreams, deployment)
 	}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 		return restartNonOlmDeployments(ctx, deployment, factory, ioStreams)
 	})
 }
 
-func getConfigFlagsAndClient(ctx *clicontext.CommandContext, clusterName string) (confg configuration.ClusterConfig, kubeConfigFlag *genericclioptions.ConfigFlags, rccl runtimeclient.Client, err error) {
+func getConfigFlagsAndClient(ctx *clicontext.CommandContext, clusterName string) (kubeConfigFlag *genericclioptions.ConfigFlags, rccl runtimeclient.Client, err error) {
 	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
 
 	kubeConfigFlags.ClusterName = nil  // `cluster` flag is redefined for our own purpose
@@ -86,22 +86,22 @@ func getConfigFlagsAndClient(ctx *clicontext.CommandContext, clusterName string)
 
 	cfg, err := configuration.LoadClusterConfig(ctx, clusterName)
 	if err != nil {
-		return cfg, nil, nil, err
+		return nil, nil, err
 	}
 	kubeConfigFlags.Namespace = &cfg.OperatorNamespace
 	kubeConfigFlags.APIServer = &cfg.ServerAPI
 	kubeConfigFlags.BearerToken = &cfg.Token
 	kubeconfig, err := client.EnsureKsctlConfigFile()
 	if err != nil {
-		return cfg, nil, nil, err
+		return nil, nil, err
 	}
 	kubeConfigFlags.KubeConfig = &kubeconfig
 
 	cl, err := ctx.NewClient(cfg.Token, cfg.ServerAPI)
 	if err != nil {
-		return cfg, nil, nil, err
+		return nil, nil, err
 	}
-	return cfg, kubeConfigFlags, cl, nil
+	return kubeConfigFlags, cl, nil
 }
 
 // This function has the whole logic of getting the list of olm and non-olm based deployment, then proceed on restarting/deleting accordingly

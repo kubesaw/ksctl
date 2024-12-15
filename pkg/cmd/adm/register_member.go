@@ -487,7 +487,7 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 		return err
 	}
 
-	// restart Host Operator using the restart command
+	// restart Host Operator using the adm-restart command
 	if err := v.restart(ctx.CommandContext, "host", v.getRegMemConfigFlagsAndClient); err != nil {
 		return err
 	}
@@ -518,7 +518,7 @@ until the SpaceProvisionerConfig.spec.enabled is set to true.
 `, v.hostClusterData.apiEndpoint))
 }
 
-func (v *registerMemberValidated) getRegMemConfigFlagsAndClient(ctx *clicontext.CommandContext, clusterName string) (confg configuration.ClusterConfig, kubeConfigFlag *genericclioptions.ConfigFlags, rccl runtimeclient.Client, err error) {
+func (v *registerMemberValidated) getRegMemConfigFlagsAndClient(ctx *clicontext.CommandContext, clusterName string) (kubeConfigFlag *genericclioptions.ConfigFlags, rccl runtimeclient.Client, err error) {
 	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
 
 	kubeConfigFlags.ClusterName = nil  // `cluster` flag is redefined for our own purpose
@@ -527,14 +527,14 @@ func (v *registerMemberValidated) getRegMemConfigFlagsAndClient(ctx *clicontext.
 
 	cfg, err := configuration.LoadClusterConfig(ctx, clusterName)
 	if err != nil {
-		return cfg, nil, nil, err
+		return nil, nil, err
 	}
 	kubeConfigFlags.Namespace = &v.hostClusterData.namespace
 	kubeConfigFlags.APIServer = &v.hostClusterData.apiEndpoint
 	kubeConfigFlags.BearerToken = &cfg.Token
 	kubeConfigFlags.KubeConfig = &v.hostClusterData.kubeConfig
 
-	return cfg, kubeConfigFlags, v.hostClusterData.client, nil
+	return kubeConfigFlags, v.hostClusterData.client, nil
 }
 
 func findToolchainClusterForMember(allToolchainClusters []toolchainv1alpha1.ToolchainCluster, memberAPIEndpoint, memberOperatorNamespace string) *toolchainv1alpha1.ToolchainCluster {
