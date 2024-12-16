@@ -16,8 +16,9 @@ import (
 
 type permissionsManager struct {
 	objectsCache
-	createSubject   newSubjectFunc
-	subjectBaseName string
+	createSubject          newSubjectFunc
+	subjectBaseName        string
+	objectIsServiceAccount bool
 }
 
 type newSubjectFunc func(ctx *clusterContext, objsCache objectsCache, subjectBaseName, targetNamespace string, labels map[string]string) (rbacv1.Subject, error)
@@ -81,7 +82,14 @@ func (m *permissionsManager) ensurePermission(ctx *clusterContext, roleName, tar
 	}
 
 	// ensure that the subject exists
-	subject, err := m.createSubject(ctx, m.objectsCache, m.subjectBaseName, defaultSAsNamespace(ctx.kubeSawAdmins, ctx.clusterType), ksctlLabelsWithUsername(m.subjectBaseName))
+	labels := ksctlLabels()
+	if m.objectIsServiceAccount {
+		// It might be useful to have the corresponding username in labels in the SA
+		// However we don't want to add the username label to Identities and Users because usernames are not DNS compliant and not always can be used as labels
+		// TODO don't use the raw username as a label in SA too. We could use annotations instead.
+		labels = ksctlLabelsWithUsername(m.subjectBaseName)
+	}
+	subject, err := m.createSubject(ctx, m.objectsCache, m.subjectBaseName, defaultSAsNamespace(ctx.kubeSawAdmins, ctx.clusterType), labels)
 	if err != nil {
 		return err
 	}

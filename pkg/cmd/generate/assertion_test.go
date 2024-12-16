@@ -291,7 +291,6 @@ type userAssertion struct {
 func (a *storageAssertionImpl) assertUser(name string) userAssertion {
 	expLabels := map[string]string{
 		"provider": "ksctl",
-		"username": name,
 	}
 
 	userObj := &userv1.User{}

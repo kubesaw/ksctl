@@ -125,7 +125,6 @@ func TestEnsureServiceAccount(t *testing.T) {
 func TestEnsureUserAndIdentity(t *testing.T) {
 	labels := map[string]string{
 		"provider": "ksctl",
-		"username": "john-crtadmin",
 	}
 	require.NoError(t, client.AddToScheme())
 
@@ -222,8 +221,9 @@ func newPermissionsManager(t *testing.T, clusterType configuration.ClusterType, 
 	cache := objectsCache{}
 
 	return permissionsManager{
-		objectsCache:    cache,
-		subjectBaseName: "john",
-		createSubject:   ensureServiceAccount(""),
+		objectsCache:           cache,
+		subjectBaseName:        "john",
+		createSubject:          ensureServiceAccount(""),
+		objectIsServiceAccount: true,
 	}, clusterCtx
 }

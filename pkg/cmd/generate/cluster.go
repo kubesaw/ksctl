@@ -26,9 +26,10 @@ func ensureServiceAccounts(ctx *clusterContext, objsCache objectsCache) error {
 		}
 
 		pm := &permissionsManager{
-			objectsCache:    objsCache,
-			createSubject:   ensureServiceAccount(saNamespace),
-			subjectBaseName: sa.Name,
+			objectsCache:           objsCache,
+			createSubject:          ensureServiceAccount(saNamespace),
+			subjectBaseName:        sa.Name,
+			objectIsServiceAccount: true,
 		}
 
 		if err := pm.ensurePermissions(ctx, sa.PermissionsPerClusterType); err != nil {
@@ -56,7 +57,7 @@ func ensureUsers(ctx *clusterContext, objsCache objectsCache) error {
 		}
 		// create the subject if explicitly requested (even if there is no specific permissions)
 		if user.AllClusters {
-			if _, err := m.createSubject(ctx, m.objectsCache, m.subjectBaseName, defaultSAsNamespace(ctx.kubeSawAdmins, ctx.clusterType), ksctlLabelsWithUsername(m.subjectBaseName)); err != nil {
+			if _, err := m.createSubject(ctx, m.objectsCache, m.subjectBaseName, defaultSAsNamespace(ctx.kubeSawAdmins, ctx.clusterType), ksctlLabels()); err != nil {
 				return err
 			}
 		}
