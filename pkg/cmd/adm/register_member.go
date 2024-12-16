@@ -525,13 +525,8 @@ func (v *registerMemberValidated) getRegMemConfigFlagsAndClient(ctx *clicontext.
 	kubeConfigFlags.AuthInfoName = nil // unused here, so we can hide it
 	kubeConfigFlags.Context = nil      // unused here, so we can hide it
 
-	cfg, err := configuration.LoadClusterConfig(ctx, clusterName)
-	if err != nil {
-		return nil, nil, err
-	}
 	kubeConfigFlags.Namespace = &v.hostClusterData.namespace
 	kubeConfigFlags.APIServer = &v.hostClusterData.apiEndpoint
-	kubeConfigFlags.BearerToken = &cfg.Token
 	kubeConfigFlags.KubeConfig = &v.hostClusterData.kubeConfig
 
 	return kubeConfigFlags, v.hostClusterData.client, nil
