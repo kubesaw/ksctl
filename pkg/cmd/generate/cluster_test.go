@@ -9,6 +9,7 @@ import (
 	"github.com/kubesaw/ksctl/pkg/assets"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	. "github.com/kubesaw/ksctl/pkg/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -138,7 +139,7 @@ func TestUsers(t *testing.T) {
 					HostClusterRoleBindings("cluster-monitoring-view"),
 					MemberRoleBindings("toolchain-member-operator", Role("restart-deployment"), ClusterRole("view")),
 					MemberClusterRoleBindings("cluster-monitoring-view")),
-				User("alice-clusteradmin", []string{"12340"}, true, ""),
+				User("alice-@#$%^:+clusteradmin", []string{"12340"}, true, ""),
 			),
 		)
 
@@ -237,4 +238,15 @@ func newKubeSawAdminsWithDefaultClusters(serviceAccounts []assets.ServiceAccount
 		Clusters(HostServerAPI).AddMember("member-1", Member1ServerAPI),
 		serviceAccounts,
 		users)
+}
+
+func TestSanitizeUserName(t *testing.T) {
+	assert.Equal(t, "special-name", sanitizeUserName("special-name"))
+	assert.Equal(t, "special-name", sanitizeUserName("special!@$#%^&*(+)name"))
+	assert.Equal(t, "special-name", sanitizeUserName("special---name"))
+	assert.Equal(t, "special-name", sanitizeUserName("special-$-%^-name"))
+	assert.Equal(t, "special-name", sanitizeUserName("special---name"))
+	assert.Equal(t, "special", sanitizeUserName("special-"))
+	assert.Equal(t, "name", sanitizeUserName("-name"))
+	assert.Equal(t, "special-name", sanitizeUserName("!@special-name*&+"))
 }

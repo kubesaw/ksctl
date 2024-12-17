@@ -1,6 +1,9 @@
 package generate
 
 import (
+	"regexp"
+	"strings"
+
 	"github.com/kubesaw/ksctl/pkg/configuration"
 )
 
@@ -52,7 +55,7 @@ func ensureUsers(ctx *clusterContext, objsCache objectsCache) error {
 		m := &permissionsManager{
 			objectsCache:    objsCache,
 			createSubject:   ensureUserIdentityAndGroups(user.ID, user.Groups),
-			subjectBaseName: user.Name,
+			subjectBaseName: sanitizeUserName(user.Name),
 		}
 		// create the subject if explicitly requested (even if there is no specific permissions)
 		if user.AllClusters {
@@ -66,4 +69,14 @@ func ensureUsers(ctx *clusterContext, objsCache objectsCache) error {
 	}
 
 	return nil
+}
+
+var specialCharRegexp = regexp.MustCompile("[^A-Za-z0-9]")
+
+func sanitizeUserName(userName string) string {
+	sanitized := specialCharRegexp.ReplaceAllString(userName, "-")
+	for strings.Contains(sanitized, "--") {
+		sanitized = strings.ReplaceAll(sanitized, "--", "-")
+	}
+	return strings.Trim(sanitized, "-")
 }
