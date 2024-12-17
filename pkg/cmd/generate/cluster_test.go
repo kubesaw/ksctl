@@ -9,6 +9,7 @@ import (
 	"github.com/kubesaw/ksctl/pkg/assets"
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	. "github.com/kubesaw/ksctl/pkg/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -230,6 +231,26 @@ func TestUsers(t *testing.T) {
 			hasNsClusterRole("toolchain-member-operator", "view", configuration.Member.AsSuffix("clusterrole-view-bob-crtadmin")).
 			hasClusterRoleBinding("cluster-monitoring-view", configuration.Member.AsSuffix("clusterrole-cluster-monitoring-view-bob-crtadmin"))
 	})
+
+	t.Run("returns error for invalid username", func(t *testing.T) {
+		for _, username := range invalidUserNames {
+			t.Run("username: "+username, func(t *testing.T) {
+				// given
+				kubeSawAdmins := newKubeSawAdminsWithDefaultClusters(
+					ServiceAccounts(),
+					Users(User("john+user", []string{"12345"}, true, "", permissionsForAllNamespaces...)),
+				)
+				ctx := newAdminManifestsContextWithDefaultFiles(t, kubeSawAdmins)
+				clusterCtx := newFakeClusterContext(ctx, configuration.Host)
+
+				// when
+				err := ensureUsers(clusterCtx, objectsCache{})
+
+				// then
+				require.Error(t, err)
+			})
+		}
+	})
 }
 
 func newKubeSawAdminsWithDefaultClusters(serviceAccounts []assets.ServiceAccount, users []assets.User) *assets.KubeSawAdmins {
@@ -237,4 +258,19 @@ func newKubeSawAdminsWithDefaultClusters(serviceAccounts []assets.ServiceAccount
 		Clusters(HostServerAPI).AddMember("member-1", Member1ServerAPI),
 		serviceAccounts,
 		users)
+}
+
+var invalidUserNames = []string{
+	"special#-name", "special:-name", "-name", "name-", "special_name", "specialName",
+}
+
+func TestSanitizeUserName(t *testing.T) {
+	require.NoError(t, validateUserName("special-name"))
+	require.NoError(t, validateUserName("special.name"))
+	for _, username := range invalidUserNames {
+		err := validateUserName(username)
+		require.Error(t, err)
+		assert.NotContains(t, err.Error(), "label")
+		assert.NotContains(t, err.Error(), "subdomain")
+	}
 }

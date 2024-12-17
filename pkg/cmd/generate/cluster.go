@@ -1,7 +1,11 @@
 package generate
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/kubesaw/ksctl/pkg/configuration"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 type clusterContext struct {
@@ -49,6 +53,9 @@ func ensureUsers(ctx *clusterContext, objsCache objectsCache) error {
 		if user.Selector.ShouldBeSkippedForMember(ctx.specificKMemberName) {
 			continue
 		}
+		if err := validateUserName(user.Name); err != nil {
+			return err
+		}
 		m := &permissionsManager{
 			objectsCache:    objsCache,
 			createSubject:   ensureUserIdentityAndGroups(user.ID, user.Groups),
@@ -66,4 +73,21 @@ func ensureUsers(ctx *clusterContext, objsCache objectsCache) error {
 	}
 
 	return nil
+}
+
+func validateUserName(userName string) error {
+	validationErrors := validation.IsDNS1123Subdomain(userName)
+	if len(validationErrors) == 0 {
+		validationErrors = validation.IsValidLabelValue(userName)
+		if len(validationErrors) == 0 {
+			return nil
+		}
+	}
+	errs := make([]error, len(validationErrors))
+	for i := 0; i < len(validationErrors); i++ {
+		message := strings.ReplaceAll(validationErrors[i], "label", "user name")
+		message = strings.ReplaceAll(message, "subdomain", "user name")
+		errs[i] = errors.New(message)
+	}
+	return errors.Join(errs...)
 }
