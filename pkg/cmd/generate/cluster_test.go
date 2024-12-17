@@ -262,15 +262,33 @@ func newKubeSawAdminsWithDefaultClusters(serviceAccounts []assets.ServiceAccount
 
 var invalidUserNames = []string{
 	"special#-name", "special:-name", "-name", "name-", "special_name", "specialName",
+	"some-very-very-very-very-very-very-very-very-very-very-very-long-name",
 }
 
 func TestSanitizeUserName(t *testing.T) {
-	require.NoError(t, validateUserName("special-name"))
-	require.NoError(t, validateUserName("special.name"))
-	for _, username := range invalidUserNames {
-		err := validateUserName(username)
-		require.Error(t, err)
-		assert.NotContains(t, err.Error(), "label")
-		assert.NotContains(t, err.Error(), "subdomain")
-	}
+	t.Run("valid usernames", func(t *testing.T) {
+		require.NoError(t, validateUserName("special-name"))
+		require.NoError(t, validateUserName("special.name"))
+	})
+	t.Run("invalid usernames", func(t *testing.T) {
+		for _, username := range invalidUserNames {
+			t.Run("username: "+username, func(t *testing.T) {
+				// when
+				err := validateUserName(username)
+
+				// then
+				// Let's not hard-code the actual expected errors here. It's something that we don't own,
+				// and it would be just matter of copy-pasting what is in the apimachinery library. Apart
+				// from that, the error are not short which would make the code really messy.
+				require.Error(t, err)
+				// the returned messages from the k8s validators contain strings mentioning
+				// labels (in the case of label value validators), and subdomains (in the
+				// case of resource name validators). The validateUserName function replaced
+				// these words to not make the final error message confusing.
+				// Let's verify that the final error doesn't contain these words.
+				assert.NotContains(t, err.Error(), "label")
+				assert.NotContains(t, err.Error(), "subdomain")
+			})
+		}
+	})
 }
