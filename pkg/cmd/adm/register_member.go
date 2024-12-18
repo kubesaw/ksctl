@@ -353,7 +353,7 @@ type registerMemberValidated struct {
 	memberClusterData clusterData
 	warnings          []string
 	errors            []string
-	restart           func(ctx *clicontext.CommandContext, clusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error
+	restartFunc       func(ctx *clicontext.CommandContext, clusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error
 }
 
 func getApiEndpointAndClient(ctx *extendedCommandContext, kubeConfigPath string) (apiEndpoint string, cl runtimeclient.Client, err error) {
@@ -445,9 +445,9 @@ func validateArgs(ctx *extendedCommandContext, args registerMemberArgs, restart 
 			toolchainClusterName: memberToolchainClusterName,
 			kubeConfig:           args.memberKubeConfig,
 		},
-		warnings: warnings,
-		errors:   errors,
-		restart:  restart,
+		warnings:    warnings,
+		errors:      errors,
+		restartFunc: restart,
 	}, nil
 }
 
@@ -488,7 +488,7 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 	}
 
 	// restart Host Operator using the adm-restart command
-	if err := v.restart(ctx.CommandContext, "host", v.getRegMemConfigFlagsAndClient); err != nil {
+	if err := v.restartFunc(ctx.CommandContext, "host", v.getRegMemConfigFlagsAndClient); err != nil {
 		return err
 	}
 
