@@ -487,7 +487,7 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 	}
 
 	// restart Host Operator using the adm-restart command
-	if err := v.restartFunc(ctx.CommandContext, "host", v.getRegMemConfigFlagsAndClient); err != nil {
+	if err := v.restartFunc(ctx.CommandContext, configuration.HostName, v.getRegMemConfigFlagsAndClient); err != nil {
 		return err
 	}
 

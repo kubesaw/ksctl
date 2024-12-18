@@ -91,7 +91,7 @@ func TestKubectlRolloutFunctionality(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
-		err := restartDeployments(ctx, fakeClient, HostNamespacedName.Namespace, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+		err := restartDeployments(ctx, fakeClient, HostNamespacedName.Namespace, func(ctx *clicontext.CommandContext, _ appsv1.Deployment) error {
 			return checkRolloutStatus(ctx, tf, streams, *hostDep)
 		}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 			return restartNonOlmDeployments(ctx, deployment, tf, streams)
@@ -123,7 +123,7 @@ func TestKubectlRolloutFunctionality(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
-		err := restartDeployments(ctx, fakeClient, HostNamespacedName.Namespace, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+		err := restartDeployments(ctx, fakeClient, HostNamespacedName.Namespace, func(ctx *clicontext.CommandContext, _ appsv1.Deployment) error {
 			return checkRolloutStatus(ctx, tf, streams, *hostDep)
 		}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 			return restartNonOlmDeployments(ctx, deployment, tf, streams)
@@ -140,7 +140,7 @@ func TestKubectlRolloutFunctionality(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		//when
-		err := restartDeployments(ctx, fakeClient, HostNamespacedName.Namespace, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+		err := restartDeployments(ctx, fakeClient, HostNamespacedName.Namespace, func(ctx *clicontext.CommandContext, _ appsv1.Deployment) error {
 			return checkRolloutStatus(ctx, tf, streams, *hostDep)
 		}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
 			return restartNonOlmDeployments(ctx, deployment, tf, streams)
@@ -181,10 +181,10 @@ func TestRestartDeployment(t *testing.T) {
 
 		//when
 		err := restartDeployments(ctx, fakeClient, "toolchain-host-operator",
-			func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			func(_ *clicontext.CommandContext, deployment appsv1.Deployment) error {
 				require.Equal(t, "host-operator-controller-manager", deployment.Name)
 				return nil
-			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			}, func(_ *clicontext.CommandContext, deployment appsv1.Deployment) error {
 				require.Equal(t, regServDeployment, deployment)
 				return nil
 			})
@@ -200,9 +200,9 @@ func TestRestartDeployment(t *testing.T) {
 
 		//when
 		err := restartDeployments(ctx, fakeClient, "toolchain-host-operator",
-			func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			func(_ *clicontext.CommandContext, _ appsv1.Deployment) error {
 				return nil
-			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			}, func(_ *clicontext.CommandContext, _ appsv1.Deployment) error {
 				return nil
 			})
 
@@ -228,9 +228,9 @@ func TestRestartDeployment(t *testing.T) {
 
 		//when
 		err := restartDeployments(ctx, fakeClient, "toolchain-host-operator",
-			func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			func(_ *clicontext.CommandContext, _ appsv1.Deployment) error {
 				return nil
-			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			}, func(_ *clicontext.CommandContext, _ appsv1.Deployment) error {
 				return nil
 			})
 
@@ -246,9 +246,9 @@ func TestRestartDeployment(t *testing.T) {
 		expectedErr := fmt.Errorf("Could not do rollout restart of the deployment")
 		//when
 		err := restartDeployments(ctx, fakeClient, "toolchain-host-operator",
-			func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			func(_ *clicontext.CommandContext, _ appsv1.Deployment) error {
 				return nil
-			}, func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			}, func(_ *clicontext.CommandContext, _ appsv1.Deployment) error {
 				return expectedErr
 			})
 
@@ -263,7 +263,7 @@ func TestRestartDeployment(t *testing.T) {
 
 		//when
 		err := restartDeployments(ctx, fakeClient, "toolchain-host-operator",
-			func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			func(_ *clicontext.CommandContext, _ appsv1.Deployment) error {
 				return nil
 			}, nil)
 
@@ -278,7 +278,7 @@ func TestRestartDeployment(t *testing.T) {
 		expectedErr := fmt.Errorf("Could not check the status of the deployment")
 		//when
 		err := restartDeployments(ctx, fakeClient, "toolchain-host-operator",
-			func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			func(_ *clicontext.CommandContext, _ appsv1.Deployment) error {
 				return expectedErr
 			}, nil)
 
@@ -310,7 +310,7 @@ func TestRestartAutoScalerDeployment(t *testing.T) {
 		ctx := clicontext.NewCommandContext(term, newClient)
 		//when
 		err := restartDeployments(ctx, fakeClient, "toolchain-member-operator",
-			func(ctx *clicontext.CommandContext, deployment appsv1.Deployment) error {
+			func(_ *clicontext.CommandContext, _ appsv1.Deployment) error {
 				return nil
 			}, mockRolloutRestartInterceptor())
 
