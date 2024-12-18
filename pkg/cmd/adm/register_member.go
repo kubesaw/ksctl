@@ -45,7 +45,6 @@ type newClientFromRestConfigFunc func(*rest.Config) (runtimeclient.Client, error
 type extendedCommandContext struct {
 	*clicontext.CommandContext
 	NewClientFromRestConfig newClientFromRestConfigFunc
-	RestartFunc             func(ctx *clicontext.CommandContext, clusterName string) (cfg configuration.ClusterConfig, kubeConfigFlag *genericclioptions.ConfigFlags, rccl runtimeclient.Client, err error)
 }
 
 func newExtendedCommandContext(term ioutils.Terminal, clientCtor newClientFromRestConfigFunc) *extendedCommandContext {

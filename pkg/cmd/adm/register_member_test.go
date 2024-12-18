@@ -635,12 +635,3 @@ func defaultRegisterMemberArgs() registerMemberArgs {
 
 	return args
 }
-
-// func (v *registerMemberValidated) mockRestartRegMem(ctx *clicontext.CommandContext, clusterName string) error {
-// 	kf, _, err := v.getRegMemConfigFlagsAndClient(ctx, clusterName)
-
-// 	if kf != nil && err == nil {
-// 		return nil
-// 	}
-// 	return fmt.Errorf("error in getting config flags")
-// }
