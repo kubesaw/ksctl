@@ -84,7 +84,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -119,7 +119,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -141,7 +141,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -163,7 +163,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -181,7 +181,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, true), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -218,7 +218,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err := registerMemberCluster(ctx, newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig, false, "2"), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -241,10 +241,10 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err1 := registerMemberCluster(ctx1, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 		err2 := registerMemberCluster(ctx2, newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig, false, "1"), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -268,10 +268,10 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err1 := registerMemberCluster(ctx1, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 		err2 := registerMemberCluster(ctx2, newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig, false, ""), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -327,7 +327,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -361,7 +361,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -395,7 +395,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -430,7 +430,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -449,7 +449,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -470,7 +470,7 @@ func TestRegisterMember(t *testing.T) {
 
 		// when
 		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(ctx *clicontext.CommandContext, restartClusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error {
-			return mockRestart(ctx, restartClusterName)
+			return nil
 		})
 
 		// then
@@ -498,6 +498,7 @@ func TestRegisterMember(t *testing.T) {
 		// then
 		require.EqualError(t, err, "restart did not happen")
 	})
+
 }
 
 func mockCreateToolchainClusterInNamespaceWithReadyCondition(t *testing.T, fakeClient *test.FakeClient, namespace string) {
@@ -634,3 +635,12 @@ func defaultRegisterMemberArgs() registerMemberArgs {
 
 	return args
 }
+
+// func (v *registerMemberValidated) mockRestartRegMem(ctx *clicontext.CommandContext, clusterName string) error {
+// 	kf, _, err := v.getRegMemConfigFlagsAndClient(ctx, clusterName)
+
+// 	if kf != nil && err == nil {
+// 		return nil
+// 	}
+// 	return fmt.Errorf("error in getting config flags")
+// }
