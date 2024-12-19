@@ -1,7 +1,11 @@
 package generate
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/kubesaw/ksctl/pkg/configuration"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 type clusterContext struct {
@@ -49,6 +53,9 @@ func ensureUsers(ctx *clusterContext, objsCache objectsCache) error {
 		if user.Selector.ShouldBeSkippedForMember(ctx.specificKMemberName) {
 			continue
 		}
+		if err := validateUserName(user.Name); err != nil {
+			return err
+		}
 		m := &permissionsManager{
 			objectsCache:    objsCache,
 			createSubject:   ensureUserIdentityAndGroups(user.ID, user.Groups),
@@ -66,4 +73,28 @@ func ensureUsers(ctx *clusterContext, objsCache objectsCache) error {
 	}
 
 	return nil
+}
+
+func validateUserName(userName string) error {
+	// check if the userName matches the format for k8s resource names
+	validationErrors := validation.IsDNS1123Subdomain(userName)
+	if len(validationErrors) == 0 {
+		// check if the userName matches the format for k8s label values
+		validationErrors = validation.IsValidLabelValue(userName)
+		if len(validationErrors) == 0 {
+			return nil
+		}
+	}
+	errs := make([]error, len(validationErrors))
+	for i := 0; i < len(validationErrors); i++ {
+		// the returned messages from the validators contain strings mentioning
+		// labels (in the case of label value validators), and subdomains (in the
+		// case of resource name validators). This can be confusing so let's replace
+		// these two strings with "User name" so it refers to the name defined in
+		// kubesaw-admins.yaml file.
+		message := strings.ReplaceAll(validationErrors[i], "label", "User name")
+		message = strings.ReplaceAll(message, "subdomain", "User name")
+		errs[i] = errors.New(message)
+	}
+	return errors.Join(errs...)
 }
