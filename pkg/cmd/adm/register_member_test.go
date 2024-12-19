@@ -19,11 +19,14 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
+	"k8s.io/utils/pointer"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -54,6 +57,46 @@ func TestRegisterMember(t *testing.T) {
 	require.NoError(t, err)
 	memberToolchainClusterName, err := utils.GetToolchainClusterName(string(configuration.Member), "https://cool-server.com", "")
 	require.NoError(t, err)
+
+	t.Run("commandline parsing", func(t *testing.T) {
+		testWithArgs := func(t *testing.T, args []string) registerMemberArgs {
+			t.Helper()
+
+			var parsedArgs *registerMemberArgs
+			cmd := newRegisterMemberCmd(func(_ *extendedCommandContext, parsed registerMemberArgs) error {
+				parsedArgs = &parsed
+				return nil
+			})
+
+			cmd.SetErr(&strings.Builder{})
+			cmd.SetOut(&strings.Builder{})
+			cmd.SetArgs(args)
+
+			require.NoError(t, cmd.Execute())
+			require.NotNil(t, parsedArgs)
+
+			return *parsedArgs
+		}
+
+		t.Run("insecureSkipTlsVerify not specified", func(t *testing.T) {
+			args := testWithArgs(t, []string{"--host-kubeconfig=h", "--member-kubeconfig", "m"})
+			assert.Nil(t, args.skipTlsVerify)
+			assert.Equal(t, "h", args.hostKubeConfig)
+			assert.Equal(t, "m", args.memberKubeConfig)
+		})
+
+		t.Run("insecureSkipTlsVerify false", func(t *testing.T) {
+			args := testWithArgs(t, []string{"--host-kubeconfig=h", "--member-kubeconfig", "m", "--insecure-skip-tls-verify=false"})
+			require.NotNil(t, args.skipTlsVerify)
+			assert.False(t, *args.skipTlsVerify)
+		})
+
+		t.Run("insecureSkipTlsVerify true", func(t *testing.T) {
+			args := testWithArgs(t, []string{"--host-kubeconfig=h", "--member-kubeconfig", "m", "--insecure-skip-tls-verify"})
+			require.NotNil(t, args.skipTlsVerify)
+			assert.True(t, *args.skipTlsVerify)
+		})
+	})
 
 	t.Run("produces valid example SPC", func(t *testing.T) {
 		// given
@@ -451,6 +494,123 @@ func TestRegisterMember(t *testing.T) {
 	})
 }
 
+func TestCreateKubeConfig(t *testing.T) {
+	t.Run("--insecureSkipTlsVerify", func(t *testing.T) {
+		t.Run("overrides true with false", func(t *testing.T) {
+			// given
+			hostKubeconfigSecure := HostKubeConfig()
+			hostKubeconfigSecure.Clusters["host"].InsecureSkipTLSVerify = true
+
+			// when
+			config, err := generateKubeConfig("token", "ns", pointer.Bool(false), hostKubeconfigSecure)
+			require.NoError(t, err)
+
+			// then
+			assert.False(t, config.Clusters["cluster"].InsecureSkipTLSVerify)
+		})
+		t.Run("overrides false with true", func(t *testing.T) {
+			// given
+			hostKubeconfigSecure := HostKubeConfig()
+			hostKubeconfigSecure.Clusters["host"].InsecureSkipTLSVerify = false
+
+			// when
+			config, err := generateKubeConfig("token", "ns", pointer.Bool(true), hostKubeconfigSecure)
+			require.NoError(t, err)
+
+			// then
+			assert.True(t, config.Clusters["cluster"].InsecureSkipTLSVerify)
+		})
+		t.Run("leaves true from kubeconfig when undefined", func(t *testing.T) {
+			// given
+			hostKubeconfigSecure := HostKubeConfig()
+			hostKubeconfigSecure.Clusters["host"].InsecureSkipTLSVerify = true
+
+			// when
+			config, err := generateKubeConfig("token", "ns", nil, hostKubeconfigSecure)
+			require.NoError(t, err)
+
+			// then
+			assert.True(t, config.Clusters["cluster"].InsecureSkipTLSVerify)
+		})
+		t.Run("leaves false from kubeconfig when undefined", func(t *testing.T) {
+			// given
+			hostKubeconfigSecure := HostKubeConfig()
+			hostKubeconfigSecure.Clusters["host"].InsecureSkipTLSVerify = false
+
+			// when
+			config, err := generateKubeConfig("token", "ns", nil, hostKubeconfigSecure)
+			require.NoError(t, err)
+
+			// then
+			assert.False(t, config.Clusters["cluster"].InsecureSkipTLSVerify)
+		})
+	})
+
+	t.Run("other auth methods cleared", func(t *testing.T) {
+		// given
+		kubeConfig := HostKubeConfig()
+
+		auth := &clientcmdapi.AuthInfo{
+			ClientCertificate:     "client-certificate",
+			ClientCertificateData: []byte("client-certificate-data"),
+			ClientKey:             "client-key",
+			ClientKeyData:         []byte("client-key-data"),
+			Token:                 "",
+			TokenFile:             "token-file",
+			Impersonate:           "root",
+			ImpersonateUID:        "1",
+			ImpersonateGroups:     []string{"root"},
+			ImpersonateUserExtra:  map[string][]string{},
+			Username:              "johndoe",
+			Password:              "123456",
+			AuthProvider: &clientcmdapi.AuthProviderConfig{
+				Name:   "gimme-root",
+				Config: map[string]string{},
+			},
+			Exec:       &clientcmdapi.ExecConfig{},
+			Extensions: map[string]runtime.Object{},
+		}
+		kubeConfig.AuthInfos[kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo] = auth
+
+		// when
+		config, err := generateKubeConfig("token", "ns", nil, kubeConfig)
+		require.NoError(t, err)
+
+		// then
+		generatedAuth := config.AuthInfos[config.Contexts[config.CurrentContext].AuthInfo]
+
+		assert.Equal(t, "client-certificate", generatedAuth.ClientCertificate)
+		assert.Equal(t, []byte("client-certificate-data"), generatedAuth.ClientCertificateData)
+		assert.Equal(t, "client-key", generatedAuth.ClientKey)
+		assert.Equal(t, []byte("client-key-data"), generatedAuth.ClientKeyData)
+		assert.Equal(t, "token", generatedAuth.Token)
+		assert.Empty(t, generatedAuth.TokenFile)
+		assert.Empty(t, generatedAuth.Impersonate)
+		assert.Empty(t, generatedAuth.ImpersonateUID)
+		assert.Empty(t, generatedAuth.ImpersonateGroups)
+		assert.Empty(t, generatedAuth.ImpersonateUserExtra)
+		assert.Empty(t, generatedAuth.Username)
+		assert.Empty(t, generatedAuth.Password)
+		assert.Nil(t, generatedAuth.AuthProvider)
+		assert.Nil(t, generatedAuth.Exec)
+	})
+
+	t.Run("namespace overridden", func(t *testing.T) {
+		// given
+		kubeConfig := HostKubeConfig()
+		require.Equal(t, "toolchain-host-operator", kubeConfig.Contexts[kubeConfig.CurrentContext].Namespace)
+
+		// when
+		config, err := generateKubeConfig("token", "ns", nil, kubeConfig)
+		require.NoError(t, err)
+
+		// then
+		generatedContext := config.Contexts[config.CurrentContext]
+
+		assert.Equal(t, "ns", generatedContext.Namespace)
+	})
+}
+
 func mockCreateToolchainClusterInNamespaceWithReadyCondition(t *testing.T, fakeClient *test.FakeClient, namespace string) {
 	fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
 		if obj, ok := obj.(*toolchainv1alpha1.ToolchainCluster); ok {
@@ -507,7 +667,7 @@ func verifyToolchainClusterSecret(t *testing.T, fakeClient *test.FakeClient, saN
 	require.NoError(t, err)
 	require.False(t, api.IsConfigEmpty(apiConfig))
 	assert.Equal(t, "https://cool-server.com", apiConfig.Clusters["cluster"].Server)
-	assert.True(t, apiConfig.Clusters["cluster"].InsecureSkipTLSVerify) // by default the insecure flag is being set
+	assert.False(t, apiConfig.Clusters["cluster"].InsecureSkipTLSVerify) // by default the insecure flag is not being set
 	assert.Equal(t, "cluster", apiConfig.Contexts["ctx"].Cluster)
 	assert.Equal(t, ctxNamespace, apiConfig.Contexts["ctx"].Namespace)
 	assert.NotEmpty(t, apiConfig.AuthInfos["auth"].Token)
@@ -550,20 +710,20 @@ func extractExampleSPCFromOutput(t *testing.T, output string) toolchainv1alpha1.
 	return spc
 }
 
-func newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig string, useLetsEncrypt bool) registerMemberArgs {
+func newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig string, skipTlsVerify bool) registerMemberArgs {
 	args := defaultRegisterMemberArgs()
 	args.hostKubeConfig = hostKubeconfig
 	args.memberKubeConfig = memberKubeconfig
-	args.useLetsEncrypt = useLetsEncrypt
+	args.skipTlsVerify = &skipTlsVerify
 	args.waitForReadyTimeout = 1 * time.Second
 	return args
 }
 
-func newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig string, useLetsEncrypt bool, nameSuffix string) registerMemberArgs {
+func newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig string, skipTlsVerify bool, nameSuffix string) registerMemberArgs {
 	args := defaultRegisterMemberArgs()
 	args.hostKubeConfig = hostKubeconfig
 	args.memberKubeConfig = memberKubeconfig
-	args.useLetsEncrypt = useLetsEncrypt
+	args.skipTlsVerify = &skipTlsVerify
 	args.nameSuffix = nameSuffix
 	return args
 }
@@ -581,7 +741,7 @@ func defaultRegisterMemberArgs() registerMemberArgs {
 	args.memberKubeConfig = defaultKubeConfigPath
 	args.hostNamespace = "toolchain-host-operator"
 	args.memberNamespace = "toolchain-member-operator"
-	args.useLetsEncrypt = true
+	args.skipTlsVerify = pointer.Bool(true)
 
 	return args
 }
