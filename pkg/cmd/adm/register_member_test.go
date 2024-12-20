@@ -499,6 +499,24 @@ func TestRegisterMember(t *testing.T) {
 		require.EqualError(t, err, "restart did not happen")
 	})
 
+	t.Run("Register-member calls restart ", func(t *testing.T) {
+		// given
+		term := NewFakeTerminalWithResponse("Y")
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
+		mockCreateToolchainClusterWithReadyCondition(t, fakeClient)
+		ctx := newExtendedCommandContext(term, newClient)
+		called := 0
+		// when
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			called++
+			return mockRestartReg(ctx.CommandContext, configuration.HostName, nil)
+		})
+
+		// then
+		require.NoError(t, err)
+		assert.Equal(t, 1, called)
+	})
+
 }
 
 func mockCreateToolchainClusterInNamespaceWithReadyCondition(t *testing.T, fakeClient *test.FakeClient, namespace string) {
@@ -634,4 +652,11 @@ func defaultRegisterMemberArgs() registerMemberArgs {
 	args.useLetsEncrypt = true
 
 	return args
+}
+
+func mockRestartReg(ctx *clicontext.CommandContext, clusterName string, _ ConfigFlagsAndClientGetterFunc) error {
+	if clusterName == "host" && ctx != nil {
+		return nil
+	}
+	return fmt.Errorf("cluster name is wrong")
 }
