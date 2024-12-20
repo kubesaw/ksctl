@@ -165,6 +165,11 @@ func SetFileConfig(t *testing.T, clusterDefs ...ClusterDefinitionWithName) {
 func PersistKubeConfigFile(t *testing.T, config *clientcmdapi.Config) string {
 	tmpFile, err := os.CreateTemp(os.TempDir(), "kubeconfig-*.yaml")
 	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+	})
+
 	// it is important to use clientcmd.WriteToFile instead of just YAML marshalling,
 	// because clientcmd uses custom encoders and decoders for the config object.
 	require.NoError(t, clientcmd.WriteToFile(*config, tmpFile.Name()))

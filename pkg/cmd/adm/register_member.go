@@ -36,6 +36,8 @@ const (
 	TokenExpirationDays = 3650
 )
 
+var invalidKubeConfigError = errors.New("invalid kubeconfig file")
+
 // newClientFromRestConfigFunc is a function to create a new Kubernetes client using the provided
 // rest configuration.
 type newClientFromRestConfigFunc func(*rest.Config) (runtimeclient.Client, error)
@@ -59,11 +61,16 @@ type registerMemberArgs struct {
 	hostNamespace       string
 	memberNamespace     string
 	nameSuffix          string
-	useLetsEncrypt      bool
+	skipTlsVerify       *bool
 	waitForReadyTimeout time.Duration
 }
 
 func NewRegisterMemberCmd() *cobra.Command {
+	return newRegisterMemberCmd(registerMemberCluster)
+}
+
+// newRegisterMemberCmd builds the register member command.
+func newRegisterMemberCmd(exec func(*extendedCommandContext, registerMemberArgs) error) *cobra.Command {
 	commandArgs := registerMemberArgs{}
 	cmd := &cobra.Command{
 		Use:   "register-member",
@@ -72,7 +79,20 @@ func NewRegisterMemberCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := newExtendedCommandContext(term, client.DefaultNewClientFromRestConfig)
-			return registerMemberCluster(ctx, commandArgs)
+
+			// we need special handling for the insecure-skip-tls-verify. If it is not set explicitly on the commandline
+			// we interpret it as "use the default in the kubeconfig" but we override whatever is in the kubeconfig with
+			// the provided explicit value. Therefore, we need to distinguish between not set, true and false.
+			if cmd.Flags().Changed("insecure-skip-tls-verify") {
+				val, err := cmd.Flags().GetBool("insecure-skip-tls-verify")
+				if err != nil {
+					return err
+				}
+
+				commandArgs.skipTlsVerify = &val
+			}
+
+			return exec(ctx, commandArgs)
 		},
 	}
 
@@ -86,7 +106,7 @@ func NewRegisterMemberCmd() *cobra.Command {
 	flags.MustMarkRequired(cmd, "host-kubeconfig")
 	cmd.Flags().StringVar(&commandArgs.memberKubeConfig, "member-kubeconfig", "", "Path to the kubeconfig file of the member cluster")
 	flags.MustMarkRequired(cmd, "member-kubeconfig")
-	cmd.Flags().BoolVar(&commandArgs.useLetsEncrypt, "lets-encrypt", true, "Whether to use Let's Encrypt certificates or rely on the cluster certs.")
+	cmd.Flags().Bool("insecure-skip-tls-verify", false, "Whether to ignore TLS verification errors during the connection to both host and member. If not specified, the value is inherited from the respective kubeconfig files.")
 	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", defaultNameSuffix, "The suffix to append to the member name used when there are multiple members in a single cluster.")
 	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, "The namespace of the host operator in the host cluster.")
 	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", defaultMemberNs, "The namespace of the member operator in the member cluster.")
@@ -150,7 +170,7 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	ctx.Printlnf("The API endpoint of the target cluster: %s", targetClusterDetails.apiEndpoint)
 
 	// generate a token that will be used for the kubeconfig
-	sourceTargetRestClient, err := newRestClient(sourceClusterDetails.kubeConfig)
+	sourceTargetRestClient, err := newRestClient(sourceClusterDetails.kubeConfigPath)
 	if err != nil {
 		return err
 	}
@@ -158,17 +178,11 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	if err != nil {
 		return err
 	}
-	// TODO drop this part together with the --lets-encrypt flag and start loading certificate from the kubeconfig as soon as ToolchainCluster controller supports loading certificates from kubeconfig
-	var insecureSkipTLSVerify bool
-	if v.args.useLetsEncrypt {
-		ctx.Printlnf("using let's encrypt certificate")
-		insecureSkipTLSVerify = false
-	} else {
-		ctx.Printlnf("setting insecure skip tls verification flags")
-		insecureSkipTLSVerify = true
-	}
 	// generate the kubeconfig that can be used by target cluster to interact with the source cluster
-	generatedKubeConfig := generateKubeConfig(token, sourceClusterDetails.apiEndpoint, sourceClusterDetails.namespace, insecureSkipTLSVerify)
+	generatedKubeConfig, err := generateKubeConfig(token, sourceClusterDetails.namespace, v.args.skipTlsVerify, sourceClusterDetails.kubeConfig)
+	if err != nil {
+		return err
+	}
 	generatedKubeConfigFormatted, err := clientcmd.Write(*generatedKubeConfig)
 	if err != nil {
 		return err
@@ -247,8 +261,42 @@ func newRestClient(kubeConfigPath string) (*rest.RESTClient, error) {
 	return restClient, nil
 }
 
-func generateKubeConfig(token, apiEndpoint, namespace string, insecureSkipTLSVerify bool) *clientcmdapi.Config {
-	// create apiConfig based on the secret content
+func generateKubeConfig(token, namespace string, insecureSkipTLSVerify *bool, sourceKubeConfig *clientcmdapi.Config) (*clientcmdapi.Config, error) {
+	sourceContext, present := sourceKubeConfig.Contexts[sourceKubeConfig.CurrentContext]
+	if !present {
+		return nil, fmt.Errorf("%w: current context not present", invalidKubeConfigError)
+	}
+	sourceCluster, present := sourceKubeConfig.Clusters[sourceContext.Cluster]
+	if !present {
+		return nil, fmt.Errorf("%w: cluster definition not found", invalidKubeConfigError)
+	}
+	sourceAuth, present := sourceKubeConfig.AuthInfos[sourceContext.AuthInfo]
+	if !present {
+		// can happen in tests, unlikely in practice :)
+		// The token auth will work like this though as long as there are no required client certs.
+		sourceAuth = clientcmdapi.NewAuthInfo()
+	}
+
+	// set the token in the kubeconfig and clear out any other potential auth method and impersonation
+	targetAuth := sourceAuth.DeepCopy()
+	targetAuth.Token = token
+	targetAuth.TokenFile = ""
+	targetAuth.Username = ""
+	targetAuth.Password = ""
+	targetAuth.Impersonate = ""
+	targetAuth.ImpersonateUID = ""
+	targetAuth.ImpersonateGroups = []string{}
+	targetAuth.ImpersonateUserExtra = map[string][]string{}
+	targetAuth.Exec = nil
+	targetAuth.AuthProvider = nil
+
+	targetCluster := sourceCluster.DeepCopy()
+	// if there was an explicit value set for the insecureSkipTlsVerify, we use that instead of what's
+	// in the kubeconfig.
+	if insecureSkipTLSVerify != nil {
+		targetCluster.InsecureSkipTLSVerify = *insecureSkipTLSVerify
+	}
+
 	return &clientcmdapi.Config{
 		Contexts: map[string]*clientcmdapi.Context{
 			"ctx": {
@@ -259,17 +307,12 @@ func generateKubeConfig(token, apiEndpoint, namespace string, insecureSkipTLSVer
 		},
 		CurrentContext: "ctx",
 		Clusters: map[string]*clientcmdapi.Cluster{
-			"cluster": {
-				Server:                apiEndpoint,
-				InsecureSkipTLSVerify: insecureSkipTLSVerify,
-			},
+			"cluster": targetCluster,
 		},
 		AuthInfos: map[string]*clientcmdapi.AuthInfo{
-			"auth": {
-				Token: token,
-			},
+			"auth": targetAuth,
 		},
-	}
+	}, nil
 }
 
 // waitForToolchainClusterSA waits for the toolchaincluster service account to be present
@@ -339,10 +382,11 @@ func getToolchainClustersWithHostname(ctx context.Context, cl runtimeclient.Clie
 
 type clusterData struct {
 	client               runtimeclient.Client
+	kubeConfig           *clientcmdapi.Config
 	apiEndpoint          string
 	namespace            string
 	toolchainClusterName string
-	kubeConfig           string
+	kubeConfigPath       string
 }
 
 type registerMemberValidated struct {
@@ -353,8 +397,7 @@ type registerMemberValidated struct {
 	errors            []string
 }
 
-func getApiEndpointAndClient(ctx *extendedCommandContext, kubeConfigPath string) (apiEndpoint string, cl runtimeclient.Client, err error) {
-	var kubeConfig *clientcmdapi.Config
+func getApiEndpointAndClient(ctx *extendedCommandContext, kubeConfigPath string) (apiEndpoint string, cl runtimeclient.Client, kubeConfig *clientcmdapi.Config, err error) {
 	var clientConfig *rest.Config
 
 	kubeConfig, err = clientcmd.LoadFromFile(kubeConfigPath)
@@ -375,12 +418,12 @@ func getApiEndpointAndClient(ctx *extendedCommandContext, kubeConfigPath string)
 }
 
 func validateArgs(ctx *extendedCommandContext, args registerMemberArgs) (*registerMemberValidated, error) {
-	hostApiEndpoint, hostClusterClient, err := getApiEndpointAndClient(ctx, args.hostKubeConfig)
+	hostApiEndpoint, hostClusterClient, hostKubeConfig, err := getApiEndpointAndClient(ctx, args.hostKubeConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	memberApiEndpoint, memberClusterClient, err := getApiEndpointAndClient(ctx, args.memberKubeConfig)
+	memberApiEndpoint, memberClusterClient, memberKubeConfig, err := getApiEndpointAndClient(ctx, args.memberKubeConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -430,17 +473,19 @@ func validateArgs(ctx *extendedCommandContext, args registerMemberArgs) (*regist
 		args: args,
 		hostClusterData: clusterData{
 			client:               hostClusterClient,
+			kubeConfig:           hostKubeConfig,
 			apiEndpoint:          hostApiEndpoint,
 			namespace:            args.hostNamespace,
 			toolchainClusterName: hostToolchainClusterName,
-			kubeConfig:           args.hostKubeConfig,
+			kubeConfigPath:       args.hostKubeConfig,
 		},
 		memberClusterData: clusterData{
 			client:               memberClusterClient,
+			kubeConfig:           memberKubeConfig,
 			apiEndpoint:          memberApiEndpoint,
 			namespace:            args.memberNamespace,
 			toolchainClusterName: memberToolchainClusterName,
-			kubeConfig:           args.memberKubeConfig,
+			kubeConfigPath:       args.memberKubeConfig,
 		},
 		warnings: warnings,
 		errors:   errors,
