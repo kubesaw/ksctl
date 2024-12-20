@@ -2,7 +2,7 @@
 # Builder image
 # See https://hub.docker.com/_/golang/
 ################################################################################################
-FROM golang:1.20 as builder
+FROM mirror.gcr.io/golang:1.20 as builder
 
 ARG OS=linux
 ARG ARCH=amd64
