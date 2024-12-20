@@ -13,6 +13,7 @@ import (
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/ghodss/yaml"
 	"github.com/kubesaw/ksctl/pkg/configuration"
+	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/utils"
 	"github.com/stretchr/testify/assert"
@@ -82,7 +83,9 @@ func TestRegisterMember(t *testing.T) {
 		}
 
 		// when
-		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.NoError(t, err)
@@ -115,7 +118,9 @@ func TestRegisterMember(t *testing.T) {
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
-		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.Error(t, err)
@@ -135,7 +140,9 @@ func TestRegisterMember(t *testing.T) {
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
-		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.Error(t, err)
@@ -155,7 +162,9 @@ func TestRegisterMember(t *testing.T) {
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
-		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.NoError(t, err)
@@ -171,7 +180,9 @@ func TestRegisterMember(t *testing.T) {
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
-		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, true))
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, true), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.NoError(t, err)
@@ -206,7 +217,9 @@ func TestRegisterMember(t *testing.T) {
 		mockCreateToolchainClusterWithReadyCondition(t, fakeClient)
 
 		// when
-		err := registerMemberCluster(ctx, newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig, false, "2"))
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig, false, "2"), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.NoError(t, err)
@@ -227,8 +240,12 @@ func TestRegisterMember(t *testing.T) {
 		ctx2 := newExtendedCommandContext(term2, newClient)
 
 		// when
-		err1 := registerMemberCluster(ctx1, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
-		err2 := registerMemberCluster(ctx2, newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig, false, "1"))
+		err1 := registerMemberCluster(ctx1, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
+		err2 := registerMemberCluster(ctx2, newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig, false, "1"), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.NoError(t, err1)
@@ -250,8 +267,12 @@ func TestRegisterMember(t *testing.T) {
 		ctx2 := newExtendedCommandContext(term2, newClient)
 
 		// when
-		err1 := registerMemberCluster(ctx1, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
-		err2 := registerMemberCluster(ctx2, newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig, false, ""))
+		err1 := registerMemberCluster(ctx1, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
+		err2 := registerMemberCluster(ctx2, newRegisterMemberArgsWithSuffix(hostKubeconfig, memberKubeconfig, false, ""), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.NoError(t, err1)
@@ -305,7 +326,9 @@ func TestRegisterMember(t *testing.T) {
 		require.NoError(t, fakeClient.Create(context.TODO(), preexistingToolchainCluster2.DeepCopy()))
 
 		// when
-		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.Error(t, err)
@@ -337,7 +360,9 @@ func TestRegisterMember(t *testing.T) {
 		require.NoError(t, fakeClient.Create(context.TODO(), preexistingToolchainCluster.DeepCopy()))
 
 		// when
-		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.Error(t, err)
@@ -369,7 +394,9 @@ func TestRegisterMember(t *testing.T) {
 		require.NoError(t, fakeClient.Create(context.TODO(), preexistingToolchainCluster.DeepCopy()))
 
 		// when
-		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.Error(t, err)
@@ -402,7 +429,9 @@ func TestRegisterMember(t *testing.T) {
 		require.NoError(t, fakeClient.Create(context.TODO(), preexistingToolchainCluster.DeepCopy()))
 
 		// when
-		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.Error(t, err)
@@ -419,7 +448,9 @@ func TestRegisterMember(t *testing.T) {
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
-		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.Error(t, err)
@@ -438,7 +469,9 @@ func TestRegisterMember(t *testing.T) {
 		ctx := newExtendedCommandContext(term, newClient)
 
 		// when
-		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false))
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return nil
+		})
 
 		// then
 		require.Error(t, err)
@@ -449,6 +482,41 @@ func TestRegisterMember(t *testing.T) {
 		require.NoError(t, fakeClient.List(context.TODO(), tcs, runtimeclient.InNamespace(test.MemberOperatorNs)))
 		assert.Empty(t, tcs.Items)
 	})
+
+	t.Run("reports error when host-operator is not restarted", func(t *testing.T) {
+		// given
+		term := NewFakeTerminalWithResponse("Y")
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
+		mockCreateToolchainClusterWithReadyCondition(t, fakeClient)
+		ctx := newExtendedCommandContext(term, newClient)
+
+		// when
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			return fmt.Errorf("restart did not happen")
+		})
+
+		// then
+		require.EqualError(t, err, "restart did not happen")
+	})
+
+	t.Run("Register-member calls restart ", func(t *testing.T) {
+		// given
+		term := NewFakeTerminalWithResponse("Y")
+		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
+		mockCreateToolchainClusterWithReadyCondition(t, fakeClient)
+		ctx := newExtendedCommandContext(term, newClient)
+		called := 0
+		// when
+		err := registerMemberCluster(ctx, newRegisterMemberArgsWith(hostKubeconfig, memberKubeconfig, false), func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+			called++
+			return mockRestartReg(ctx.CommandContext, configuration.HostName, nil)
+		})
+
+		// then
+		require.NoError(t, err)
+		assert.Equal(t, 1, called)
+	})
+
 }
 
 func mockCreateToolchainClusterInNamespaceWithReadyCondition(t *testing.T, fakeClient *test.FakeClient, namespace string) {
@@ -584,4 +652,11 @@ func defaultRegisterMemberArgs() registerMemberArgs {
 	args.useLetsEncrypt = true
 
 	return args
+}
+
+func mockRestartReg(ctx *clicontext.CommandContext, clusterName string, _ ConfigFlagsAndClientGetterFunc) error {
+	if clusterName == "host" && ctx != nil {
+		return nil
+	}
+	return fmt.Errorf("cluster name is wrong")
 }

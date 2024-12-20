@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-type restartFunc func(ctx *clicontext.CommandContext, clusterName string) error
+type restartFunc func(ctx *clicontext.CommandContext, clusterName string, cfcGetter ConfigFlagsAndClientGetterFunc) error
 
 func NewUnregisterMemberCmd() *cobra.Command {
 	return &cobra.Command{
@@ -64,5 +64,5 @@ func UnregisterMemberCluster(ctx *clicontext.CommandContext, clusterName string,
 	}
 	ctx.Printlnf("\nThe deletion of the Toolchain member cluster from the Host cluster has been triggered")
 
-	return restart(ctx, "host")
+	return restart(ctx, "host", getConfigFlagsAndClient)
 }
