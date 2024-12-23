@@ -21,7 +21,7 @@ func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterName string) error {
+	err := UnregisterMemberCluster(ctx, "member1", func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
 		return nil
 	})
 
@@ -46,7 +46,7 @@ func TestUnregisterMemberWhenRestartError(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterName string) error {
+	err := UnregisterMemberCluster(ctx, "member1", func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
 		return fmt.Errorf("restart did not happen")
 	})
 
@@ -65,9 +65,9 @@ func TestUnregisterMemberCallsRestart(t *testing.T) {
 	ctxAct := clicontext.NewCommandContext(term, newClient)
 	called := 0
 	// when
-	err := UnregisterMemberCluster(ctxAct, "member1", func(ctx *clicontext.CommandContext, restartClusterName string) error {
+	err := UnregisterMemberCluster(ctxAct, "member1", func(ctx *clicontext.CommandContext, restartClusterName string, _ ConfigFlagsAndClientGetterFunc) error {
 		called++
-		return mockRestart(ctx, restartClusterName)
+		return mockRestart(ctx, restartClusterName, getConfigFlagsAndClient)
 	})
 
 	// then
@@ -84,7 +84,7 @@ func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterName string) error {
+	err := UnregisterMemberCluster(ctx, "member1", func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
 		return nil
 	})
 
@@ -107,7 +107,7 @@ func TestUnregisterMemberWhenNotFound(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterName string) error {
+	err := UnregisterMemberCluster(ctx, "member1", func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
 		return nil
 	})
 
@@ -130,7 +130,7 @@ func TestUnregisterMemberWhenUnknownClusterName(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "some", func(ctx *clicontext.CommandContext, clusterName string) error {
+	err := UnregisterMemberCluster(ctx, "some", func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
 		return nil
 	})
 
@@ -155,7 +155,7 @@ func TestUnregisterMemberLacksPermissions(t *testing.T) {
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := UnregisterMemberCluster(ctx, "member1", func(ctx *clicontext.CommandContext, clusterName string) error {
+	err := UnregisterMemberCluster(ctx, "member1", func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
 		return nil
 	})
 
@@ -164,9 +164,11 @@ func TestUnregisterMemberLacksPermissions(t *testing.T) {
 	AssertToolchainClusterSpec(t, fakeClient, toolchainCluster)
 }
 
-func mockRestart(ctx *clicontext.CommandContext, clusterName string) error {
-	if clusterName == "host" && ctx != nil {
+func mockRestart(ctx *clicontext.CommandContext, clusterName string, cfc ConfigFlagsAndClientGetterFunc) error {
+	_, _, cfcerr := cfc(ctx, clusterName)
+	if clusterName == "host" && ctx != nil && cfcerr == nil {
 		return nil
 	}
+
 	return fmt.Errorf("cluster name is wrong")
 }
