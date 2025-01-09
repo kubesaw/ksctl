@@ -3,6 +3,7 @@ package adm
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -206,7 +207,7 @@ func TestRegisterMember(t *testing.T) {
 		assert.Contains(t, term.Output(), "kind: SpaceProvisionerConfig")
 	})
 
-	t.Run("single toolchain in cluster with --lets-encrypt", func(t *testing.T) {
+	t.Run("single toolchain in cluster with --insecure-skip-tls-verify", func(t *testing.T) {
 		// given
 		term := NewFakeTerminalWithResponse("Y")
 		newClient, fakeClient := newFakeClientsFromRestConfig(t, &toolchainClusterMemberSa, &toolchainClusterHostSa)
@@ -579,11 +580,11 @@ func TestCreateKubeConfig(t *testing.T) {
 		// then
 		generatedAuth := config.AuthInfos[config.Contexts[config.CurrentContext].AuthInfo]
 
-		assert.Equal(t, "client-certificate", generatedAuth.ClientCertificate)
 		assert.Equal(t, []byte("client-certificate-data"), generatedAuth.ClientCertificateData)
-		assert.Equal(t, "client-key", generatedAuth.ClientKey)
 		assert.Equal(t, []byte("client-key-data"), generatedAuth.ClientKeyData)
 		assert.Equal(t, "token", generatedAuth.Token)
+		assert.Empty(t, generatedAuth.ClientKey)
+		assert.Empty(t, generatedAuth.ClientCertificate)
 		assert.Empty(t, generatedAuth.TokenFile)
 		assert.Empty(t, generatedAuth.Impersonate)
 		assert.Empty(t, generatedAuth.ImpersonateUID)
@@ -608,6 +609,38 @@ func TestCreateKubeConfig(t *testing.T) {
 		generatedContext := config.Contexts[config.CurrentContext]
 
 		assert.Equal(t, "ns", generatedContext.Namespace)
+	})
+
+	t.Run("reads referenced files in kubeconfig to appropriate data fields", func(t *testing.T) {
+		// given
+		f, err := os.CreateTemp("", "ref-test")
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(f.Name(), []byte("data"), 0))
+		defer os.Remove(f.Name())
+
+		kubeConfig := HostKubeConfig()
+		kubeConfig.Clusters["host"].CertificateAuthority = f.Name()
+		kubeConfig.AuthInfos["auth"] = clientcmdapi.NewAuthInfo()
+		kubeConfig.AuthInfos["auth"].ClientCertificate = f.Name()
+		kubeConfig.AuthInfos["auth"].ClientKey = f.Name()
+
+		kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo = "auth"
+
+		// when
+		config, err := generateKubeConfig("token", "ns", nil, kubeConfig)
+		require.NoError(t, err)
+
+		// then
+		context := config.Contexts[config.CurrentContext]
+		generatedCluster := config.Clusters[context.Cluster]
+		generatedAuth := config.AuthInfos[context.AuthInfo]
+
+		assert.Equal(t, []byte("data"), generatedCluster.CertificateAuthorityData)
+		assert.Empty(t, generatedCluster.CertificateAuthority)
+		assert.Equal(t, []byte("data"), generatedAuth.ClientKeyData)
+		assert.Empty(t, generatedAuth.ClientKey)
+		assert.Equal(t, []byte("data"), generatedAuth.ClientCertificateData)
+		assert.Empty(t, generatedAuth.ClientCertificate)
 	})
 }
 

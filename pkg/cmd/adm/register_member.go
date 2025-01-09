@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -35,8 +36,6 @@ import (
 const (
 	TokenExpirationDays = 3650
 )
-
-var invalidKubeConfigError = errors.New("invalid kubeconfig file")
 
 // newClientFromRestConfigFunc is a function to create a new Kubernetes client using the provided
 // rest configuration.
@@ -106,7 +105,7 @@ func newRegisterMemberCmd(exec func(*extendedCommandContext, registerMemberArgs)
 	flags.MustMarkRequired(cmd, "host-kubeconfig")
 	cmd.Flags().StringVar(&commandArgs.memberKubeConfig, "member-kubeconfig", "", "Path to the kubeconfig file of the member cluster")
 	flags.MustMarkRequired(cmd, "member-kubeconfig")
-	cmd.Flags().Bool("insecure-skip-tls-verify", false, "Whether to ignore TLS verification errors during the connection to both host and member. If not specified, the value is inherited from the respective kubeconfig files.")
+	cmd.Flags().Bool("insecure-skip-tls-verify", false, "If true, the TLS verification errors are ignored during the connection to both host and member. If false, TLS verification is required to succeed. If not specified, the value is inherited from the respective kubeconfig files.")
 	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", defaultNameSuffix, "The suffix to append to the member name used when there are multiple members in a single cluster.")
 	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, "The namespace of the host operator in the host cluster.")
 	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", defaultMemberNs, "The namespace of the member operator in the member cluster.")
@@ -264,11 +263,11 @@ func newRestClient(kubeConfigPath string) (*rest.RESTClient, error) {
 func generateKubeConfig(token, namespace string, insecureSkipTLSVerify *bool, sourceKubeConfig *clientcmdapi.Config) (*clientcmdapi.Config, error) {
 	sourceContext, present := sourceKubeConfig.Contexts[sourceKubeConfig.CurrentContext]
 	if !present {
-		return nil, fmt.Errorf("%w: current context not present", invalidKubeConfigError)
+		return nil, errors.New("invalid kubeconfig file: current context not present")
 	}
 	sourceCluster, present := sourceKubeConfig.Clusters[sourceContext.Cluster]
 	if !present {
-		return nil, fmt.Errorf("%w: cluster definition not found", invalidKubeConfigError)
+		return nil, errors.New("invalid kubeconfig file: cluster definition not found")
 	}
 	sourceAuth, present := sourceKubeConfig.AuthInfos[sourceContext.AuthInfo]
 	if !present {
@@ -277,24 +276,32 @@ func generateKubeConfig(token, namespace string, insecureSkipTLSVerify *bool, so
 		sourceAuth = clientcmdapi.NewAuthInfo()
 	}
 
-	// set the token in the kubeconfig and clear out any other potential auth method and impersonation
-	targetAuth := sourceAuth.DeepCopy()
+	// let's only set what we need in the auth. If there are any certificate files, we need to copy
+	// their data into the data fields, because those files are not going to be available on the target
+	// cluster.
+	targetAuth := clientcmdapi.NewAuthInfo()
 	targetAuth.Token = token
-	targetAuth.TokenFile = ""
-	targetAuth.Username = ""
-	targetAuth.Password = ""
-	targetAuth.Impersonate = ""
-	targetAuth.ImpersonateUID = ""
-	targetAuth.ImpersonateGroups = []string{}
-	targetAuth.ImpersonateUserExtra = map[string][]string{}
-	targetAuth.Exec = nil
-	targetAuth.AuthProvider = nil
+	if err := loadDataInto(sourceAuth.ClientCertificate, sourceAuth.ClientCertificateData, &targetAuth.ClientCertificateData); err != nil {
+		return nil, fmt.Errorf("failed to read the data of the client certificate: %w", err)
+	}
+	if err := loadDataInto(sourceAuth.ClientKey, sourceAuth.ClientKeyData, &targetAuth.ClientKeyData); err != nil {
+		return nil, fmt.Errorf("failed to read the data of the client key: %w", err)
+	}
 
-	targetCluster := sourceCluster.DeepCopy()
+	targetCluster := clientcmdapi.NewCluster()
+	targetCluster.Server = sourceCluster.Server
+	targetCluster.ProxyURL = sourceCluster.ProxyURL
 	// if there was an explicit value set for the insecureSkipTlsVerify, we use that instead of what's
 	// in the kubeconfig.
 	if insecureSkipTLSVerify != nil {
 		targetCluster.InsecureSkipTLSVerify = *insecureSkipTLSVerify
+	} else {
+		targetCluster.InsecureSkipTLSVerify = sourceCluster.InsecureSkipTLSVerify
+	}
+	if !targetCluster.InsecureSkipTLSVerify {
+		if err := loadDataInto(sourceCluster.CertificateAuthority, sourceCluster.CertificateAuthorityData, &targetCluster.CertificateAuthorityData); err != nil {
+			return nil, fmt.Errorf("failed to read the data of the certificate authority: %w", err)
+		}
 	}
 
 	return &clientcmdapi.Config{
@@ -559,6 +566,19 @@ func findToolchainClusterForMember(allToolchainClusters []toolchainv1alpha1.Tool
 		if tc.Status.APIEndpoint == memberAPIEndpoint && tc.Status.OperatorNamespace == memberOperatorNamespace {
 			return &tc
 		}
+	}
+	return nil
+}
+
+func loadDataInto(path string, source []byte, target *[]byte) error {
+	if path != "" && len(source) == 0 {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		*target = data
+	} else {
+		*target = source
 	}
 	return nil
 }
