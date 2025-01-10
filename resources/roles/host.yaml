@@ -262,4 +262,24 @@ objects:
     - "get"
     - "list"
     - "patch"
-    - "update"
+- kind: Role
+  apiVersion: rbac.authorization.k8s.io/v1
+  metadata:
+    name: unregister-member
+    labels:
+      provider: ksctl
+  rules:
+  - apiGroups:
+    - ""
+    resources:
+    - "secrets"
+    verbs:
+    - "get"
+    - "delete"
+  - apiGroups:
+    - toolchain.dev.openshift.com
+    resources:
+    - "toolchainclusters"
+    verbs:
+    - "get"
+    - "delete"

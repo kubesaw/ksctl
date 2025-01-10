@@ -49,3 +49,9 @@ func ToolchainClusterName(name string) ToolchainClusterModifier {
 		toolchainCluster.Name = name
 	}
 }
+
+func ReferencedSecret(name string) ToolchainClusterModifier {
+	return func(toolchainCluster *toolchainv1alpha1.ToolchainCluster) {
+		toolchainCluster.Spec.SecretRef.Name = name
+	}
+}

@@ -4,17 +4,26 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	// given
-	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
+	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"), ReferencedSecret("member-cool-server-creds"))
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "member-cool-server-creds",
+			Namespace: test.HostOperatorNs,
+		},
+	}
 
-	newClient, fakeClient := NewFakeClients(t, toolchainCluster)
+	newClient, fakeClient := NewFakeClients(t, toolchainCluster, secret)
 
 	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("y")
@@ -37,9 +46,15 @@ func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 
 func TestUnregisterMemberWhenRestartError(t *testing.T) {
 	// given
-	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
+	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"), ReferencedSecret("member-cool-server-creds"))
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "member-cool-server-creds",
+			Namespace: test.HostOperatorNs,
+		},
+	}
 
-	newClient, _ := NewFakeClients(t, toolchainCluster)
+	newClient, _ := NewFakeClients(t, toolchainCluster, secret)
 
 	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("y")
@@ -56,9 +71,15 @@ func TestUnregisterMemberWhenRestartError(t *testing.T) {
 
 func TestUnregisterMemberCallsRestart(t *testing.T) {
 	// given
-	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
+	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"), ReferencedSecret("member-cool-server-creds"))
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "member-cool-server-creds",
+			Namespace: test.HostOperatorNs,
+		},
+	}
 
-	newClient, _ := NewFakeClients(t, toolchainCluster)
+	newClient, _ := NewFakeClients(t, toolchainCluster, secret)
 
 	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("y")
@@ -77,8 +98,15 @@ func TestUnregisterMemberCallsRestart(t *testing.T) {
 
 func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {
 	// given
-	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
-	newClient, fakeClient := NewFakeClients(t, toolchainCluster)
+	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"), ReferencedSecret("member-cool-server-creds"))
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "member-cool-server-creds",
+			Namespace: test.HostOperatorNs,
+		},
+	}
+
+	newClient, fakeClient := NewFakeClients(t, toolchainCluster, secret)
 	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("n")
 	ctx := clicontext.NewCommandContext(term, newClient)

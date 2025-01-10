@@ -9,6 +9,7 @@ import (
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,6 +54,10 @@ func UnregisterMemberCluster(ctx *clicontext.CommandContext, clusterName string,
 	if err := ctx.PrintObject(toolchainCluster, "Toolchain Member cluster"); err != nil {
 		return err
 	}
+	secret := &corev1.Secret{}
+	if err := hostClusterClient.Get(context.TODO(), types.NamespacedName{Namespace: toolchainCluster.Namespace, Name: toolchainCluster.Spec.SecretRef.Name}, secret); err != nil {
+		return err
+	}
 	confirmation := ctx.AskForConfirmation(ioutils.WithDangerZoneMessagef("unregistering member cluster form host cluster. Make sure there is no users left in the member cluster before unregistering it.",
 		"Delete Member cluster stated above from the Host cluster?"))
 	if !confirmation {
@@ -60,6 +65,9 @@ func UnregisterMemberCluster(ctx *clicontext.CommandContext, clusterName string,
 	}
 
 	if err := hostClusterClient.Delete(context.TODO(), toolchainCluster); err != nil {
+		return err
+	}
+	if err := hostClusterClient.Delete(context.TODO(), secret); err != nil {
 		return err
 	}
 	ctx.Printlnf("\nThe deletion of the Toolchain member cluster from the Host cluster has been triggered")
