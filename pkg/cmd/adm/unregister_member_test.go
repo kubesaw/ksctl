@@ -77,8 +77,8 @@ func newSecret(tc *toolchainv1alpha1.ToolchainCluster) *v1.Secret {
 func TestUnregisterMemberWhenRestartError(t *testing.T) {
 	// given
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
-
-	newClient, _ := NewFakeClients(t, toolchainCluster)
+	secret := newSecret(toolchainCluster)
+	newClient, _ := NewFakeClients(t, toolchainCluster, secret)
 
 	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("y")
@@ -96,8 +96,8 @@ func TestUnregisterMemberWhenRestartError(t *testing.T) {
 func TestUnregisterMemberCallsRestart(t *testing.T) {
 	// given
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
-
-	newClient, _ := NewFakeClients(t, toolchainCluster)
+	secret := newSecret(toolchainCluster)
+	newClient, _ := NewFakeClients(t, toolchainCluster, secret)
 
 	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("y")
@@ -117,7 +117,8 @@ func TestUnregisterMemberCallsRestart(t *testing.T) {
 func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {
 	// given
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
-	newClient, fakeClient := NewFakeClients(t, toolchainCluster)
+	secret := newSecret(toolchainCluster)
+	newClient, fakeClient := NewFakeClients(t, toolchainCluster, secret)
 	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("n")
 	ctx := clicontext.NewCommandContext(term, newClient)
@@ -130,6 +131,7 @@ func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	AssertToolchainClusterSpec(t, fakeClient, toolchainCluster)
+	AssertObjectExists(t, fakeClient, client.ObjectKeyFromObject(secret), &v1.Secret{})
 	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
 	assert.NotContains(t, term.Output(), "THIS COMMAND WILL CAUSE UNREGISTER MEMBER CLUSTER FORM HOST CLUSTER. MAKE SURE THERE IS NO USERS LEFT IN THE MEMBER CLUSTER BEFORE UNREGISTERING IT")
 	assert.Contains(t, term.Output(), "Delete Member cluster stated above from the Host cluster?")
@@ -140,7 +142,8 @@ func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {
 func TestUnregisterMemberWhenNotFound(t *testing.T) {
 	// given
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("another-cool-server.com"))
-	newClient, fakeClient := NewFakeClients(t, toolchainCluster)
+	secret := newSecret(toolchainCluster)
+	newClient, fakeClient := NewFakeClients(t, toolchainCluster, secret)
 	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("n")
 	ctx := clicontext.NewCommandContext(term, newClient)
@@ -153,6 +156,7 @@ func TestUnregisterMemberWhenNotFound(t *testing.T) {
 	// then
 	require.EqualError(t, err, "toolchainclusters.toolchain.dev.openshift.com \"member-cool-server.com\" not found")
 	AssertToolchainClusterSpec(t, fakeClient, toolchainCluster)
+	AssertObjectExists(t, fakeClient, client.ObjectKeyFromObject(secret), &v1.Secret{})
 	assert.NotContains(t, term.Output(), "!!!  DANGER ZONE  !!!")
 	assert.NotContains(t, term.Output(), "THIS COMMAND WILL CAUSE UNREGISTER MEMBER CLUSTER FORM HOST CLUSTER. MAKE SURE THERE IS NO USERS LEFT IN THE MEMBER CLUSTER BEFORE UNREGISTERING IT")
 	assert.NotContains(t, term.Output(), "Delete Member cluster stated above from the Host cluster?")
@@ -163,7 +167,8 @@ func TestUnregisterMemberWhenNotFound(t *testing.T) {
 func TestUnregisterMemberWhenUnknownClusterName(t *testing.T) {
 	// given
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
-	newClient, fakeClient := NewFakeClients(t, toolchainCluster)
+	secret := newSecret(toolchainCluster)
+	newClient, fakeClient := NewFakeClients(t, toolchainCluster, secret)
 	SetFileConfig(t, Host(), Member())
 	term := NewFakeTerminalWithResponse("n")
 	ctx := clicontext.NewCommandContext(term, newClient)
@@ -177,6 +182,7 @@ func TestUnregisterMemberWhenUnknownClusterName(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "the provided cluster-name 'some' is not present in your ksctl.yaml file.")
 	AssertToolchainClusterSpec(t, fakeClient, toolchainCluster)
+	AssertObjectExists(t, fakeClient, client.ObjectKeyFromObject(secret), &v1.Secret{})
 	assert.NotContains(t, term.Output(), "!!!  DANGER ZONE  !!!")
 	assert.NotContains(t, term.Output(), "THIS COMMAND WILL CAUSE UNREGISTER MEMBER CLUSTER FORM HOST CLUSTER. MAKE SURE THERE IS NO USERS LEFT IN THE MEMBER CLUSTER BEFORE UNREGISTERING IT")
 	assert.NotContains(t, term.Output(), "Delete Member cluster stated above from the Host cluster?")
@@ -189,7 +195,8 @@ func TestUnregisterMemberLacksPermissions(t *testing.T) {
 	SetFileConfig(t, Host(NoToken()), Member(NoToken()))
 
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
-	newClient, fakeClient := NewFakeClients(t, toolchainCluster)
+	secret := newSecret(toolchainCluster)
+	newClient, fakeClient := NewFakeClients(t, toolchainCluster, secret)
 	term := NewFakeTerminal()
 	ctx := clicontext.NewCommandContext(term, newClient)
 
@@ -201,6 +208,7 @@ func TestUnregisterMemberLacksPermissions(t *testing.T) {
 	// then
 	require.EqualError(t, err, "ksctl command failed: the token in your ksctl.yaml file is missing")
 	AssertToolchainClusterSpec(t, fakeClient, toolchainCluster)
+	AssertObjectExists(t, fakeClient, client.ObjectKeyFromObject(secret), &v1.Secret{})
 }
 
 func mockRestart(ctx *clicontext.CommandContext, clusterName string, cfc ConfigFlagsAndClientGetterFunc) error {
