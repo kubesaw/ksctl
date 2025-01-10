@@ -4,16 +4,50 @@ import (
 	"fmt"
 	"testing"
 
+	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
+	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	// given
 	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
+	noiseToolchainCluster := NewToolchainCluster(ToolchainClusterName("noise"))
+	secret := newSecret(toolchainCluster)
+	noiseSecret := newSecret(noiseToolchainCluster)
 
+	newClient, fakeClient := NewFakeClients(t, noiseToolchainCluster, toolchainCluster, secret, noiseSecret)
+
+	SetFileConfig(t, Host(), Member())
+	term := NewFakeTerminalWithResponse("y")
+	ctx := clicontext.NewCommandContext(term, newClient)
+
+	// when
+	err := UnregisterMemberCluster(ctx, "member1", func(_ *clicontext.CommandContext, _ string, _ ConfigFlagsAndClientGetterFunc) error {
+		return nil
+	})
+
+	// then
+	require.NoError(t, err)
+	AssertToolchainClusterDoesNotExist(t, fakeClient, toolchainCluster)
+	AssertObjectExists(t, fakeClient, client.ObjectKeyFromObject(noiseToolchainCluster), &toolchainv1alpha1.ToolchainCluster{})
+	AssertObjectExists(t, fakeClient, client.ObjectKeyFromObject(noiseSecret), &v1.Secret{})
+	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
+	assert.NotContains(t, term.Output(), "THIS COMMAND WILL CAUSE UNREGISTER MEMBER CLUSTER FORM HOST CLUSTER. MAKE SURE THERE IS NO USERS LEFT IN THE MEMBER CLUSTER BEFORE UNREGISTERING IT")
+	assert.Contains(t, term.Output(), "Delete Member cluster stated above from the Host cluster?")
+	assert.Contains(t, term.Output(), "The deletion of the Member cluster from the Host cluster has been finished.")
+	assert.NotContains(t, term.Output(), "cool-token")
+}
+
+func TestUnregisterMemberWhenSecretIsMissing(t *testing.T) {
+	// given
+	toolchainCluster := NewToolchainCluster(ToolchainClusterName("member-cool-server.com"))
 	newClient, fakeClient := NewFakeClients(t, toolchainCluster)
 
 	SetFileConfig(t, Host(), Member())
@@ -28,11 +62,16 @@ func TestUnregisterMemberWhenAnswerIsY(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	AssertToolchainClusterDoesNotExist(t, fakeClient, toolchainCluster)
-	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
-	assert.NotContains(t, term.Output(), "THIS COMMAND WILL CAUSE UNREGISTER MEMBER CLUSTER FORM HOST CLUSTER. MAKE SURE THERE IS NO USERS LEFT IN THE MEMBER CLUSTER BEFORE UNREGISTERING IT")
-	assert.Contains(t, term.Output(), "Delete Member cluster stated above from the Host cluster?")
-	assert.Contains(t, term.Output(), "The deletion of the Toolchain member cluster from the Host cluster has been triggered")
 	assert.NotContains(t, term.Output(), "cool-token")
+}
+
+func newSecret(tc *toolchainv1alpha1.ToolchainCluster) *v1.Secret {
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      tc.Spec.SecretRef.Name,
+			Namespace: test.HostOperatorNs,
+		},
+	}
 }
 
 func TestUnregisterMemberWhenRestartError(t *testing.T) {
@@ -94,7 +133,7 @@ func TestUnregisterMemberWhenAnswerIsN(t *testing.T) {
 	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
 	assert.NotContains(t, term.Output(), "THIS COMMAND WILL CAUSE UNREGISTER MEMBER CLUSTER FORM HOST CLUSTER. MAKE SURE THERE IS NO USERS LEFT IN THE MEMBER CLUSTER BEFORE UNREGISTERING IT")
 	assert.Contains(t, term.Output(), "Delete Member cluster stated above from the Host cluster?")
-	assert.NotContains(t, term.Output(), "The deletion of the Toolchain member cluster from the Host cluster has been triggered")
+	assert.NotContains(t, term.Output(), "The deletion of the Member cluster from the Host cluster has been finished.")
 	assert.NotContains(t, term.Output(), "cool-token")
 }
 
@@ -117,7 +156,7 @@ func TestUnregisterMemberWhenNotFound(t *testing.T) {
 	assert.NotContains(t, term.Output(), "!!!  DANGER ZONE  !!!")
 	assert.NotContains(t, term.Output(), "THIS COMMAND WILL CAUSE UNREGISTER MEMBER CLUSTER FORM HOST CLUSTER. MAKE SURE THERE IS NO USERS LEFT IN THE MEMBER CLUSTER BEFORE UNREGISTERING IT")
 	assert.NotContains(t, term.Output(), "Delete Member cluster stated above from the Host cluster?")
-	assert.NotContains(t, term.Output(), "The deletion of the Toolchain member cluster from the Host cluster has been triggered")
+	assert.NotContains(t, term.Output(), "The deletion of the Member cluster from the Host cluster has been finished.")
 	assert.NotContains(t, term.Output(), "cool-token")
 }
 
@@ -141,7 +180,7 @@ func TestUnregisterMemberWhenUnknownClusterName(t *testing.T) {
 	assert.NotContains(t, term.Output(), "!!!  DANGER ZONE  !!!")
 	assert.NotContains(t, term.Output(), "THIS COMMAND WILL CAUSE UNREGISTER MEMBER CLUSTER FORM HOST CLUSTER. MAKE SURE THERE IS NO USERS LEFT IN THE MEMBER CLUSTER BEFORE UNREGISTERING IT")
 	assert.NotContains(t, term.Output(), "Delete Member cluster stated above from the Host cluster?")
-	assert.NotContains(t, term.Output(), "The deletion of the Toolchain member cluster from the Host cluster has been triggered")
+	assert.NotContains(t, term.Output(), "The deletion of the Member cluster from the Host cluster has been finished.")
 	assert.NotContains(t, term.Output(), "cool-token")
 }
 

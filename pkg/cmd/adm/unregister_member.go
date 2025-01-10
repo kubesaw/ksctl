@@ -9,6 +9,8 @@ import (
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/types"
@@ -59,10 +61,27 @@ func UnregisterMemberCluster(ctx *clicontext.CommandContext, clusterName string,
 		return nil
 	}
 
+	tcSecret := &v1.Secret{}
+	if err := hostClusterClient.Get(context.TODO(), types.NamespacedName{Namespace: hostClusterConfig.OperatorNamespace, Name: toolchainCluster.Spec.SecretRef.Name}, tcSecret); err != nil {
+		if !errors.IsNotFound(err) {
+			return err
+		}
+	} else {
+		ctx.Printlnf("\nDeleting the ToolchainCluster secret %s...", toolchainCluster.Spec.SecretRef.Name)
+		if err := hostClusterClient.Delete(context.TODO(), tcSecret); err != nil {
+			return err
+		}
+		ctx.Printlnf("The ToolchainCluster secret %s has been deleted", toolchainCluster.Spec.SecretRef.Name)
+	}
+
+	ctx.Printlnf("\nDeleting the ToolchainCluster CR %s...", toolchainCluster.Name)
 	if err := hostClusterClient.Delete(context.TODO(), toolchainCluster); err != nil {
 		return err
 	}
-	ctx.Printlnf("\nThe deletion of the Toolchain member cluster from the Host cluster has been triggered")
+	ctx.Printlnf("The ToolchainCluster CR %s has been deleted", toolchainCluster.Name)
 
+	ctx.Printlnf("\nThe deletion of the Member cluster from the Host cluster has been finished.")
+
+	ctx.Printlnf("\nRestarting the Host operator components to reload the current setup...")
 	return restart(ctx, "host", getConfigFlagsAndClient)
 }
