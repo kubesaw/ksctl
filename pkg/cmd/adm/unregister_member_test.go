@@ -62,6 +62,7 @@ func TestUnregisterMemberWhenSecretIsMissing(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	AssertToolchainClusterDoesNotExist(t, fakeClient, toolchainCluster)
+	assert.Contains(t, term.Output(), "The referenced ToolchainCluster secret member-cool-server.com-secret, is not present.")
 	assert.NotContains(t, term.Output(), "cool-token")
 }
 

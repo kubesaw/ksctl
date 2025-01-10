@@ -66,6 +66,7 @@ func UnregisterMemberCluster(ctx *clicontext.CommandContext, clusterName string,
 		if !errors.IsNotFound(err) {
 			return err
 		}
+		ctx.Printlnf("\nThe referenced ToolchainCluster secret %s, is not present.", toolchainCluster.Spec.SecretRef.Name)
 	} else {
 		ctx.Printlnf("\nDeleting the ToolchainCluster secret %s...", toolchainCluster.Spec.SecretRef.Name)
 		if err := hostClusterClient.Delete(context.TODO(), tcSecret); err != nil {
