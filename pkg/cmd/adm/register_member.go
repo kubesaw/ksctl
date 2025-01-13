@@ -24,6 +24,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -69,7 +70,7 @@ func NewRegisterMemberCmd() *cobra.Command {
 }
 
 // newRegisterMemberCmd builds the register member command.
-func newRegisterMemberCmd(exec func(*extendedCommandContext, registerMemberArgs) error) *cobra.Command {
+func newRegisterMemberCmd(exec func(*extendedCommandContext, registerMemberArgs, restartFunc) error) *cobra.Command {
 	commandArgs := registerMemberArgs{}
 	cmd := &cobra.Command{
 		Use:   "register-member",
@@ -91,7 +92,7 @@ func newRegisterMemberCmd(exec func(*extendedCommandContext, registerMemberArgs)
 				commandArgs.skipTlsVerify = &val
 			}
 
-			return exec(ctx, commandArgs)
+			return exec(ctx, commandArgs, restart)
 		},
 	}
 
@@ -113,7 +114,7 @@ func newRegisterMemberCmd(exec func(*extendedCommandContext, registerMemberArgs)
 	return cmd
 }
 
-func registerMemberCluster(ctx *extendedCommandContext, args registerMemberArgs) error {
+func registerMemberCluster(ctx *extendedCommandContext, args registerMemberArgs, restart restartFunc) error {
 	validated, err := validateArgs(ctx, args)
 	if err != nil {
 		return err
@@ -133,7 +134,7 @@ func registerMemberCluster(ctx *extendedCommandContext, args registerMemberArgs)
 		return nil
 	}
 
-	return validated.perform(ctx)
+	return validated.perform(ctx, restart)
 }
 
 func (v *registerMemberValidated) getSourceAndTargetClusters(sourceClusterType configuration.ClusterType) (clusterData, clusterData) {
@@ -522,7 +523,7 @@ func (v *registerMemberValidated) confirmationPrompt() ioutils.ConfirmationMessa
 	return ioutils.WithMessagef(sb.String(), args...)
 }
 
-func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
+func (v *registerMemberValidated) perform(ctx *extendedCommandContext, restart restartFunc) error {
 	// add the host entry to the member cluster first. We assume that there is just 1 toolchain cluster entry in the member
 	// cluster (i.e. it just points back to the host), so there's no need to determine the number of entries with the same
 	// API endpoint.
@@ -532,6 +533,11 @@ func (v *registerMemberValidated) perform(ctx *extendedCommandContext) error {
 
 	// add the member entry in the host cluster
 	if err := v.addCluster(ctx, configuration.Member); err != nil {
+		return err
+	}
+
+	// restart Host Operator using the adm-restart command
+	if err := restart(ctx.CommandContext, configuration.HostName, v.getRegMemConfigFlagsAndClient); err != nil {
 		return err
 	}
 
@@ -559,6 +565,20 @@ of the spaces to the newly registered member cluster. Nothing will be deployed t
 until the SpaceProvisionerConfig.spec.enabled is set to true.
 
 `, v.hostClusterData.apiEndpoint))
+}
+
+func (v *registerMemberValidated) getRegMemConfigFlagsAndClient(_ *clicontext.CommandContext, _ string) (kubeConfigFlag *genericclioptions.ConfigFlags, rccl runtimeclient.Client, err error) {
+	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
+
+	kubeConfigFlags.ClusterName = nil  // `cluster` flag is redefined for our own purpose
+	kubeConfigFlags.AuthInfoName = nil // unused here, so we can hide it
+	kubeConfigFlags.Context = nil      // unused here, so we can hide it
+
+	kubeConfigFlags.Namespace = &v.hostClusterData.namespace
+	kubeConfigFlags.APIServer = &v.hostClusterData.apiEndpoint
+	kubeConfigFlags.KubeConfig = &v.hostClusterData.kubeConfigPath
+
+	return kubeConfigFlags, v.hostClusterData.client, nil
 }
 
 func findToolchainClusterForMember(allToolchainClusters []toolchainv1alpha1.ToolchainCluster, memberAPIEndpoint, memberOperatorNamespace string) *toolchainv1alpha1.ToolchainCluster {
