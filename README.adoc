@@ -9,7 +9,7 @@ This repo contains kctl command-line tool that helps you to manage your instance
 == ksctl binary
 
 The prerequisite for running most of the `ksctl` commands is having a `.ksctl.yaml` config file in your home directory. If you don't have any, please, contact one of the administrators.
-If you are an administrator, then read the <<admin-usage,"Admin usage">> section.
+If you are an administrator, then read the https://kubesaw.github.io/ksctl-cheat-sheet/#admin-usage[Cheat sheet's Admin usage section].
 
 == Build
 
