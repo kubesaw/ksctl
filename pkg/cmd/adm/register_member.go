@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/kubectl/pkg/scheme"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -80,6 +81,26 @@ func newRegisterMemberCmd(exec func(*extendedCommandContext, registerMemberArgs,
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := newExtendedCommandContext(term, client.DefaultNewClientFromRestConfig)
 
+			// handle the deprecated --lets-encrypt flag first. If the new --insecure-skip-tls-verify is used, we use that value
+			// instead.
+			//
+			// Note on the handling of the default values. --lets-encrypt is true by default and corresponds to --insecure-skip-tls-verify=false.
+			// The default value of --insecure-skip-tls-verify is unset, meaning that we rely on the value inside kubeconfig (which defaults to false).
+			//
+			// We set up the handling such that --insecure-skip-tls-verify takes precedence over --lets-encrypt when explicitly set. This is so that
+			// the clients can decide about the proper value of --insecure-skip-tls-verify when they upgrade.
+			//
+			// The behavior is only different when --lets-encrypt is unspecified, --insecure-skip-tls-verify is unspecified and the value
+			// inside kubeconfig is explicitly true. But that is OK, we can even call that a feature :)
+			if cmd.Flags().Changed("lets-encrypt") {
+				val, err := cmd.Flags().GetBool("lets-encrypt")
+				if err != nil {
+					return err
+				}
+
+				commandArgs.skipTlsVerify = pointer.Bool(!val)
+			}
+
 			// we need special handling for the insecure-skip-tls-verify. If it is not set explicitly on the commandline
 			// we interpret it as "use the default in the kubeconfig" but we override whatever is in the kubeconfig with
 			// the provided explicit value. Therefore, we need to distinguish between not set, true and false.
@@ -106,6 +127,7 @@ func newRegisterMemberCmd(exec func(*extendedCommandContext, registerMemberArgs,
 	flags.MustMarkRequired(cmd, "host-kubeconfig")
 	cmd.Flags().StringVar(&commandArgs.memberKubeConfig, "member-kubeconfig", "", "Path to the kubeconfig file of the member cluster")
 	flags.MustMarkRequired(cmd, "member-kubeconfig")
+	cmd.Flags().Bool("lets-encrypt", true, "DEPRECATED, use the --insecure-skip-tls-verify flag.")
 	cmd.Flags().Bool("insecure-skip-tls-verify", false, "If true, the TLS verification errors are ignored during the connection to both host and member. If false, TLS verification is required to succeed. If not specified, the value is inherited from the respective kubeconfig files.")
 	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", defaultNameSuffix, "The suffix to append to the member name used when there are multiple members in a single cluster.")
 	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, "The namespace of the host operator in the host cluster.")

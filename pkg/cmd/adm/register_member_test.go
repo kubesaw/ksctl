@@ -98,6 +98,12 @@ func TestRegisterMember(t *testing.T) {
 			require.NotNil(t, args.skipTlsVerify)
 			assert.True(t, *args.skipTlsVerify)
 		})
+
+		t.Run("lets-encrypt false", func(t *testing.T) {
+			args := testWithArgs(t, []string{"--host-kubeconfig=h", "--member-kubeconfig", "m", "--lets-encrypt=false"})
+			require.NotNil(t, args.skipTlsVerify)
+			assert.True(t, *args.skipTlsVerify)
+		})
 	})
 
 	t.Run("produces valid example SPC", func(t *testing.T) {
