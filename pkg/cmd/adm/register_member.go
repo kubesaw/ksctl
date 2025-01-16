@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/kubectl/pkg/scheme"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,11 +62,16 @@ type registerMemberArgs struct {
 	hostNamespace       string
 	memberNamespace     string
 	nameSuffix          string
-	useLetsEncrypt      bool
+	skipTlsVerify       *bool
 	waitForReadyTimeout time.Duration
 }
 
 func NewRegisterMemberCmd() *cobra.Command {
+	return newRegisterMemberCmd(registerMemberCluster)
+}
+
+// newRegisterMemberCmd builds the register member command.
+func newRegisterMemberCmd(exec func(*extendedCommandContext, registerMemberArgs, restartFunc) error) *cobra.Command {
 	commandArgs := registerMemberArgs{}
 	cmd := &cobra.Command{
 		Use:   "register-member",
@@ -73,7 +80,40 @@ func NewRegisterMemberCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := newExtendedCommandContext(term, client.DefaultNewClientFromRestConfig)
-			return registerMemberCluster(ctx, commandArgs, restart)
+
+			// handle the deprecated --lets-encrypt flag first. If the new --insecure-skip-tls-verify is used, we use that value
+			// instead.
+			//
+			// Note on the handling of the default values. --lets-encrypt is true by default and corresponds to --insecure-skip-tls-verify=false.
+			// The default value of --insecure-skip-tls-verify is unset, meaning that we rely on the value inside kubeconfig (which defaults to false).
+			//
+			// We set up the handling such that --insecure-skip-tls-verify takes precedence over --lets-encrypt when explicitly set. This is so that
+			// the clients can decide about the proper value of --insecure-skip-tls-verify when they upgrade.
+			//
+			// The behavior is only different when --lets-encrypt is unspecified, --insecure-skip-tls-verify is unspecified and the value
+			// inside kubeconfig is explicitly true. But that is OK, we can even call that a feature :)
+			if cmd.Flags().Changed("lets-encrypt") {
+				val, err := cmd.Flags().GetBool("lets-encrypt")
+				if err != nil {
+					return err
+				}
+
+				commandArgs.skipTlsVerify = pointer.Bool(!val)
+			}
+
+			// we need special handling for the insecure-skip-tls-verify. If it is not set explicitly on the commandline
+			// we interpret it as "use the default in the kubeconfig" but we override whatever is in the kubeconfig with
+			// the provided explicit value. Therefore, we need to distinguish between not set, true and false.
+			if cmd.Flags().Changed("insecure-skip-tls-verify") {
+				val, err := cmd.Flags().GetBool("insecure-skip-tls-verify")
+				if err != nil {
+					return err
+				}
+
+				commandArgs.skipTlsVerify = &val
+			}
+
+			return exec(ctx, commandArgs, restart)
 		},
 	}
 
@@ -87,7 +127,8 @@ func NewRegisterMemberCmd() *cobra.Command {
 	flags.MustMarkRequired(cmd, "host-kubeconfig")
 	cmd.Flags().StringVar(&commandArgs.memberKubeConfig, "member-kubeconfig", "", "Path to the kubeconfig file of the member cluster")
 	flags.MustMarkRequired(cmd, "member-kubeconfig")
-	cmd.Flags().BoolVar(&commandArgs.useLetsEncrypt, "lets-encrypt", true, "Whether to use Let's Encrypt certificates or rely on the cluster certs.")
+	cmd.Flags().Bool("lets-encrypt", true, "DEPRECATED, use the --insecure-skip-tls-verify flag.")
+	cmd.Flags().Bool("insecure-skip-tls-verify", false, "If true, the TLS verification errors are ignored during the connection to both host and member. If false, TLS verification is required to succeed. If not specified, the value is inherited from the respective kubeconfig files.")
 	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", defaultNameSuffix, "The suffix to append to the member name used when there are multiple members in a single cluster.")
 	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, "The namespace of the host operator in the host cluster.")
 	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", defaultMemberNs, "The namespace of the member operator in the member cluster.")
@@ -151,7 +192,7 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	ctx.Printlnf("The API endpoint of the target cluster: %s", targetClusterDetails.apiEndpoint)
 
 	// generate a token that will be used for the kubeconfig
-	sourceTargetRestClient, err := newRestClient(sourceClusterDetails.kubeConfig)
+	sourceTargetRestClient, err := newRestClient(sourceClusterDetails.kubeConfigPath)
 	if err != nil {
 		return err
 	}
@@ -159,17 +200,11 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 	if err != nil {
 		return err
 	}
-	// TODO drop this part together with the --lets-encrypt flag and start loading certificate from the kubeconfig as soon as ToolchainCluster controller supports loading certificates from kubeconfig
-	var insecureSkipTLSVerify bool
-	if v.args.useLetsEncrypt {
-		ctx.Printlnf("using let's encrypt certificate")
-		insecureSkipTLSVerify = false
-	} else {
-		ctx.Printlnf("setting insecure skip tls verification flags")
-		insecureSkipTLSVerify = true
-	}
 	// generate the kubeconfig that can be used by target cluster to interact with the source cluster
-	generatedKubeConfig := generateKubeConfig(token, sourceClusterDetails.apiEndpoint, sourceClusterDetails.namespace, insecureSkipTLSVerify)
+	generatedKubeConfig, err := generateKubeConfig(token, sourceClusterDetails.namespace, v.args.skipTlsVerify, sourceClusterDetails.kubeConfig)
+	if err != nil {
+		return err
+	}
 	generatedKubeConfigFormatted, err := clientcmd.Write(*generatedKubeConfig)
 	if err != nil {
 		return err
@@ -248,8 +283,50 @@ func newRestClient(kubeConfigPath string) (*rest.RESTClient, error) {
 	return restClient, nil
 }
 
-func generateKubeConfig(token, apiEndpoint, namespace string, insecureSkipTLSVerify bool) *clientcmdapi.Config {
-	// create apiConfig based on the secret content
+func generateKubeConfig(token, namespace string, insecureSkipTLSVerify *bool, sourceKubeConfig *clientcmdapi.Config) (*clientcmdapi.Config, error) {
+	sourceContext, present := sourceKubeConfig.Contexts[sourceKubeConfig.CurrentContext]
+	if !present {
+		return nil, errors.New("invalid kubeconfig file: current context not present")
+	}
+	sourceCluster, present := sourceKubeConfig.Clusters[sourceContext.Cluster]
+	if !present {
+		return nil, errors.New("invalid kubeconfig file: cluster definition not found")
+	}
+	sourceAuth, present := sourceKubeConfig.AuthInfos[sourceContext.AuthInfo]
+	if !present {
+		// can happen in tests, unlikely in practice :)
+		// The token auth will work like this though as long as there are no required client certs.
+		sourceAuth = clientcmdapi.NewAuthInfo()
+	}
+
+	// let's only set what we need in the auth. If there are any certificate files, we need to copy
+	// their data into the data fields, because those files are not going to be available on the target
+	// cluster.
+	targetAuth := clientcmdapi.NewAuthInfo()
+	targetAuth.Token = token
+	if err := loadDataInto(sourceAuth.ClientCertificate, sourceAuth.ClientCertificateData, &targetAuth.ClientCertificateData); err != nil {
+		return nil, fmt.Errorf("failed to read the data of the client certificate: %w", err)
+	}
+	if err := loadDataInto(sourceAuth.ClientKey, sourceAuth.ClientKeyData, &targetAuth.ClientKeyData); err != nil {
+		return nil, fmt.Errorf("failed to read the data of the client key: %w", err)
+	}
+
+	targetCluster := clientcmdapi.NewCluster()
+	targetCluster.Server = sourceCluster.Server
+	targetCluster.ProxyURL = sourceCluster.ProxyURL
+	// if there was an explicit value set for the insecureSkipTlsVerify, we use that instead of what's
+	// in the kubeconfig.
+	if insecureSkipTLSVerify != nil {
+		targetCluster.InsecureSkipTLSVerify = *insecureSkipTLSVerify
+	} else {
+		targetCluster.InsecureSkipTLSVerify = sourceCluster.InsecureSkipTLSVerify
+	}
+	if !targetCluster.InsecureSkipTLSVerify {
+		if err := loadDataInto(sourceCluster.CertificateAuthority, sourceCluster.CertificateAuthorityData, &targetCluster.CertificateAuthorityData); err != nil {
+			return nil, fmt.Errorf("failed to read the data of the certificate authority: %w", err)
+		}
+	}
+
 	return &clientcmdapi.Config{
 		Contexts: map[string]*clientcmdapi.Context{
 			"ctx": {
@@ -260,17 +337,12 @@ func generateKubeConfig(token, apiEndpoint, namespace string, insecureSkipTLSVer
 		},
 		CurrentContext: "ctx",
 		Clusters: map[string]*clientcmdapi.Cluster{
-			"cluster": {
-				Server:                apiEndpoint,
-				InsecureSkipTLSVerify: insecureSkipTLSVerify,
-			},
+			"cluster": targetCluster,
 		},
 		AuthInfos: map[string]*clientcmdapi.AuthInfo{
-			"auth": {
-				Token: token,
-			},
+			"auth": targetAuth,
 		},
-	}
+	}, nil
 }
 
 // waitForToolchainClusterSA waits for the toolchaincluster service account to be present
@@ -340,10 +412,11 @@ func getToolchainClustersWithHostname(ctx context.Context, cl runtimeclient.Clie
 
 type clusterData struct {
 	client               runtimeclient.Client
+	kubeConfig           *clientcmdapi.Config
 	apiEndpoint          string
 	namespace            string
 	toolchainClusterName string
-	kubeConfig           string
+	kubeConfigPath       string
 }
 
 type registerMemberValidated struct {
@@ -354,8 +427,7 @@ type registerMemberValidated struct {
 	errors            []string
 }
 
-func getApiEndpointAndClient(ctx *extendedCommandContext, kubeConfigPath string) (apiEndpoint string, cl runtimeclient.Client, err error) {
-	var kubeConfig *clientcmdapi.Config
+func getApiEndpointAndClient(ctx *extendedCommandContext, kubeConfigPath string) (apiEndpoint string, cl runtimeclient.Client, kubeConfig *clientcmdapi.Config, err error) {
 	var clientConfig *rest.Config
 
 	kubeConfig, err = clientcmd.LoadFromFile(kubeConfigPath)
@@ -376,12 +448,12 @@ func getApiEndpointAndClient(ctx *extendedCommandContext, kubeConfigPath string)
 }
 
 func validateArgs(ctx *extendedCommandContext, args registerMemberArgs) (*registerMemberValidated, error) {
-	hostApiEndpoint, hostClusterClient, err := getApiEndpointAndClient(ctx, args.hostKubeConfig)
+	hostApiEndpoint, hostClusterClient, hostKubeConfig, err := getApiEndpointAndClient(ctx, args.hostKubeConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	memberApiEndpoint, memberClusterClient, err := getApiEndpointAndClient(ctx, args.memberKubeConfig)
+	memberApiEndpoint, memberClusterClient, memberKubeConfig, err := getApiEndpointAndClient(ctx, args.memberKubeConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -431,17 +503,19 @@ func validateArgs(ctx *extendedCommandContext, args registerMemberArgs) (*regist
 		args: args,
 		hostClusterData: clusterData{
 			client:               hostClusterClient,
+			kubeConfig:           hostKubeConfig,
 			apiEndpoint:          hostApiEndpoint,
 			namespace:            args.hostNamespace,
 			toolchainClusterName: hostToolchainClusterName,
-			kubeConfig:           args.hostKubeConfig,
+			kubeConfigPath:       args.hostKubeConfig,
 		},
 		memberClusterData: clusterData{
 			client:               memberClusterClient,
+			kubeConfig:           memberKubeConfig,
 			apiEndpoint:          memberApiEndpoint,
 			namespace:            args.memberNamespace,
 			toolchainClusterName: memberToolchainClusterName,
-			kubeConfig:           args.memberKubeConfig,
+			kubeConfigPath:       args.memberKubeConfig,
 		},
 		warnings: warnings,
 		errors:   errors,
@@ -524,7 +598,7 @@ func (v *registerMemberValidated) getRegMemConfigFlagsAndClient(_ *clicontext.Co
 
 	kubeConfigFlags.Namespace = &v.hostClusterData.namespace
 	kubeConfigFlags.APIServer = &v.hostClusterData.apiEndpoint
-	kubeConfigFlags.KubeConfig = &v.hostClusterData.kubeConfig
+	kubeConfigFlags.KubeConfig = &v.hostClusterData.kubeConfigPath
 
 	return kubeConfigFlags, v.hostClusterData.client, nil
 }
@@ -534,6 +608,19 @@ func findToolchainClusterForMember(allToolchainClusters []toolchainv1alpha1.Tool
 		if tc.Status.APIEndpoint == memberAPIEndpoint && tc.Status.OperatorNamespace == memberOperatorNamespace {
 			return &tc
 		}
+	}
+	return nil
+}
+
+func loadDataInto(path string, source []byte, target *[]byte) error {
+	if path != "" && len(source) == 0 {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		*target = data
+	} else {
+		*target = source
 	}
 	return nil
 }
