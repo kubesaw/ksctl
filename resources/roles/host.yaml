@@ -12,16 +12,24 @@ objects:
       provider: ksctl
   rules:
   - apiGroups:
-    - apps
+    - "apps"
     resources:
-    - deployments
+    - "deployments"
     verbs:
     - "get"
     - "list"
     - "patch"
     - "update"
     - "watch"
+  - apiGroups:
+    - ""
+    resources:
+    - "pods"
+    verbs:
     - "delete"
+    - "get"
+    - "list"
+    - "watch"
 
 - kind: Role
   apiVersion: rbac.authorization.k8s.io/v1
@@ -287,3 +295,22 @@ objects:
     - "get"
     - "list"
     - "delete"
+  - apiGroups:
+    - "apps"
+    resources:
+    - "deployments"
+    verbs:
+    - "get"
+    - "list"
+    - "patch"
+    - "update"
+    - "watch"
+  - apiGroups:
+    - ""
+    resources:
+    - "pods"
+    verbs:
+    - "delete"
+    - "get"
+    - "list"
+    - "watch"
