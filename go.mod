@@ -8,7 +8,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	// using latest commit from 'github.com/openshift/api branch release-4.16'
-	github.com/openshift/api v0.0.0-20241031180523-b1c90a6cf9a3
+	github.com/openshift/api v0.0.0-20240830023148-b7d0481c9094
 	github.com/operator-framework/api v0.13.0
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.8.0
