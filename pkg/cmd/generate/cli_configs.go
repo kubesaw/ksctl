@@ -21,7 +21,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/scheme"
-	"k8s.io/utils/pointer"
+	pointer "k8s.io/utils/ptr"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -248,7 +248,7 @@ func buildClientFromKubeconfigFiles(ctx *generateContext, API string, kubeconfig
 func GetServiceAccountToken(cl *rest.RESTClient, namespacedName runtimeclient.ObjectKey, tokenExpirationDays int64) (string, error) {
 	tokenRequest := &authv1.TokenRequest{
 		Spec: authv1.TokenRequestSpec{
-			ExpirationSeconds: pointer.Int64(int64(tokenExpirationDays * 24 * 60 * 60)),
+			ExpirationSeconds: pointer.To(tokenExpirationDays * int64(24) * int64(60) * int64(60)),
 		},
 	}
 	result := &authv1.TokenRequest{}
