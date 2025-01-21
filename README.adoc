@@ -13,7 +13,7 @@ If you are an administrator, then read the https://kubesaw.github.io/ksctl-cheat
 
 == Build
 
-Requires Go version 1.20.x - download for your development environment https://golang.org/dl/[here].
+Requires Go version 1.21.x - download for your development environment https://golang.org/dl/[here].
 
 === Install
 
