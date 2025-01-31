@@ -3,8 +3,8 @@ module github.com/kubesaw/ksctl
 go 1.21
 
 require (
-	github.com/codeready-toolchain/api v0.0.0-20250116110936-14cd9cc79fc6
-	github.com/codeready-toolchain/toolchain-common v0.0.0-20241114215157-a6a85252b2f5
+	github.com/codeready-toolchain/api v0.0.0-20250131222557-beba5463f429
+	github.com/codeready-toolchain/toolchain-common v0.0.0-20250131223755-a9c24d874b32
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	// using latest commit from 'github.com/openshift/api branch release-4.16'
@@ -140,9 +140,4 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.14.3-0.20230601165947-6ce0bf390ce3 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
-)
-
-replace (
-	github.com/codeready-toolchain/api v0.0.0-20250116110936-14cd9cc79fc6 => github.com/ranakan19/api v0.0.0-20250121091246-7a7d250373e5
-	github.com/codeready-toolchain/toolchain-common v0.0.0-20241114215157-a6a85252b2f5 => github.com/ranakan19/toolchain-common v0.0.0-20250121092422-5fff10b563f5
 )
