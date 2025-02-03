@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
-	"k8s.io/utils/pointer"
+	pointer "k8s.io/utils/ptr"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -576,7 +576,7 @@ func TestCreateKubeConfig(t *testing.T) {
 			hostKubeconfigSecure.Clusters["host"].InsecureSkipTLSVerify = true
 
 			// when
-			config, err := generateKubeConfig("token", "ns", pointer.Bool(false), hostKubeconfigSecure)
+			config, err := generateKubeConfig("token", "ns", pointer.To(false), hostKubeconfigSecure)
 			require.NoError(t, err)
 
 			// then
@@ -588,7 +588,7 @@ func TestCreateKubeConfig(t *testing.T) {
 			hostKubeconfigSecure.Clusters["host"].InsecureSkipTLSVerify = false
 
 			// when
-			config, err := generateKubeConfig("token", "ns", pointer.Bool(true), hostKubeconfigSecure)
+			config, err := generateKubeConfig("token", "ns", pointer.To(true), hostKubeconfigSecure)
 			require.NoError(t, err)
 
 			// then
@@ -847,7 +847,7 @@ func defaultRegisterMemberArgs() registerMemberArgs {
 	args.memberKubeConfig = defaultKubeConfigPath
 	args.hostNamespace = "toolchain-host-operator"
 	args.memberNamespace = "toolchain-member-operator"
-	args.skipTlsVerify = pointer.Bool(true)
+	args.skipTlsVerify = pointer.To(true)
 
 	return args
 }

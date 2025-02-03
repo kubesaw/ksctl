@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/kubectl/pkg/scheme"
-	"k8s.io/utils/pointer"
+	pointer "k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -98,7 +98,7 @@ func newRegisterMemberCmd(exec func(*extendedCommandContext, registerMemberArgs,
 					return err
 				}
 
-				commandArgs.skipTlsVerify = pointer.Bool(!val)
+				commandArgs.skipTlsVerify = pointer.To(!val)
 			}
 
 			// we need special handling for the insecure-skip-tls-verify. If it is not set explicitly on the commandline
