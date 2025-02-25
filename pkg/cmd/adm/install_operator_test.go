@@ -79,6 +79,7 @@ func TestInstallOperator(t *testing.T) {
 					Publisher:   "Red Hat",
 					UpdateStrategy: &olmv1alpha1.UpdateStrategy{
 						RegistryPoll: &olmv1alpha1.RegistryPoll{
+							RawInterval: "5m",
 							Interval: &metav1.Duration{
 								Duration: 5 * time.Minute,
 							},
