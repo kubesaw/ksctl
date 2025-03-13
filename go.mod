@@ -5,8 +5,8 @@ go 1.22.0
 toolchain go1.22.12
 
 require (
-	github.com/codeready-toolchain/api v0.0.0-20250227073728-5999971adb48
-	github.com/codeready-toolchain/toolchain-common v0.0.0-20250131223755-a9c24d874b32
+	github.com/codeready-toolchain/api v0.0.0-20250313170542-4e3c4147cb80
+	github.com/codeready-toolchain/toolchain-common v0.0.0-20250313171924-6e80c15da5c6
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	// using latest commit from 'github.com/openshift/api branch release-4.17'
@@ -102,6 +102,7 @@ require (
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
+	github.com/onsi/gomega v1.33.0 // indirect
 	github.com/openshift/library-go v0.0.0-20241118144106-bfd968d8eef4 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -141,10 +142,4 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.14.3-0.20230601165947-6ce0bf390ce3 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
-)
-
-replace (
-	github.com/codeready-toolchain/api => github.com/rsoaresd/api v0.0.0-20250304130858-a7bdb1d138cc
-
-	github.com/codeready-toolchain/toolchain-common => github.com/rsoaresd/toolchain-common v0.0.0-20250310105006-c636fa25fa34
 )
