@@ -177,7 +177,6 @@ func deleteDeploymentPods(ctx *clicontext.CommandContext, cl runtimeclient.Clien
 
 	//delete pods
 	for _, pod := range pods.Items {
-		pod := pod // TODO We won't need it after upgrading to go 1.22: https://go.dev/blog/loopvar-preview
 		ctx.Printlnf("Deleting pod: %s", pod.Name)
 		if err := cl.Delete(ctx, &pod); err != nil {
 			return err
