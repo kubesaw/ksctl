@@ -159,7 +159,7 @@ func verifyEnsureManifest(t *testing.T, clusterType configuration.ClusterType, o
 					t.Run("single-cluster mode enabled", func(t *testing.T) {
 						// given
 						ctx := newAdminManifestsContextWithDefaultFiles(t, nil)
-						ctx.adminManifestsFlags.singleCluster = true
+						ctx.singleCluster = true
 
 						t.Run("update after move to base", func(t *testing.T) {
 							// given

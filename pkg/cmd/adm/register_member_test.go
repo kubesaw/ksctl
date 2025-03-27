@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
 	pointer "k8s.io/utils/ptr"
@@ -746,7 +745,7 @@ func fillStatusWithDetailsAndReadyCondition(t *testing.T, obj *toolchainv1alpha1
 		operatorNamespace = test.HostOperatorNs
 	default:
 		// If we get here, there is a logic error in the test. Let's fail the test unequivocally.
-		assert.Fail(t, "the mock create of ToolchainCluster only works in host operator namespace %s or member operator namespace %s but the creation of toolchain cluster was requested in %s", test.HostOperatorNs, test.MemberOperatorNs, obj.GetNamespace())
+		assert.Fail(t, "the mock create of ToolchainCluster only works in host operator namespace or member operator namespace but the creation of toolchain cluster was requested in another namespace", "host_ns", test.HostOperatorNs, "member_ns", test.MemberOperatorNs, "obj_ns", obj.GetNamespace())
 	}
 	obj.Status = toolchainv1alpha1.ToolchainClusterStatus{
 		APIEndpoint:       "https://cool-server.com",
@@ -771,7 +770,7 @@ func verifyToolchainClusterSecret(t *testing.T, fakeClient *test.FakeClient, saN
 	assert.NotEmpty(t, secret.StringData["kubeconfig"])
 	apiConfig, err := clientcmd.Load([]byte(secret.StringData["kubeconfig"]))
 	require.NoError(t, err)
-	require.False(t, api.IsConfigEmpty(apiConfig))
+	require.False(t, clientcmdapi.IsConfigEmpty(apiConfig))
 	assert.Equal(t, "https://cool-server.com", apiConfig.Clusters["cluster"].Server)
 	assert.False(t, apiConfig.Clusters["cluster"].InsecureSkipTLSVerify) // by default the insecure flag is not being set
 	assert.Equal(t, "cluster", apiConfig.Contexts["ctx"].Cluster)
