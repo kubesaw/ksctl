@@ -32,7 +32,7 @@ func NewFakeTerminal() *FakeTerminal {
 // Usage: `Tee(os.Stdout)` to see in the console what's record in this terminal during the tests
 // Note: it should be configured at the beginning of a test
 func (t *FakeTerminal) Tee(out io.Writer) {
-	t.Terminal = ioutils.NewTerminal(t.Terminal.InOrStdin, func() io.Writer {
+	t.Terminal = ioutils.NewTerminal(t.InOrStdin, func() io.Writer {
 		return io.MultiWriter(t.out, out)
 	})
 }
