@@ -50,14 +50,14 @@ func Unban(ctx *clicontext.CommandContext, email string) error {
 	if len(list.Items) > 1 {
 		ctx.Println("More than 1 BannedUser found for given email. Found:")
 		for _, bu := range list.Items {
-			ctx.PrintObject(&bu, "")
+			_ = ctx.PrintObject(&bu, "")
 		}
 		return fmt.Errorf("expected 0 or 1 BannedUser objects to correspond to the email '%s' but %d found", email, len(list.Items))
 	}
 
 	bu := &list.Items[0]
 	if bu.Spec.Email != email {
-		ctx.PrintObject(bu, "Inconsistent BannedUser encountered - the email doesn't correspond to the email-hash")
+		_ = ctx.PrintObject(bu, "Inconsistent BannedUser encountered - the email doesn't correspond to the email-hash")
 		return fmt.Errorf("inconsistent BannedUser, the email '%s' doesn't correspond to the email-hash label value '%s'", bu.Spec.Email, emailHash)
 	}
 
