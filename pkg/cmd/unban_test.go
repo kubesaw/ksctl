@@ -104,12 +104,12 @@ func TestUnban(t *testing.T) {
 	// given
 	SetFileConfig(t, Host())
 	term := NewFakeTerminal()
-	bannedUser := newBannedUser(t, "me@home", false, term)
+	bannedUser := newBannedUser(t, "me@work", false, term)
 	newClient, _ := NewFakeClients(t, bannedUser)
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := cmd.Unban(ctx, "me@home")
+	err := cmd.Unban(ctx, "me@work")
 
 	// then
 	require.NoError(t, err)
