@@ -33,13 +33,16 @@ func TestUnbanCommand(t *testing.T) {
 	t.Run("runs with exactly 1 parameter", func(t *testing.T) {
 		cmd := cmd.NewUnbanCommand()
 		cmd.SetArgs([]string{"me@home"})
+		commandRan := false
 		cmd.RunE = func(cmd *cobra.Command, args []string) error {
 			require.Len(t, args, 1)
 			assert.Equal(t, "me@home", args[0])
+			commandRan = true
 			return nil
 		}
 		_, err := cmd.ExecuteC()
 		require.NoError(t, err)
+		assert.True(t, commandRan)
 	})
 }
 
