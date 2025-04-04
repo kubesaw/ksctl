@@ -56,6 +56,7 @@ func init() {
 	rootCmd.AddCommand(NewDisableUserCmd())
 	rootCmd.AddCommand(NewDisableFeatureCmd())
 	rootCmd.AddCommand(NewEnableFeatureCmd())
+	rootCmd.AddCommand(NewUnbanCommand())
 
 	// administrative commands
 	rootCmd.AddCommand(adm.NewAdmCmd())
