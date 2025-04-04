@@ -10,6 +10,7 @@ import (
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	"github.com/kubesaw/ksctl/pkg/ioutils"
 	. "github.com/kubesaw/ksctl/pkg/test"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,11 +33,13 @@ func TestUnbanCommand(t *testing.T) {
 	t.Run("runs with exactly 1 parameter", func(t *testing.T) {
 		cmd := cmd.NewUnbanCommand()
 		cmd.SetArgs([]string{"me@home"})
+		cmd.RunE = func(cmd *cobra.Command, args []string) error {
+			require.Len(t, args, 1)
+			assert.Equal(t, "me@home", args[0])
+			return nil
+		}
 		_, err := cmd.ExecuteC()
-		require.Error(t, err)
-		// this means we started executing the command (and are not able to find the configuration file)
-		// but that's enough for us to know that we got past the command validation.
-		require.Contains(t, err.Error(), "unable to read the file")
+		require.NoError(t, err)
 	})
 }
 
