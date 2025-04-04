@@ -26,6 +26,7 @@ serviceAccounts:
       - view-secrets
       - deactivate-user
       - ban-user
+      - check-banned
       - promote-user
       - disable-user
       - retarget-user
@@ -52,6 +53,7 @@ serviceAccounts:
       - view-secrets
       - deactivate-user
       - ban-user
+      - check-banned
       - promote-user
       - disable-user
       - retarget-user
