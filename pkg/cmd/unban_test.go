@@ -118,12 +118,10 @@ func TestUnban(t *testing.T) {
 }
 
 func newBannedUser(t *testing.T, email string, inconsistent bool, term ioutils.Terminal) *toolchainv1alpha1.BannedUser {
-	var emailToUse string
-	if inconsistent {
-		emailToUse = email + ".not"
-	} else {
-		emailToUse = email
-	}
+emailToUse := email
+if inconsistent {
+    emailToUse += ".not"
+}
 
 	cfg, err := configuration.LoadClusterConfig(term, configuration.HostName)
 	require.NoError(t, err)
