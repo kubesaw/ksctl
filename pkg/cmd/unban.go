@@ -1,9 +1,8 @@
 package cmd
 
 import (
-	"fmt"
 
-	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
+	"github.com/codeready-toolchain/toolchain-common/pkg/banneduser"
 	"github.com/codeready-toolchain/toolchain-common/pkg/hash"
 	"github.com/kubesaw/ksctl/pkg/client"
 	"github.com/kubesaw/ksctl/pkg/configuration"
@@ -34,33 +33,17 @@ func Unban(ctx *clicontext.CommandContext, email string) error {
 	}
 
 	emailHash := hash.EncodeString(email)
-	list := &toolchainv1alpha1.BannedUserList{}
 
-	if err = cl.List(ctx.Context, list,
-		runtimeclient.InNamespace(cfg.OperatorNamespace),
-		runtimeclient.MatchingLabels{toolchainv1alpha1.BannedUserEmailHashLabelKey: emailHash}); err != nil {
-		return err
-	}
+  bu, err := banneduser.GetBannedUser(ctx, emailHash, cl, cfg.OperatorNamespace)
+  if err != nil {
+    return err
+  }
+  if bu == nil {
+    ctx.Println("No banned user with given email found.")
+    return nil
+  }
 
-	if len(list.Items) == 0 {
-		ctx.Println("No BannedUser objects found with given email.")
-		return nil
-	}
-
-	if len(list.Items) > 1 {
-		ctx.Println("More than 1 BannedUser found for given email. Found:")
-		for _, bu := range list.Items {
-			_ = ctx.PrintObject(&bu, "")
-		}
-		return fmt.Errorf("expected 0 or 1 BannedUser objects to correspond to the email '%s' but %d found", email, len(list.Items))
-	}
-
-	bu := &list.Items[0]
-	if bu.Spec.Email != email {
-		_ = ctx.PrintObject(bu, "Inconsistent BannedUser encountered - the email doesn't correspond to the email-hash")
-		return fmt.Errorf("inconsistent BannedUser, the email '%s' doesn't correspond to the email-hash label value '%s'", bu.Spec.Email, emailHash)
-	}
-if err := ctx.PrintObject(bu, "BannedUser resource to be deleted"); err != nil {
+  if err := ctx.PrintObject(bu, "BannedUser resource to be deleted"); err != nil {
 		return err
 	}
 	if !ctx.AskForConfirmation(ioutils.WithMessagef("delete the BannedUser resource above and thus unban all UserSignups with the given email?")) {

@@ -49,7 +49,7 @@ func TestUnbanCommand(t *testing.T) {
 func TestUnbanWhenNoneExists(t *testing.T) {
 	// given
 	SetFileConfig(t, Host())
-	term := NewFakeTerminal()
+	term := NewFakeTerminalWithResponse("y")
 	newClient, _ := NewFakeClients(t)
 	ctx := clicontext.NewCommandContext(term, newClient)
 
@@ -60,50 +60,13 @@ func TestUnbanWhenNoneExists(t *testing.T) {
 	require.NoError(t, err)
 	output := term.Output()
 	assert.NotContains(t, output, "User successfully unbanned")
-	assert.Contains(t, output, "No BannedUser objects found with given email.")
-}
-
-func TestUnbanWhenMoreThanOneExists(t *testing.T) {
-	// given
-	SetFileConfig(t, Host())
-	term := NewFakeTerminal()
-	bannedUser1 := newBannedUser(t, "me@home", false, term)
-	bannedUser2 := newBannedUser(t, "me@home", false, term)
-	bannedUser2.Name = "bannedUser2"
-	newClient, _ := NewFakeClients(t, bannedUser1, bannedUser2)
-	ctx := clicontext.NewCommandContext(term, newClient)
-
-	// when
-	err := cmd.Unban(ctx, "me@home")
-
-	// then
-	require.Error(t, err)
-	output := term.Output()
-	assert.NotContains(t, output, "User successfully unbanned")
-	assert.Contains(t, output, "More than 1 BannedUser found for given email. Found:")
-}
-
-func TestUnbanWithInconsistentBannedUser(t *testing.T) {
-	// given
-	SetFileConfig(t, Host())
-	term := NewFakeTerminal()
-	bannedUser := newBannedUser(t, "me@home", true, term)
-	newClient, _ := NewFakeClients(t, bannedUser)
-	ctx := clicontext.NewCommandContext(term, newClient)
-
-	// when
-	err := cmd.Unban(ctx, "me@home")
-
-	// then
-	require.Error(t, err)
-	output := term.Output()
-	assert.Contains(t, output, "Inconsistent BannedUser encountered - the email doesn't correspond to the email-hash")
+	assert.Contains(t, output, "No banned user with given email found.")
 }
 
 func TestUnban(t *testing.T) {
 	// given
 	SetFileConfig(t, Host())
-	term := NewFakeTerminal()
+	term := NewFakeTerminalWithResponse("y")
 	bannedUser := newBannedUser(t, "me@work", false, term)
 	newClient, _ := NewFakeClients(t, bannedUser)
 	ctx := clicontext.NewCommandContext(term, newClient)
