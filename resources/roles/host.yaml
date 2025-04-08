@@ -123,6 +123,7 @@ objects:
     - "get"
     - "list"
     - "create"
+    - "delete"
   - apiGroups:
     - toolchain.dev.openshift.com
     resources:
