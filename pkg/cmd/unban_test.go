@@ -21,14 +21,14 @@ func TestUnbanCommand(t *testing.T) {
 		cmd := cmd.NewUnbanCommand()
 		_, err := cmd.ExecuteC()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "accepts 1 arg(s), received 0")
+		require.Equal(t, err.Error(), "accepts 1 arg(s), received 0")
 	})
 	t.Run("fails with more than 1 parameter", func(t *testing.T) {
 		cmd := cmd.NewUnbanCommand()
 		cmd.SetArgs([]string{"a", "b"})
 		_, err := cmd.ExecuteC()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "accepts 1 arg(s), received 2")
+		require.Equal(t, err.Error(), "accepts 1 arg(s), received 2")
 	})
 	t.Run("runs with exactly 1 parameter", func(t *testing.T) {
 		cmd := cmd.NewUnbanCommand()
@@ -59,8 +59,7 @@ func TestUnbanWhenNoneExists(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	output := term.Output()
-	assert.NotContains(t, output, "User successfully unbanned")
-	assert.Contains(t, output, "No banned user with given email found.")
+ 	assert.Equal(t, output, "No banned user with given email found.\n")
 }
 
 func TestUnban(t *testing.T) {
@@ -77,7 +76,28 @@ func TestUnban(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	output := term.Output()
-	assert.Contains(t, output, "User successfully unbanned")
+	assert.Equal(t, `
+------------------------------------------------------------
+ BannedUser resource to be deleted
+------------------------------------------------------------
+metadata:
+  creationTimestamp: null
+  labels:
+    toolchain.dev.openshift.com/email-hash: 937363c5c236cd323478d9167f7e0d6e
+  name: asdf
+  namespace: toolchain-host-operator
+  resourceVersion: "999"
+spec:
+  email: me@work
+  reason: laughs and giggles
+
+------------------------------------------------------------
+
+Are you sure that you want to delete the BannedUser resource above and thus unban all UserSignups with the given email?
+===============================
+[y/n] -> response: 'y'
+User successfully unbanned
+`, output)
 }
 
 func newBannedUser(t *testing.T, email string, inconsistent bool, term ioutils.Terminal) *toolchainv1alpha1.BannedUser {
