@@ -60,7 +60,12 @@ func Unban(ctx *clicontext.CommandContext, email string) error {
 		_ = ctx.PrintObject(bu, "Inconsistent BannedUser encountered - the email doesn't correspond to the email-hash")
 		return fmt.Errorf("inconsistent BannedUser, the email '%s' doesn't correspond to the email-hash label value '%s'", bu.Spec.Email, emailHash)
 	}
-
+if err := ctx.PrintObject(bu, "BannedUser resource to be deleted"); err != nil {
+		return err
+	}
+	if !ctx.AskForConfirmation(ioutils.WithMessagef("delete the BannedUser resource above and thus unban all UserSignups with the given email?")) {
+		return nil
+	}
 	err = cl.Delete(ctx.Context, bu)
 	if err != nil {
 		return err
