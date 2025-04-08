@@ -59,7 +59,7 @@ func TestUnbanWhenNoneExists(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	output := term.Output()
-	assert.Equal(t, output, "No banned user with given email found.\n")
+	assert.Equal(t, "No banned user with given email found.\n", output)
 }
 
 func TestUnban(t *testing.T) {
