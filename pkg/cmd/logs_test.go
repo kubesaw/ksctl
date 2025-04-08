@@ -23,11 +23,11 @@ func TestLogs(t *testing.T) {
 	defer server.Close()
 	SetFileConfig(t, Host(ServerAPI(server.URL)))
 
-  wasVerbose := configuration.Verbose
+	wasVerbose := configuration.Verbose
 	configuration.Verbose = true
-  t.Cleanup(func() {
-    configuration.Verbose = wasVerbose
-  })
+	t.Cleanup(func() {
+		configuration.Verbose = wasVerbose
+	})
 
 	t.Run("logs with with long-hand target cluster and namespace flags", func(t *testing.T) {
 		// given

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-
 	"github.com/codeready-toolchain/toolchain-common/pkg/banneduser"
 	"github.com/codeready-toolchain/toolchain-common/pkg/hash"
 	"github.com/kubesaw/ksctl/pkg/client"
@@ -34,16 +33,16 @@ func Unban(ctx *clicontext.CommandContext, email string) error {
 
 	emailHash := hash.EncodeString(email)
 
-  bu, err := banneduser.GetBannedUser(ctx, emailHash, cl, cfg.OperatorNamespace)
-  if err != nil {
-    return err
-  }
-  if bu == nil {
-    ctx.Println("No banned user with given email found.")
-    return nil
-  }
+	bu, err := banneduser.GetBannedUser(ctx, emailHash, cl, cfg.OperatorNamespace)
+	if err != nil {
+		return err
+	}
+	if bu == nil {
+		ctx.Println("No banned user with given email found.")
+		return nil
+	}
 
-  if err := ctx.PrintObject(bu, "BannedUser resource to be deleted"); err != nil {
+	if err := ctx.PrintObject(bu, "BannedUser resource to be deleted"); err != nil {
 		return err
 	}
 	if !ctx.AskForConfirmation(ioutils.WithMessagef("delete the BannedUser resource above and thus unban all UserSignups with the given email?")) {

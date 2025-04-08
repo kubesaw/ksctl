@@ -21,20 +21,20 @@ func TestUnbanCommand(t *testing.T) {
 		cmd := cmd.NewUnbanCommand()
 		_, err := cmd.ExecuteC()
 		require.Error(t, err)
-		require.Equal(t, err.Error(), "accepts 1 arg(s), received 0")
+		require.Equal(t, "accepts 1 arg(s), received 0", err.Error())
 	})
 	t.Run("fails with more than 1 parameter", func(t *testing.T) {
 		cmd := cmd.NewUnbanCommand()
 		cmd.SetArgs([]string{"a", "b"})
 		_, err := cmd.ExecuteC()
 		require.Error(t, err)
-		require.Equal(t, err.Error(), "accepts 1 arg(s), received 2")
+		require.Equal(t, "accepts 1 arg(s), received 2", err.Error())
 	})
 	t.Run("runs with exactly 1 parameter", func(t *testing.T) {
 		cmd := cmd.NewUnbanCommand()
 		cmd.SetArgs([]string{"me@home"})
 		commandRan := false
-		cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		cmd.RunE = func(_ *cobra.Command, args []string) error {
 			require.Len(t, args, 1)
 			assert.Equal(t, "me@home", args[0])
 			commandRan = true
@@ -59,7 +59,7 @@ func TestUnbanWhenNoneExists(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	output := term.Output()
- 	assert.Equal(t, output, "No banned user with given email found.\n")
+	assert.Equal(t, output, "No banned user with given email found.\n")
 }
 
 func TestUnban(t *testing.T) {
@@ -101,10 +101,10 @@ User successfully unbanned
 }
 
 func newBannedUser(t *testing.T, email string, inconsistent bool, term ioutils.Terminal) *toolchainv1alpha1.BannedUser {
-emailToUse := email
-if inconsistent {
-    emailToUse += ".not"
-}
+	emailToUse := email
+	if inconsistent {
+		emailToUse += ".not"
+	}
 
 	cfg, err := configuration.LoadClusterConfig(term, configuration.HostName)
 	require.NoError(t, err)
