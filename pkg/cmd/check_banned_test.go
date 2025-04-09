@@ -84,7 +84,7 @@ func TestCheckBanned(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			assert.Equal(t, term.Output(), "User is banned.\n")
+			assert.Equal(t, "User is banned.\n", term.Output())
 		})
 		t.Run("user is not banned", func(t *testing.T) {
 			// given
@@ -110,7 +110,7 @@ func TestCheckBanned(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			assert.Equal(t, term.Output(), "User is NOT banned.\n")
+			assert.Equal(t, "User is NOT banned.\n", term.Output())
 		})
 		t.Run("mur is not found", func(t *testing.T) {
 			// given
@@ -124,7 +124,7 @@ func TestCheckBanned(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			assert.Equal(t, term.Output(), "User not found.\n")
+			assert.Equal(t, "User not found.\n", term.Output())
 		})
 	})
 	t.Run("finds the banned user by the UserSignup name", func(t *testing.T) {
@@ -166,7 +166,7 @@ func TestCheckBanned(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			assert.Equal(t, term.Output(), "User is banned.\n")
+			assert.Equal(t, "User is banned.\n", term.Output())
 		})
 		t.Run("user is not banned", func(t *testing.T) {
 			// given
@@ -194,7 +194,7 @@ func TestCheckBanned(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			assert.Equal(t, term.Output(), "User is NOT banned.\n")
+			assert.Equal(t, "User is NOT banned.\n", term.Output())
 		})
 		t.Run("usersignup is not found", func(t *testing.T) {
 			// given
@@ -208,7 +208,7 @@ func TestCheckBanned(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			assert.Equal(t, term.Output(), "User not found.\n")
+			assert.Equal(t, "User not found.\n", term.Output())
 		})
 	})
 	t.Run("finds the banned user by the email", func(t *testing.T) {
@@ -237,7 +237,7 @@ func TestCheckBanned(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			assert.Equal(t, term.Output(), "User is banned.\n")
+			assert.Equal(t, "User is banned.\n", term.Output())
 		})
 		t.Run("user is not banned", func(t *testing.T) {
 			// given
@@ -252,7 +252,7 @@ func TestCheckBanned(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			assert.Equal(t, term.Output(), "User is NOT banned.\n")
+			assert.Equal(t, "User is NOT banned.\n", term.Output())
 		})
 	})
 }
