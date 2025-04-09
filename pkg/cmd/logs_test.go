@@ -22,7 +22,12 @@ func TestLogs(t *testing.T) {
 	t.Logf("server URL: %s", server.URL)
 	defer server.Close()
 	SetFileConfig(t, Host(ServerAPI(server.URL)))
+
+	wasVerbose := configuration.Verbose
 	configuration.Verbose = true
+	t.Cleanup(func() {
+		configuration.Verbose = wasVerbose
+	})
 
 	t.Run("logs with with long-hand target cluster and namespace flags", func(t *testing.T) {
 		// given
