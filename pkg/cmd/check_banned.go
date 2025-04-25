@@ -72,6 +72,7 @@ func CheckBanned(ctx *clicontext.CommandContext, mur string, signup string, emai
 		ctx.Println("User is NOT banned.")
 	} else {
 		ctx.Println("User is banned.")
+		return ctx.PrintObject(bu, "BannedUser resource")
 	}
 	return nil
 }
