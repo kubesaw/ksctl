@@ -22,8 +22,8 @@ func NewCheckBannedCommand() *cobra.Command {
 
 	command := &cobra.Command{
 		Use:   "check-banned [--mur|-m <mur-name>] | [--signup|-s <signup-name>] | [--email|-s <email>]",
-		Short: "Unban the user so that they can use the platform again",
-		Long:  "Unban the user that previously registered with the provided email so that they can start using the platform again.",
+		Short: "Check whether the user is banned",
+		Long:  "Check whether the user is banned and if so print the BannedUser resource.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
