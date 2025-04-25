@@ -65,7 +65,7 @@ func CheckBanned(ctx *clicontext.CommandContext, mur string, signup string, emai
 	emailHash := hash.EncodeString(email)
 	bu, err := banneduser.GetBannedUser(ctx, emailHash, cl, cfg.OperatorNamespace)
 	if err != nil {
-		return fmt.Errorf("failed to find the banned user: %w", err)
+		return fmt.Errorf("banned user request failed: %w", err)
 	}
 
 	if bu == nil {
