@@ -33,15 +33,13 @@ func NewCheckBannedCommand() *cobra.Command {
 	command.Flags().StringVarP(&mur, "mur", "m", "", "the name of the master user record to check the banned status of")
 	command.Flags().StringVarP(&signup, "signup", "s", "", "the name of the signup to check the banned status of")
 	command.Flags().StringVarP(&email, "email", "e", "", "the email of the user to check the banned status of")
+	command.MarkFlagsOneRequired("mur", "signup", "email")
+	command.MarkFlagsMutuallyExclusive("mur", "signup", "email")
 
 	return command
 }
 
 func CheckBanned(ctx *clicontext.CommandContext, mur string, signup string, email string) error {
-	if !validateCheckBannedInput(mur, signup, email) {
-		return fmt.Errorf("exactly 1 of --mur, --signup or --email must be specified")
-	}
-
 	cl, cfg, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -49,8 +47,16 @@ func CheckBanned(ctx *clicontext.CommandContext, mur string, signup string, emai
 
 	if mur != "" {
 		email, err = findEmailByMUR(ctx, cl, mur, cfg.OperatorNamespace)
+		// if we find the MUR then the user is most probably not banned. The only time a user can be banned and the MUR
+		// exists is when the user is still in the process of being banned and the CRs are being deleted.
+		if email == "" && err == nil {
+			// the use might be banned because we didn't find a MUR. But we still need to distinguish between
+			// a non-existent and banned user. We can try to lookup the user by UserSignup.Status.CompliantUserName (which
+			// is used as the name of the MUR).
+			email, err = findEmailByUserSignupCompliantUserName(ctx, cl, mur, cfg.OperatorNamespace)
+		}
 	} else if signup != "" {
-		email, err = findEmailByUserSignup(ctx, cl, signup, cfg.OperatorNamespace)
+		email, err = findEmailByUserSignupName(ctx, cl, signup, cfg.OperatorNamespace)
 	}
 	if err != nil {
 		return err
@@ -61,7 +67,9 @@ func CheckBanned(ctx *clicontext.CommandContext, mur string, signup string, emai
 		return nil
 	}
 
+	// we get the email either as the user input or we found it from the mur or signup name.
 	emailHash := hash.EncodeString(email)
+
 	bu, err := banneduser.GetBannedUser(ctx, emailHash, cl, cfg.OperatorNamespace)
 	if err != nil {
 		return fmt.Errorf("banned user request failed: %w", err)
@@ -76,22 +84,6 @@ func CheckBanned(ctx *clicontext.CommandContext, mur string, signup string, emai
 	return nil
 }
 
-func validateCheckBannedInput(mur, signup, email string) bool {
-	var flagCount int
-
-	if mur != "" {
-		flagCount += 1
-	}
-	if signup != "" {
-		flagCount += 1
-	}
-	if email != "" {
-		flagCount += 1
-	}
-
-	return flagCount == 1
-}
-
 func findEmailByMUR(ctx context.Context, cl runtimeclient.Client, mur, namespace string) (string, error) {
 	obj := &toolchainv1alpha1.MasterUserRecord{}
 	if err := cl.Get(ctx, runtimeclient.ObjectKey{Name: mur, Namespace: namespace}, obj); err != nil {
@@ -103,7 +95,7 @@ func findEmailByMUR(ctx context.Context, cl runtimeclient.Client, mur, namespace
 	return obj.Spec.PropagatedClaims.Email, nil
 }
 
-func findEmailByUserSignup(ctx context.Context, cl runtimeclient.Client, usersignup, namespace string) (string, error) {
+func findEmailByUserSignupName(ctx context.Context, cl runtimeclient.Client, usersignup, namespace string) (string, error) {
 	obj := &toolchainv1alpha1.UserSignup{}
 	if err := cl.Get(ctx, runtimeclient.ObjectKey{Name: usersignup, Namespace: namespace}, obj); err != nil {
 		if errors.IsNotFound(err) {
@@ -112,4 +104,19 @@ func findEmailByUserSignup(ctx context.Context, cl runtimeclient.Client, usersig
 		return "", err
 	}
 	return obj.Spec.IdentityClaims.Email, nil
+}
+
+func findEmailByUserSignupCompliantUserName(ctx context.Context, cl runtimeclient.Client, compliantUsername, namespace string) (string, error) {
+	list := &toolchainv1alpha1.UserSignupList{}
+	if err := cl.List(ctx, list, runtimeclient.InNamespace(namespace)); err != nil {
+		return "", err
+	}
+
+	for _, us := range list.Items {
+		if us.Status.CompliantUsername == compliantUsername {
+			return us.Spec.IdentityClaims.Email, nil
+		}
+	}
+
+	return "", nil
 }
