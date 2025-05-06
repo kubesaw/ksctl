@@ -5,8 +5,8 @@ go 1.22.0
 toolchain go1.22.12
 
 require (
-	github.com/codeready-toolchain/api v0.0.0-20250313170542-4e3c4147cb80
-	github.com/codeready-toolchain/toolchain-common v0.0.0-20250313203311-0bce6563576f
+	github.com/codeready-toolchain/api v0.0.0-20250506092100-39b4862e1271
+	github.com/codeready-toolchain/toolchain-common v0.0.0-20250506093954-2b65ad3a2e12
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	// using latest commit from 'github.com/openshift/api branch release-4.18'
@@ -121,7 +121,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a // indirect
+	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
@@ -141,10 +141,4 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.17.1 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
-)
-
-replace (
-	github.com/codeready-toolchain/api => github.com/rsoaresd/api v0.0.0-20250423134557-697fdaef2044
-
-	github.com/codeready-toolchain/toolchain-common => github.com/rsoaresd/toolchain-common v0.0.0-20250430141251-9d0638b33fb1
 )
