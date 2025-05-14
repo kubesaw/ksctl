@@ -53,7 +53,7 @@ func CheckBanned(ctx *clicontext.CommandContext, mur string, signup string, emai
 			// the use might be banned because we didn't find a MUR. But we still need to distinguish between
 			// a non-existent and banned user. We can try to lookup the user by UserSignup.Status.CompliantUserName (which
 			// is used as the name of the MUR).
-			email, err = findEmailByUserSignupCompliantUserName(ctx, cl, mur, cfg.OperatorNamespace)
+			email, err = findEmailByBannedUserSignupCompliantUserName(ctx, cl, mur, cfg.OperatorNamespace)
 		}
 	} else if signup != "" {
 		email, err = findEmailByUserSignupName(ctx, cl, signup, cfg.OperatorNamespace)
@@ -106,9 +106,9 @@ func findEmailByUserSignupName(ctx context.Context, cl runtimeclient.Client, use
 	return obj.Spec.IdentityClaims.Email, nil
 }
 
-func findEmailByUserSignupCompliantUserName(ctx context.Context, cl runtimeclient.Client, compliantUsername, namespace string) (string, error) {
+func findEmailByBannedUserSignupCompliantUserName(ctx context.Context, cl runtimeclient.Client, compliantUsername, namespace string) (string, error) {
 	list := &toolchainv1alpha1.UserSignupList{}
-	if err := cl.List(ctx, list, runtimeclient.InNamespace(namespace)); err != nil {
+	if err := cl.List(ctx, list, runtimeclient.InNamespace(namespace), runtimeclient.MatchingLabels{toolchainv1alpha1.UserSignupStateLabelKey: "banned"}); err != nil {
 		return "", err
 	}
 

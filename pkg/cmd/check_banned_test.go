@@ -145,6 +145,7 @@ func TestCheckBanned(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "usersignup",
 					Namespace: test.HostOperatorNs,
+					Labels:    map[string]string{toolchainv1alpha1.UserSignupStateLabelKey: "banned"},
 				},
 				Spec: toolchainv1alpha1.UserSignupSpec{
 					IdentityClaims: toolchainv1alpha1.IdentityClaimsEmbedded{
