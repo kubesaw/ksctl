@@ -133,22 +133,6 @@ objects:
     - "get"
     - "list"
 
-- kind: Role
-  apiVersion: rbac.authorization.k8s.io/v1
-  metadata:
-    name: check-banned
-    labels:
-      provider: ksctl
-  rules:
-  - apiGroups:
-    - toolchain.dev.openshift.com
-    resources:
-    - "usersignups"
-    - "masteruserrecords"
-    - "bannedusers"
-    verbs:
-    - "get"
-    - "list"
 
 - kind: Role
   apiVersion: rbac.authorization.k8s.io/v1
