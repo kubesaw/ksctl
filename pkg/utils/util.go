@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const KsctlFieldManager = "ksctl"
+
 const K8sLabelWithoutSuffixMaxLength = 62
 
 // Contains checks if the given slice of strings contains the given string
