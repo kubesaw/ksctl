@@ -14,6 +14,7 @@ import (
 	"github.com/kubesaw/ksctl/pkg/configuration"
 	clicontext "github.com/kubesaw/ksctl/pkg/context"
 	. "github.com/kubesaw/ksctl/pkg/test"
+	"github.com/kubesaw/ksctl/pkg/utils"
 	v1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
@@ -64,7 +65,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, args, operator, commonclient.NewApplyClient(fakeClient))
+			err := installOperator(ctx, args, operator, commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager))
 
 			// then
 			require.NoError(t, err)
@@ -99,7 +100,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, args, operator, commonclient.NewApplyClient(fakeClient))
+			err := installOperator(ctx, args, operator, commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager))
 
 			// then
 			require.ErrorContains(t, err, "failed waiting for catalog source to be ready.")
@@ -119,7 +120,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, args, operator, commonclient.NewApplyClient(fakeClient))
+			err := installOperator(ctx, args, operator, commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager))
 
 			// then
 			require.ErrorContains(t, err, "failed waiting for install plan to be complete.")
@@ -139,7 +140,7 @@ func TestInstallOperator(t *testing.T) {
 			// when
 			err := installOperator(ctx, installArgs{namespace: namespace, waitForReadyTimeout: 1 * time.Second},
 				operator,
-				commonclient.NewApplyClient(fakeClient),
+				commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager),
 			)
 
 			// then
@@ -157,7 +158,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, args, operator, commonclient.NewApplyClient(fakeClient))
+			err := installOperator(ctx, args, operator, commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager))
 
 			// then
 			require.NoError(t, err)
@@ -176,7 +177,7 @@ func TestInstallOperator(t *testing.T) {
 			// when
 			err := installOperator(ctx, installArgs{namespace: "", kubeConfig: kubeconfig, waitForReadyTimeout: timeout}, // we provide no namespace
 				operator,
-				commonclient.NewApplyClient(fakeClient),
+				commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager),
 			)
 			// then
 			require.NoError(t, err)
@@ -194,7 +195,7 @@ func TestInstallOperator(t *testing.T) {
 		// when
 		err := installOperator(ctx, installArgs{},
 			"INVALIDOPERATOR",
-			commonclient.NewApplyClient(fakeClient),
+			commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager),
 		)
 
 		// then
@@ -211,7 +212,7 @@ func TestInstallOperator(t *testing.T) {
 		operator := "host"
 		err := installOperator(ctx, installArgs{namespace: "toolchain-host-operator", waitForReadyTimeout: time.Second * 1},
 			operator,
-			commonclient.NewApplyClient(fakeClient),
+			commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager),
 		)
 
 		// then
@@ -222,7 +223,7 @@ func TestInstallOperator(t *testing.T) {
 }
 
 func fakeClientWithReadyCatalogSource(fakeClient *test.FakeClient) {
-	fakeClient.MockCreate = func(ctx context.Context, obj runtimeclient.Object, opts ...runtimeclient.CreateOption) error {
+	fakeClient.MockPatch = func(ctx context.Context, obj runtimeclient.Object, patch runtimeclient.Patch, opts ...runtimeclient.PatchOption) error {
 		switch objT := obj.(type) {
 		case *olmv1alpha1.CatalogSource:
 			// let's set the status of the CS to be able to test the "happy path"
@@ -231,9 +232,9 @@ func fakeClientWithReadyCatalogSource(fakeClient *test.FakeClient) {
 					LastObservedState: "READY",
 				},
 			}
-			return fakeClient.Client.Create(ctx, objT)
+			return test.Patch(ctx, fakeClient, objT, patch, opts...)
 		default:
-			return fakeClient.Client.Create(ctx, objT)
+			return test.Patch(ctx, fakeClient, objT, patch, opts...)
 		}
 	}
 }
