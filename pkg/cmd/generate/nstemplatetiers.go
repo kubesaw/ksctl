@@ -75,14 +75,14 @@ func NSTemplateTiers(term ioutils.Terminal, source, outDir, hostNs string) error
 		outDir:                absOutDir,
 		manageOutDirKustomize: true,
 	}
-	err = nstemplatetiers.GenerateTiers(scheme.Scheme, func(toEnsure runtimeclient.Object, canUpdate bool, tierName string) (bool, error) {
+	err = nstemplatetiers.GenerateTiers(scheme.Scheme, func(toEnsure runtimeclient.Object, tierName string) error {
 		if err := setGVK(toEnsure); err != nil {
-			return false, err
+			return err
 		}
 		kind := toEnsure.GetObjectKind().GroupVersionKind().Kind
 		path := filepath.Join(absOutDir, tierName, fmt.Sprintf("%s-%s.yaml", strings.ToLower(kind), toEnsure.GetName()))
 		term.Printlnf("Storing %s with name %s in %s", kind, toEnsure.GetName(), path)
-		return true, writeManifest(ctx, path, toEnsure)
+		return writeManifest(ctx, path, toEnsure)
 	}, hostNs, metadata, templates)
 	if err != nil {
 		return err
