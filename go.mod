@@ -6,7 +6,7 @@ toolchain go1.22.12
 
 require (
 	github.com/codeready-toolchain/api v0.0.0-20250506092100-39b4862e1271
-	github.com/codeready-toolchain/toolchain-common v0.0.0-20250506093954-2b65ad3a2e12
+	github.com/codeready-toolchain/toolchain-common v0.0.0-20250708104334-c3ec13e2e8da
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	// using latest commit from 'github.com/openshift/api branch release-4.18'
@@ -48,7 +48,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/charmbracelet/lipgloss v0.10.0 // indirect
-	github.com/cloudflare/circl v1.3.7 // indirect
+	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.11.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
