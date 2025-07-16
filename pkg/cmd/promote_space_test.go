@@ -18,20 +18,21 @@ import (
 func TestPromoteSpaceCmdWhenAnswerIsY(t *testing.T) {
 	// given
 	space := newSpace()
-	newClient, fakeClient := NewFakeClients(t, space, newNSTemplateTier("advanced"))
+	newClient, fakeClient := NewFakeClients(t, space, newNSTemplateTier("ourtier"))
+
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("Y")
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := cmd.PromoteSpace(ctx, space.Name, "advanced")
+	err := cmd.PromoteSpace(ctx, space.Name, "ourtier")
 
 	// then
 	require.NoError(t, err)
-	space.Spec.TierName = "advanced" // space should be changed to advanced tier
+	space.Spec.TierName = "ourtier" // space should be changed to advanced tier
 	assertSpaceSpec(t, fakeClient, space)
 	output := term.Output()
-	assert.Contains(t, output, "promote the Space 'testspace' to the 'advanced' tier?")
+	assert.Contains(t, output, "promote the Space 'testspace' to the 'ourtier' tier?")
 	assert.Contains(t, output, "Successfully promoted Space")
 	assert.NotContains(t, output, "cool-token")
 }
@@ -39,19 +40,19 @@ func TestPromoteSpaceCmdWhenAnswerIsY(t *testing.T) {
 func TestPromoteSpaceCmdWhenAnswerIsN(t *testing.T) {
 	// given
 	space := newSpace()
-	newClient, fakeClient := NewFakeClients(t, space, newNSTemplateTier("advanced"))
+	newClient, fakeClient := NewFakeClients(t, space, newNSTemplateTier("ourtier"))
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("n")
 	ctx := clicontext.NewCommandContext(term, newClient)
 
 	// when
-	err := cmd.PromoteSpace(ctx, space.Name, "advanced")
+	err := cmd.PromoteSpace(ctx, space.Name, "ourtier")
 
 	// then
 	require.NoError(t, err)
 	assertSpaceSpec(t, fakeClient, space) // space should be unchanged
 	output := term.Output()
-	assert.Contains(t, output, "promote the Space 'testspace' to the 'advanced' tier?")
+	assert.Contains(t, output, "promote the Space 'testspace' to the 'ourtier' tier?")
 	assert.NotContains(t, output, "Successfully promoted Space")
 	assert.NotContains(t, output, "cool-token")
 }
