@@ -29,7 +29,7 @@ func TestPromoteSpaceCmdWhenAnswerIsY(t *testing.T) {
 
 	// then
 	require.NoError(t, err)
-	space.Spec.TierName = "ourtier" // space should be changed to advanced tier
+	space.Spec.TierName = "ourtier" // space should be changed to 'ourtier' tier
 	assertSpaceSpec(t, fakeClient, space)
 	output := term.Output()
 	assert.Contains(t, output, "promote the Space 'testspace' to the 'ourtier' tier?")
