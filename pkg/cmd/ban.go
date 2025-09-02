@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/charmbracelet/huh"
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
@@ -139,23 +138,6 @@ type BanInfo struct {
 	WorkloadType           string `json:"workloadType"`
 	BehaviorClassification string `json:"behaviorClassification"`
 	DetectionMechanism     string `json:"detectionMechanism"`
-}
-
-// FormatBanReason formats the ban information into a structured reason string
-func (bi *BanInfo) FormatBanReason() string {
-	parts := []string{}
-
-	if bi.WorkloadType != "" {
-		parts = append(parts, fmt.Sprintf("Workload Type: %s", bi.WorkloadType))
-	}
-	if bi.BehaviorClassification != "" {
-		parts = append(parts, fmt.Sprintf("Behavior classification: %s", bi.BehaviorClassification))
-	}
-	if bi.DetectionMechanism != "" {
-		parts = append(parts, fmt.Sprintf("Detection mechanism: %s", bi.DetectionMechanism))
-	}
-
-	return strings.Join(parts, ";")
 }
 
 func Ban(ctx *clicontext.CommandContext, args ...string) error {
