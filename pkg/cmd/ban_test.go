@@ -733,6 +733,7 @@ func TestBanMenuErrorHandling(t *testing.T) {
 		assert.Empty(t, banInfo.BehaviorClassification)
 		assert.Empty(t, banInfo.DetectionMechanism)
 	})
+}
 
 // TestBanJSONMarshalingLogic tests the JSON marshaling logic in Ban function
 func TestBanJSONMarshaling(t *testing.T) {
@@ -745,7 +746,7 @@ func TestBanJSONMarshaling(t *testing.T) {
 			DetectionMechanism:     "automated",
 		}
 
-		// when 
+		// when
 		banInfoJSON, err := json.Marshal(banInfo)
 
 		// then
@@ -816,7 +817,7 @@ func TestBanWithValidConfigMap(t *testing.T) {
 
 		// then
 		// Should fail at the interactive part (huh.Select.Run()), but we can verify:
-		
+
 		assert.Contains(t, term.Output(), "Opening interactive menu...")
 
 		assert.NotContains(t, err.Error(), "no banning reasons found in ConfigMap")
@@ -864,7 +865,6 @@ func TestBanWithValidConfigMap(t *testing.T) {
 		AssertNoBannedUser(t, fakeClient, userSignup)
 	})
 }
-
 
 func TestBanCmdInteractiveMode(t *testing.T) {
 	t.Run("interactive mode with ConfigMap present", func(t *testing.T) {
