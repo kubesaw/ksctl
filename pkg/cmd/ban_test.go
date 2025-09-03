@@ -403,7 +403,7 @@ func TestBanMenuMappingLogic(t *testing.T) {
 					banInfo.DetectionMechanism = tc.answer
 				}
 
-				assert.Equal(t, tc.answer, tc.expected(banInfo))
+				assert.Equal(t, tc.expected(banInfo), tc.answer)
 			})
 		}
 	})
@@ -458,7 +458,7 @@ func TestMenuStruct(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Len(t, menus, 0)
+		assert.Empty(t, menus)
 	})
 
 	t.Run("malformed JSON returns error", func(t *testing.T) {
