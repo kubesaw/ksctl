@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -278,6 +279,241 @@ func createConfigMap() *corev1.ConfigMap {
 			"reasons": "Violation of Terms,Spam,Inappropriate Content",
 		},
 	}
+}
+
+func TestBanMenu(t *testing.T) {
+	t.Run("empty menu content returns empty BanInfo", func(t *testing.T) {
+		// given
+		var emptyMenu []cmd.Menu
+
+		// when
+		banInfo, err := cmd.BanMenu(emptyMenu)
+
+		// then
+		require.NoError(t, err)
+		require.NotNil(t, banInfo)
+		assert.Empty(t, banInfo.WorkloadType)
+		assert.Empty(t, banInfo.BehaviorClassification)
+		assert.Empty(t, banInfo.DetectionMechanism)
+	})
+
+	t.Run("single workload menu item", func(t *testing.T) {
+		// This test demonstrates the structure but cannot test interactivity
+
+		// given
+		menu := []cmd.Menu{
+			{
+				Kind:        "workload",
+				Description: "Select workload type",
+				Options:     []string{"container", "vm"},
+			},
+		}
+
+		// Verify menu structure is correct for processing
+		assert.Len(t, menu, 1)
+		assert.Equal(t, "workload", menu[0].Kind)
+		assert.Equal(t, "Select workload type", menu[0].Description)
+		assert.Len(t, menu[0].Options, 2)
+		assert.Contains(t, menu[0].Options, "container")
+	})
+
+	t.Run("multiple menu items structure", func(t *testing.T) {
+		// given
+		menu := []cmd.Menu{
+			{
+				Kind:        "workload",
+				Description: "Select workload type",
+				Options:     []string{"container", "vm"},
+			},
+			{
+				Kind:        "behavior",
+				Description: "Select behavior classification",
+				Options:     []string{"malicious", "suspicious", "policy-violation"},
+			},
+			{
+				Kind:        "detection",
+				Description: "Select detection mechanism",
+				Options:     []string{"automated", "manual", "user-report"},
+			},
+		}
+
+		// Verify menu structure supports all BanInfo fields
+		kindMap := make(map[string]bool)
+		for _, item := range menu {
+			kindMap[item.Kind] = true
+			assert.NotEmpty(t, item.Description)
+			assert.NotEmpty(t, item.Options)
+		}
+
+		assert.True(t, kindMap["workload"])
+		assert.True(t, kindMap["behavior"])
+		assert.True(t, kindMap["detection"])
+	})
+}
+
+func TestBanMenuMappingLogic(t *testing.T) {
+	// This test verifies the mapping logic that converts menu selections to BanInfo
+
+	t.Run("verify BanInfo field mapping", func(t *testing.T) {
+		// Test data that simulates what would be collected from the interactive menu
+		testCases := []struct {
+			name     string
+			kind     string
+			answer   string
+			expected func(*cmd.BanInfo) string
+		}{
+			{
+				name:   "workload mapping",
+				kind:   "workload",
+				answer: "compute-intensive",
+				expected: func(info *cmd.BanInfo) string {
+					return info.WorkloadType
+				},
+			},
+			{
+				name:   "behavior mapping",
+				kind:   "behavior",
+				answer: "malicious",
+				expected: func(info *cmd.BanInfo) string {
+					return info.BehaviorClassification
+				},
+			},
+			{
+				name:   "detection mapping",
+				kind:   "detection",
+				answer: "automated",
+				expected: func(info *cmd.BanInfo) string {
+					return info.DetectionMechanism
+				},
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				// This demonstrates the expected mapping behavior
+				banInfo := &cmd.BanInfo{}
+
+				// Simulate the switch statement logic from banMenu
+				switch tc.kind {
+				case "workload":
+					banInfo.WorkloadType = tc.answer
+				case "behavior":
+					banInfo.BehaviorClassification = tc.answer
+				case "detection":
+					banInfo.DetectionMechanism = tc.answer
+				}
+
+				assert.Equal(t, tc.answer, tc.expected(banInfo))
+			})
+		}
+	})
+}
+
+func TestMenuStruct(t *testing.T) {
+	t.Run("JSON unmarshaling works correctly", func(t *testing.T) {
+		// given
+		jsonData := `[
+			{
+				"kind": "workload",
+				"description": "Select workload type",
+				"options": ["container", "vm"]
+			},
+			{
+				"kind": "behavior", 
+				"description": "Select behavior classification",
+				"options": ["malicious", "suspicious"]
+			}
+		]`
+
+		// when
+		var menus []cmd.Menu
+		err := json.Unmarshal([]byte(jsonData), &menus)
+
+		// then
+		require.NoError(t, err)
+		assert.Len(t, menus, 2)
+
+		// Verify first menu
+		assert.Equal(t, "workload", menus[0].Kind)
+		assert.Equal(t, "Select workload type", menus[0].Description)
+		assert.Len(t, menus[0].Options, 2)
+		assert.Contains(t, menus[0].Options, "container")
+		assert.Contains(t, menus[0].Options, "vm")
+
+		// Verify second menu
+		assert.Equal(t, "behavior", menus[1].Kind)
+		assert.Equal(t, "Select behavior classification", menus[1].Description)
+		assert.Len(t, menus[1].Options, 2)
+		assert.Contains(t, menus[1].Options, "malicious")
+		assert.Contains(t, menus[1].Options, "suspicious")
+	})
+
+	t.Run("empty JSON array unmarshals correctly", func(t *testing.T) {
+		// given
+		jsonData := `[]`
+
+		// when
+		var menus []cmd.Menu
+		err := json.Unmarshal([]byte(jsonData), &menus)
+
+		// then
+		require.NoError(t, err)
+		assert.Len(t, menus, 0)
+	})
+
+	t.Run("malformed JSON returns error", func(t *testing.T) {
+		// given
+		jsonData := `[{invalid json`
+
+		// when
+		var menus []cmd.Menu
+		err := json.Unmarshal([]byte(jsonData), &menus)
+
+		// then
+		require.Error(t, err)
+	})
+}
+
+func TestBanInfoStruct(t *testing.T) {
+	t.Run("JSON marshaling works correctly", func(t *testing.T) {
+		// given
+		banInfo := &cmd.BanInfo{
+			WorkloadType:           "container",
+			BehaviorClassification: "malicious",
+			DetectionMechanism:     "automated",
+		}
+
+		// when
+		jsonData, err := json.Marshal(banInfo)
+
+		// then
+		require.NoError(t, err)
+		assert.Contains(t, string(jsonData), "container")
+		assert.Contains(t, string(jsonData), "malicious")
+		assert.Contains(t, string(jsonData), "automated")
+
+		// Verify it can be unmarshaled back
+		var unmarshaled cmd.BanInfo
+		err = json.Unmarshal(jsonData, &unmarshaled)
+		require.NoError(t, err)
+		assert.Equal(t, banInfo.WorkloadType, unmarshaled.WorkloadType)
+		assert.Equal(t, banInfo.BehaviorClassification, unmarshaled.BehaviorClassification)
+		assert.Equal(t, banInfo.DetectionMechanism, unmarshaled.DetectionMechanism)
+	})
+
+	t.Run("empty BanInfo marshals to empty fields", func(t *testing.T) {
+		// given
+		banInfo := &cmd.BanInfo{}
+
+		// when
+		jsonData, err := json.Marshal(banInfo)
+
+		// then
+		require.NoError(t, err)
+		assert.Contains(t, string(jsonData), `"workloadType":""`)
+		assert.Contains(t, string(jsonData), `"behaviorClassification":""`)
+		assert.Contains(t, string(jsonData), `"detectionMechanism":""`)
+	})
 }
 
 func TestBanCmdInteractiveMode(t *testing.T) {

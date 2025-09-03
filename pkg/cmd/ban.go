@@ -66,8 +66,8 @@ func getValuesFromConfigMap(ctx *clicontext.CommandContext) ([]Menu, error) {
 	return menus, nil
 }
 
-// banMenu displays an interactive menu for selecting banning reasons
-func banMenu(cfgMapContent []Menu) (*BanInfo, error) {
+// BanMenu displays an interactive menu for selecting banning reasons
+func BanMenu(cfgMapContent []Menu) (*BanInfo, error) {
 	banInfo := &BanInfo{}
 
 	// Map to store user's answers
@@ -166,7 +166,7 @@ func Ban(ctx *clicontext.CommandContext, args ...string) error {
 
 		ctx.Printlnf("Opening interactive menu...")
 
-		banInfo, err := banMenu(cfgMapContent)
+		banInfo, err := BanMenu(cfgMapContent)
 		if err != nil {
 			return fmt.Errorf("failed to collect banning information: %w", err)
 		}
