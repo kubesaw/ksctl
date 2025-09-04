@@ -189,10 +189,10 @@ github.com/onsi/ginkgo/v2 v2.22.0 h1:Yed107/8DjTr0lKCNt7Dn8yQ6ybuDRQoMGrNFKzMfHg
 github.com/onsi/ginkgo/v2 v2.22.0/go.mod h1:7Du3c42kxCUegi0IImZ1wUQzMBVecgIHjR1C+NkhLQo=
 github.com/onsi/gomega v1.36.1 h1:bJDPBO7ibjxcbHMgSCoo4Yj18UWbKDlLwX1x9sybDcw=
 github.com/onsi/gomega v1.36.1/go.mod h1:PvZbdDc8J6XJEpDK4HCuRBm8a6Fzp9/DmhC9C7yFlog=
-github.com/openshift/api v0.0.0-20250410062700-d6c84c55a124 h1:rzxm3b7McRM69gsHA9j9WyYhAnukcpg2etkjNn1QOZo=
-github.com/openshift/api v0.0.0-20250410062700-d6c84c55a124/go.mod h1:Shkl4HanLwDiiBzakv+con/aMGnVE2MAGvoKp5oyYUo=
-github.com/openshift/library-go v0.0.0-20250403134058-7c43fdf96c62 h1:SSb9MKF7czLU0O3HZtMoOXuk/FYfau8ILDnzdciGjEo=
-github.com/openshift/library-go v0.0.0-20250403134058-7c43fdf96c62/go.mod h1:l/3SegTa9x+ry2J213bh7+DBofXOOvdrqU4JC9ktJa0=
+github.com/openshift/api v0.0.0-20250904140438-5b2b8cafdd82 h1:hD3OV82eDN0SzG4LnjW761h1hy/UsCm0yskTlucjsSA=
+github.com/openshift/api v0.0.0-20250904140438-5b2b8cafdd82/go.mod h1:yk60tHAmHhtVpJQo3TwVYq2zpuP70iJIFDCmeKMIzPw=
+github.com/openshift/library-go v0.0.0-20250826065405-6d18d1191f49 h1:02KSv7D27b45+yMlwnepEgrbxbclKF2Tdr6xxzZs/Gw=
+github.com/openshift/library-go v0.0.0-20250826065405-6d18d1191f49/go.mod h1:DAa3BGl0CFtkfJn/g5rU8kDDTErfMVA/QlFm4cvU+MI=
 github.com/operator-framework/api v0.31.0 h1:tRsFTuZ51xD8U5QgiPo3+mZgVipHZVgRXYrI6RRXOh8=
 github.com/operator-framework/api v0.31.0/go.mod h1:57oCiHNeWcxmzu1Se8qlnwEKr/GGXnuHvspIYFCcXmY=
 github.com/peterbourgon/diskv v2.0.1+incompatible h1:UBdAOUP5p4RWqPBg048CAvpKN+vxiaj6gdUUzhl4XmI=
