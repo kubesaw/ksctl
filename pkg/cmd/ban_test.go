@@ -273,7 +273,7 @@ func createConfigMap() *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "banning-reasons-test",
-			Namespace: "toolchain-host-operator",
+			Namespace: test.HostOperatorNs,
 		},
 		Data: map[string]string{
 			"reasons": "Violation of Terms,Spam,Inappropriate Content",
@@ -788,7 +788,7 @@ func TestBanJSONMarshaling(t *testing.T) {
 	})
 }
 
-// TestBanInteractiveModeWithValidConfigMap tests the complete interactive flow
+// TestBanWithValidConfigMap tests the complete interactive flow
 func TestBanWithValidConfigMap(t *testing.T) {
 	t.Run("Ban function interactive mode output messages (line 167)", func(t *testing.T) {
 		// Test that we can at least verify the "Opening interactive menu..." message is printed

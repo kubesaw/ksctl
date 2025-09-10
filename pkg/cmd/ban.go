@@ -15,13 +15,12 @@ import (
 
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
 	menuKey       string = "menu.json"
-	configMapName string = "banning-reasons"
+	configMapName string = "ban-reason-config"
 )
 
 // Menu contains all the fields present in the source JSON file needed to load up options in the interactive menu
@@ -45,13 +44,10 @@ func getValuesFromConfigMap(ctx *clicontext.CommandContext) ([]Menu, error) {
 	configMap := &corev1.ConfigMap{}
 	err = cl.Get(context.TODO(), types.NamespacedName{
 		Name:      configMapName,
-		Namespace: "toolchain-host-operator",
+		Namespace: cfg.OperatorNamespace,
 	}, configMap)
 
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("failed to get ConfigMap: %w", err)
-		}
 		return nil, err
 	}
 
@@ -59,7 +55,7 @@ func getValuesFromConfigMap(ctx *clicontext.CommandContext) ([]Menu, error) {
 	if menuJSON, exists := configMap.Data[menuKey]; exists && menuJSON != "" {
 		//var menus []Menu
 		if err := json.Unmarshal([]byte(menuJSON), &menus); err != nil {
-			return nil, fmt.Errorf("ConfigMap doesn't contain %s key: %w", menuKey, err)
+			return nil, fmt.Errorf("The %s key in the ConfigMap doesn't contain a valid JSON format to render menus: %w", menuKey, err)
 		}
 	}
 
@@ -118,11 +114,10 @@ func BanMenu(cfgMapContent []Menu) (*BanInfo, error) {
 
 func NewBanCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "ban <usersignup-name> [ban-reason]",
+		Use:   "ban <usersignup-name>",
 		Short: "Ban a user for the given UserSignup resource and reason of the ban",
-		Long: `Ban the given UserSignup resource. The first parameter is the name of the UserSignup to be banned.
-The second parameter (ban reason) is optional. If not provided, the command will try to load 
-banning reasons from a ConfigMap named 'banning-reasons' in the toolchain-host-operator namespace and show 
+		Long: `Ban the given UserSignup resource. The parameter is the name of the UserSignup to be banned.
+The command will try to load banning reasons from a ConfigMap named 'ban-reason-config' in the toolchain-host-operator namespace and show 
 an interactive menu for selection. If the ConfigMap doesn't exist, the ban reason must be provided.`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -161,7 +156,7 @@ func Ban(ctx *clicontext.CommandContext, args ...string) error {
 		}
 
 		if len(cfgMapContent) == 0 {
-			return fmt.Errorf("no banning reasons found in ConfigMap 'banning-reasons' in toolchain-host-operator namespace. Please provide a ban reason as second argument or create the 'banning-reasons' ConfigMap with banning reasons in the toolchain-host-operator namespace")
+			return fmt.Errorf("no banning reasons found in ConfigMap 'ban-reason-config' in toolchain-host-operator namespace. Please provide a ban reason as second argument or create the 'banning-reasons' ConfigMap with banning reasons in the toolchain-host-operator namespace")
 		}
 
 		ctx.Printlnf("Opening interactive menu...")
