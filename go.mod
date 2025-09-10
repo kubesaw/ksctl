@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.12
 
 require (
-	github.com/codeready-toolchain/api v0.0.0-20250506092100-39b4862e1271
+	github.com/codeready-toolchain/api v0.0.0-20250909075145-ca043a618f0f
 	github.com/codeready-toolchain/toolchain-common v0.0.0-20250708104334-c3ec13e2e8da
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -143,4 +143,4 @@ require (
 
 replace github.com/codeready-toolchain/api => github.com/rsoaresd/api v0.0.0-20250908100603-312ce7567dd1
 
-replace github.com/codeready-toolchain/toolchain-common => github.com/rsoaresd/toolchain-common v0.0.0-20250903095154-769c1bbc2835
+replace github.com/codeready-toolchain/toolchain-common => github.com/rsoaresd/toolchain-common v0.0.0-20250910131836-b410cd4ca53d
