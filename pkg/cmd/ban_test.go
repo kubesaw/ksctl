@@ -883,7 +883,7 @@ func TestBanCmdInteractiveMode(t *testing.T) {
 
 		// then - this would require actual user interaction, so we skip it
 		require.NoError(t, err)
-		assert.Contains(t, term.Output(), "No ban reason provided. Checking for available reasons from ConfigMap...")
+		assert.Contains(t, term.Output(), "Checking for available reasons from ConfigMap...")
 	})
 
 	t.Run("interactive mode with empty ConfigMap", func(t *testing.T) {
@@ -906,27 +906,9 @@ func TestBanCmdInteractiveMode(t *testing.T) {
 
 		// then
 		require.Error(t, err, "failed to get ConfigMap")
-		assert.Contains(t, term.Output(), "No ban reason provided. Checking for available reasons from ConfigMap...\n")
+		assert.Contains(t, term.Output(), "Checking for available reasons from ConfigMap...\n")
 		assert.Contains(t, err.Error(), "not found")
 		AssertNoBannedUser(t, fakeClient, userSignup)
-	})
-
-	t.Run("traditional mode still works with two arguments", func(t *testing.T) {
-		// given
-		userSignup := NewUserSignup()
-		banConfigMap := createConfigMap()
-		newClient, fakeClient := NewFakeClients(t, userSignup, banConfigMap)
-		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("y")
-		ctx := clicontext.NewCommandContext(term, newClient)
-
-		// when - using both username and ban reason (traditional mode)
-		err := cmd.Ban(ctx, userSignup.Name, "Custom ban reason")
-
-		// then
-		require.NoError(t, err)
-		AssertBannedUser(t, fakeClient, userSignup, "Custom ban reason")
-		assert.NotContains(t, term.Output(), "No ban reason provided. Checking for available reasons from ConfigMap...")
 	})
 
 	t.Run("error when no arguments provided", func(t *testing.T) {

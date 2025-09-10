@@ -77,10 +77,14 @@ func BanMenu(cfgMapContent []Menu) (*BanInfo, error) {
 				options[i] = huh.Option[string]{Key: opt, Value: opt}
 			}
 
-			form := huh.NewSelect[string]().
-				Title(item.Description).
-				Options(options...).
-				Value(&choice)
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewSelect[string]().
+						Title(item.Description).
+						Options(options...).
+						Value(&choice),
+				),
+			)
 
 			if err := form.Run(); err != nil {
 				return nil, fmt.Errorf("failed to show interactive menu: %w", err)
@@ -119,7 +123,7 @@ func NewBanCmd() *cobra.Command {
 		Long: `Ban the given UserSignup resource. The parameter is the name of the UserSignup to be banned.
 The command will try to load banning reasons from a ConfigMap named 'ban-reason-config' in the toolchain-host-operator namespace and show 
 an interactive menu for selection. If the ConfigMap doesn't exist, the ban reason must be provided.`,
-		Args: cobra.RangeArgs(1, 2),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
@@ -143,21 +147,26 @@ func Ban(ctx *clicontext.CommandContext, args ...string) error {
 	userSignupName := args[0]
 	var banReason string
 
-	if len(args) == 2 {
-		// Traditional usage: both usersignup name and ban reason provided
-		banReason = args[1]
-	} else {
-		// Interactive mode: only usersignup name provided, need to get reason from ConfigMap menu
-		ctx.Printlnf("No ban reason provided. Checking for available reasons from ConfigMap...")
+	// Interactive mode: only usersignup name provided, need to get reason from ConfigMap menu
+	ctx.Printlnf("Checking for available reasons from ConfigMap...")
 
-		cfgMapContent, err := getValuesFromConfigMap(ctx)
+	cfgMapContent, err := getValuesFromConfigMap(ctx)
+
+	if err != nil || len(cfgMapContent) == 0 {
+		fmt.Printf("failed to load reasons from ConfigMap: %s", err)
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Enter banning reason:").
+					Prompt("> ").
+					Value(&banReason),
+			),
+		)
+		err := form.Run()
 		if err != nil {
-			return fmt.Errorf("failed to load banning reasons from ConfigMap: %w", err)
+			return fmt.Errorf("Banning option could not be obtained: %w", err)
 		}
-
-		if len(cfgMapContent) == 0 {
-			return fmt.Errorf("no banning reasons found in ConfigMap 'ban-reason-config' in toolchain-host-operator namespace. Please provide a ban reason as second argument or create the 'banning-reasons' ConfigMap with banning reasons in the toolchain-host-operator namespace")
-		}
+	} else {
 
 		ctx.Printlnf("Opening interactive menu...")
 
