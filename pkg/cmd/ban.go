@@ -156,7 +156,7 @@ func Ban(ctx *clicontext.CommandContext, args ...string) error {
 		//err := runForm(form)
 		err := form.Run()
 		if err != nil {
-			return fmt.Errorf("Banning option could not be obtained: %w", err)
+			return fmt.Errorf("banning option could not be obtained: %w", err)
 		}
 	} else {
 
