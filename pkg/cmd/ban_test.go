@@ -1,12 +1,14 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
 
+	"github.com/charmbracelet/huh"
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/codeready-toolchain/toolchain-common/pkg/test"
 	"github.com/kubesaw/ksctl/pkg/cmd"
@@ -15,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -281,134 +284,65 @@ func createConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func TestBanMenu(t *testing.T) {
-	t.Run("empty menu content returns empty BanInfo", func(t *testing.T) {
-		// given
-		var emptyMenu []cmd.Menu
+/*
+	func TestBanMenuMappingLogic(t *testing.T) {
+		// This test verifies the mapping logic that converts menu selections to BanInfo
 
-		// when
-		banInfo, err := cmd.BanMenu(emptyMenu)
-
-		// then
-		require.NoError(t, err)
-		require.NotNil(t, banInfo)
-		assert.Empty(t, banInfo.WorkloadType)
-		assert.Empty(t, banInfo.BehaviorClassification)
-		assert.Empty(t, banInfo.DetectionMechanism)
-	})
-
-	t.Run("single workload menu item", func(t *testing.T) {
-		// This test demonstrates the structure but cannot test interactivity
-
-		// given
-		menu := []cmd.Menu{
-			{
-				Kind:        "workload",
-				Description: "Select workload type",
-				Options:     []string{"container", "vm"},
-			},
-		}
-
-		// Verify menu structure is correct for processing
-		assert.Len(t, menu, 1)
-		assert.Equal(t, "workload", menu[0].Kind)
-		assert.Equal(t, "Select workload type", menu[0].Description)
-		assert.Len(t, menu[0].Options, 2)
-		assert.Contains(t, menu[0].Options, "container")
-	})
-
-	t.Run("multiple menu items structure", func(t *testing.T) {
-		// given
-		menu := []cmd.Menu{
-			{
-				Kind:        "workload",
-				Description: "Select workload type",
-				Options:     []string{"container", "vm"},
-			},
-			{
-				Kind:        "behavior",
-				Description: "Select behavior classification",
-				Options:     []string{"malicious", "suspicious", "policy-violation"},
-			},
-			{
-				Kind:        "detection",
-				Description: "Select detection mechanism",
-				Options:     []string{"automated", "manual", "user-report"},
-			},
-		}
-
-		// Verify menu structure supports all BanInfo fields
-		kindMap := make(map[string]bool)
-		for _, item := range menu {
-			kindMap[item.Kind] = true
-			assert.NotEmpty(t, item.Description)
-			assert.NotEmpty(t, item.Options)
-		}
-
-		assert.True(t, kindMap["workload"])
-		assert.True(t, kindMap["behavior"])
-		assert.True(t, kindMap["detection"])
-	})
-}
-
-func TestBanMenuMappingLogic(t *testing.T) {
-	// This test verifies the mapping logic that converts menu selections to BanInfo
-
-	t.Run("verify BanInfo field mapping", func(t *testing.T) {
-		// Test data that simulates what would be collected from the interactive menu
-		testCases := []struct {
-			name     string
-			kind     string
-			answer   string
-			expected func(*cmd.BanInfo) string
-		}{
-			{
-				name:   "workload mapping",
-				kind:   "workload",
-				answer: "compute-intensive",
-				expected: func(info *cmd.BanInfo) string {
-					return info.WorkloadType
+		t.Run("verify BanInfo field mapping", func(t *testing.T) {
+			// Test data that simulates what would be collected from the interactive menu
+			testCases := []struct {
+				name     string
+				kind     string
+				answer   string
+				expected func(*cmd.BanInfo) string
+			}{
+				{
+					name:   "workload mapping",
+					kind:   "workload",
+					answer: "compute-intensive",
+					expected: func(info *cmd.BanInfo) string {
+						return info.WorkloadType
+					},
 				},
-			},
-			{
-				name:   "behavior mapping",
-				kind:   "behavior",
-				answer: "malicious",
-				expected: func(info *cmd.BanInfo) string {
-					return info.BehaviorClassification
+				{
+					name:   "behavior mapping",
+					kind:   "behavior",
+					answer: "malicious",
+					expected: func(info *cmd.BanInfo) string {
+						return info.BehaviorClassification
+					},
 				},
-			},
-			{
-				name:   "detection mapping",
-				kind:   "detection",
-				answer: "automated",
-				expected: func(info *cmd.BanInfo) string {
-					return info.DetectionMechanism
+				{
+					name:   "detection mapping",
+					kind:   "detection",
+					answer: "automated",
+					expected: func(info *cmd.BanInfo) string {
+						return info.DetectionMechanism
+					},
 				},
-			},
-		}
+			}
 
-		for _, tc := range testCases {
-			t.Run(tc.name, func(t *testing.T) {
-				// This demonstrates the expected mapping behavior
-				banInfo := &cmd.BanInfo{}
+			for _, tc := range testCases {
+				t.Run(tc.name, func(t *testing.T) {
+					// This demonstrates the expected mapping behavior
+					banInfo := &cmd.BanInfo{}
 
-				// Simulate the switch statement logic from banMenu
-				switch tc.kind {
-				case "workload":
-					banInfo.WorkloadType = tc.answer
-				case "behavior":
-					banInfo.BehaviorClassification = tc.answer
-				case "detection":
-					banInfo.DetectionMechanism = tc.answer
-				}
+					// Simulate the switch statement logic from banMenu
+					switch tc.kind {
+					case "workload":
+						banInfo.WorkloadType = tc.answer
+					case "behavior":
+						banInfo.BehaviorClassification = tc.answer
+					case "detection":
+						banInfo.DetectionMechanism = tc.answer
+					}
 
-				assert.Equal(t, tc.expected(banInfo), tc.answer)
-			})
-		}
-	})
-}
-
+					assert.Equal(t, tc.expected(banInfo), tc.answer)
+				})
+			}
+		})
+	}
+*/
 func TestMenuStruct(t *testing.T) {
 	t.Run("JSON unmarshaling works correctly", func(t *testing.T) {
 		// given
@@ -471,164 +405,6 @@ func TestMenuStruct(t *testing.T) {
 
 		// then
 		require.Error(t, err)
-	})
-}
-
-func TestBanInfoStruct(t *testing.T) {
-	t.Run("JSON marshaling works correctly", func(t *testing.T) {
-		// given
-		banInfo := &cmd.BanInfo{
-			WorkloadType:           "container",
-			BehaviorClassification: "malicious",
-			DetectionMechanism:     "automated",
-		}
-
-		// when
-		jsonData, err := json.Marshal(banInfo)
-
-		// then
-		require.NoError(t, err)
-		assert.Contains(t, string(jsonData), "container")
-		assert.Contains(t, string(jsonData), "malicious")
-		assert.Contains(t, string(jsonData), "automated")
-
-		// Verify it can be unmarshaled back
-		var unmarshaled cmd.BanInfo
-		err = json.Unmarshal(jsonData, &unmarshaled)
-		require.NoError(t, err)
-		assert.Equal(t, banInfo.WorkloadType, unmarshaled.WorkloadType)
-		assert.Equal(t, banInfo.BehaviorClassification, unmarshaled.BehaviorClassification)
-		assert.Equal(t, banInfo.DetectionMechanism, unmarshaled.DetectionMechanism)
-	})
-
-	t.Run("empty BanInfo marshals to empty fields", func(t *testing.T) {
-		// given
-		banInfo := &cmd.BanInfo{}
-
-		// when
-		jsonData, err := json.Marshal(banInfo)
-
-		// then
-		require.NoError(t, err)
-		assert.Contains(t, string(jsonData), `"workloadType":""`)
-		assert.Contains(t, string(jsonData), `"behaviorClassification":""`)
-		assert.Contains(t, string(jsonData), `"detectionMechanism":""`)
-	})
-}
-
-// TestBanMenuInteractiveLogic tests the interactive menu logic in BanMenu function (lines 76-110)
-func TestBanMenuLogic(t *testing.T) {
-	t.Run("BanMenu with menu content creates proper data structures", func(t *testing.T) {
-		// This test verifies the logic of creating huh.Option structures and the mapping
-		// We can't test the actual interaction, but we can test the data preparation
-
-		// given
-		menu := []cmd.Menu{
-			{
-				Kind:        "workload",
-				Description: "Select workload type",
-				Options:     []string{"container", "vm"},
-			},
-			{
-				Kind:        "behavior",
-				Description: "Select behavior classification",
-				Options:     []string{"malicious", "suspicious"},
-			},
-		}
-
-		// Verify the menu structure that would be processed in lines 77-95
-		for _, item := range menu {
-			// Simulate the options creation logic from lines 79-82
-			options := make([]map[string]string, len(item.Options))
-			for i, opt := range item.Options {
-				options[i] = map[string]string{"Key": opt, "Value": opt}
-			}
-
-			// Verify options are created correctly
-			assert.Len(t, options, len(item.Options))
-			for i, opt := range item.Options {
-				assert.Equal(t, opt, options[i]["Key"])
-				assert.Equal(t, opt, options[i]["Value"])
-			}
-		}
-	})
-
-	t.Run("BanMenu mapping logic from answers to BanInfo", func(t *testing.T) {
-		// Test the switch statement logic that maps answers to BanInfo fields
-
-		testCases := []struct {
-			name         string
-			answers      map[string]string
-			expectedInfo *cmd.BanInfo
-		}{
-			{
-				name: "all fields mapped correctly",
-				answers: map[string]string{
-					"workload":  "container",
-					"behavior":  "malicious",
-					"detection": "automated",
-				},
-				expectedInfo: &cmd.BanInfo{
-					WorkloadType:           "container",
-					BehaviorClassification: "malicious",
-					DetectionMechanism:     "automated",
-				},
-			},
-			{
-				name: "partial mapping - only workload",
-				answers: map[string]string{
-					"workload": "vm",
-				},
-				expectedInfo: &cmd.BanInfo{
-					WorkloadType:           "vm",
-					BehaviorClassification: "",
-					DetectionMechanism:     "",
-				},
-			},
-			{
-				name: "unknown kind ignored",
-				answers: map[string]string{
-					"workload": "container",
-					"unknown":  "should-be-ignored",
-				},
-				expectedInfo: &cmd.BanInfo{
-					WorkloadType:           "container",
-					BehaviorClassification: "",
-					DetectionMechanism:     "",
-				},
-			},
-			{
-				name:    "empty answers",
-				answers: map[string]string{},
-				expectedInfo: &cmd.BanInfo{
-					WorkloadType:           "",
-					BehaviorClassification: "",
-					DetectionMechanism:     "",
-				},
-			},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.name, func(t *testing.T) {
-				// Simulate the logic from lines 102-112
-				banInfo := &cmd.BanInfo{}
-
-				for kind, answer := range tc.answers {
-					switch kind {
-					case "workload":
-						banInfo.WorkloadType = answer
-					case "behavior":
-						banInfo.BehaviorClassification = answer
-					case "detection":
-						banInfo.DetectionMechanism = answer
-					}
-				}
-
-				assert.Equal(t, tc.expectedInfo.WorkloadType, banInfo.WorkloadType)
-				assert.Equal(t, tc.expectedInfo.BehaviorClassification, banInfo.BehaviorClassification)
-				assert.Equal(t, tc.expectedInfo.DetectionMechanism, banInfo.DetectionMechanism)
-			})
-		}
 	})
 }
 
@@ -714,6 +490,7 @@ func TestBanConfigMapProcessing(t *testing.T) {
 	})
 }
 
+/*
 // TestBanMenuErrorHandling tests error scenarios in BanMenu
 func TestBanMenuErrorHandling(t *testing.T) {
 	t.Run("BanMenu handles empty menu gracefully", func(t *testing.T) {
@@ -787,10 +564,10 @@ func TestBanJSONMarshaling(t *testing.T) {
 		assert.Contains(t, banReason, `"detectionMechanism":""`)
 	})
 }
-
+*/
 // TestBanWithValidConfigMap tests the complete interactive flow
 func TestBanWithValidConfigMap(t *testing.T) {
-	t.Run("Ban function interactive mode output messages (line 167)", func(t *testing.T) {
+	t.Run("Ban function interactive mode output messages", func(t *testing.T) {
 		// Test that we can at least verify the "Opening interactive menu..." message is printed
 
 		// given
@@ -925,4 +702,66 @@ func TestBanCmdInteractiveMode(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "UserSignup name is required")
 	})
+}
+
+func TestBanMenu(t *testing.T) {
+	var choice string
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("what type of workload?").Options(
+				huh.NewOption("VM", "A"),
+				huh.NewOption("Container", "B"),
+				huh.NewOption("DevWorkspace", "C"),
+			).Value(&choice),
+		),
+	)
+
+	/*input := bytes.NewBufferString(strings.Join([]string{
+		"\x1b[B", // flecha abajo (seleccionar la opción B)
+		"\r",
+	}, ""))*/
+	input := bytes.NewBufferString("\x1b[B\r\x03")
+
+	p := tea.NewProgram(form, tea.WithInput(input), tea.WithoutRenderer(), tea.WithFilter(func(_ tea.Model, msg tea.Msg) tea.Msg {
+		switch m := msg.(type) {
+		case tea.KeyMsg:
+			fmt.Printf("Received KeyMsg: Type=%v, Runes=%q, String=%q\n", m.Type, m.Runes, m.String())
+			if m.String() == "ctrl+c" {
+				return tea.QuitMsg{}
+			}
+		default:
+			fmt.Printf("Received msg: %T\n", msg)
+		}
+		return msg
+	}))
+
+	_, err := p.Run()
+	if err != nil {
+		t.Fatal("Run failed:", err)
+	}
+
+	if choice != "B" {
+		t.Errorf("choice expected 'B', got %q", choice)
+	}
+
+	// given
+	userSignup := NewUserSignup()
+	newClient, fakeClient := NewFakeClients(t, userSignup)
+	SetFileConfig(t, Host())
+	term := NewFakeTerminalWithResponse("y")
+	ctx := clicontext.NewCommandContext(term, newClient)
+
+	// when
+	err = cmd.Ban(ctx, userSignup.Name)
+
+	// then
+	require.NoError(t, err)
+	AssertBannedUser(t, fakeClient, userSignup, banReason)
+	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
+	assert.Contains(t, term.Output(), "Are you sure that you want to ban the user with the UserSignup by creating BannedUser resource that are both above?")
+	assert.Contains(t, term.Output(), "UserSignup has been banned")
+	assert.NotContains(t, term.Output(), "cool-token")
+
 }

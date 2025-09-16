@@ -55,7 +55,7 @@ func getValuesFromConfigMap(ctx *clicontext.CommandContext) ([]Menu, error) {
 	if menuJSON, exists := configMap.Data[menuKey]; exists && menuJSON != "" {
 		//var menus []Menu
 		if err := json.Unmarshal([]byte(menuJSON), &menus); err != nil {
-			return nil, fmt.Errorf("The %s key in the ConfigMap doesn't contain a valid JSON format to render menus: %w", menuKey, err)
+			return nil, fmt.Errorf("the %s key in the configmap doesn't contain a valid JSON format to render menus: %w", menuKey, err)
 		}
 	}
 
@@ -63,8 +63,7 @@ func getValuesFromConfigMap(ctx *clicontext.CommandContext) ([]Menu, error) {
 }
 
 // BanMenu displays an interactive menu for selecting banning reasons
-func BanMenu(cfgMapContent []Menu) (*BanInfo, error) {
-	banInfo := &BanInfo{}
+func BanMenu(cfgMapContent []Menu) (map[string]string, error) {
 
 	// Map to store user's answers
 	answers := make(map[string]string)
@@ -99,20 +98,10 @@ func BanMenu(cfgMapContent []Menu) (*BanInfo, error) {
 			fmt.Printf("- %s:\t%s\n", kind, optionSelected)
 		}
 
-		// filling the banInfo object
-		for kind, answer := range answers {
-			switch kind {
-			case "workload":
-				banInfo.WorkloadType = answer
-			case "behavior":
-				banInfo.BehaviorClassification = answer
-			case "detection":
-				banInfo.DetectionMechanism = answer
-			}
-		}
 	}
 
-	return banInfo, nil
+	//return answers, nil
+	return answers, nil
 
 }
 
@@ -127,17 +116,19 @@ an interactive menu for selection. If the ConfigMap doesn't exist, the ban reaso
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
+			/*showForm := func(form *huh.Form) error {
+				if err := form.Run(); err != nil {
+					return fmt.Errorf("failed to show interactive menu: %w", err)
+				}
+
+				return nil
+			}*/
 			return Ban(ctx, args...)
 		},
 	}
 }
 
-// BanInfo contains all the information needed for banning a user
-type BanInfo struct {
-	WorkloadType           string `json:"workloadType"`
-	BehaviorClassification string `json:"behaviorClassification"`
-	DetectionMechanism     string `json:"detectionMechanism"`
-}
+type runFormFunc func(form *huh.Form) error
 
 func Ban(ctx *clicontext.CommandContext, args ...string) error {
 	if len(args) == 0 {
@@ -162,6 +153,7 @@ func Ban(ctx *clicontext.CommandContext, args ...string) error {
 					Value(&banReason),
 			),
 		)
+		//err := runForm(form)
 		err := form.Run()
 		if err != nil {
 			return fmt.Errorf("Banning option could not be obtained: %w", err)
