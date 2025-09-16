@@ -5,8 +5,8 @@ go 1.23.0
 toolchain go1.23.12
 
 require (
-	github.com/codeready-toolchain/api v0.0.0-20250909075145-ca043a618f0f
-	github.com/codeready-toolchain/toolchain-common v0.0.0-20250708104334-c3ec13e2e8da
+	github.com/codeready-toolchain/api v0.0.0-20250916082953-4ecb3a4645e6
+	github.com/codeready-toolchain/toolchain-common v0.0.0-20250916085517-b50328535b99
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	// using latest commit from 'github.com/openshift/api branch release-4.19'
@@ -67,7 +67,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-github/v52 v52.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -140,7 +140,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
-
-replace github.com/codeready-toolchain/api => github.com/rsoaresd/api v0.0.0-20250910155735-270447f471cd
-
-replace github.com/codeready-toolchain/toolchain-common => github.com/rsoaresd/toolchain-common v0.0.0-20250910164142-aabf15684683
