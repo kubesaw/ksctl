@@ -63,7 +63,7 @@ func getValuesFromConfigMap(ctx *clicontext.CommandContext) ([]Menu, error) {
 }
 
 // BanMenu displays an interactive menu for selecting banning reasons
-func BanMenu(cfgMapContent []Menu) (map[string]string, error) {
+func BanMenu(runForm runFormFunc, cfgMapContent []Menu) (map[string]string, error) {
 
 	// Map to store user's answers
 	answers := make(map[string]string)
@@ -85,8 +85,8 @@ func BanMenu(cfgMapContent []Menu) (map[string]string, error) {
 				),
 			)
 
-			if err := form.Run(); err != nil {
-				return nil, fmt.Errorf("failed to show interactive menu: %w", err)
+			if err := runForm(form); err != nil {
+				return nil, err //fmt.Errorf("failed to show interactive menu: %w", err)
 			}
 
 			answers[item.Kind] = choice
@@ -123,14 +123,19 @@ an interactive menu for selection. If the ConfigMap doesn't exist, the ban reaso
 
 				return nil
 			}*/
-			return Ban(ctx, args...)
+			return Ban(ctx, func(form *huh.Form) error {
+				if err := form.Run(); err != nil {
+					return fmt.Errorf("failed to show interactive menu: %w", err)
+				}
+				return nil
+			}, args...)
 		},
 	}
 }
 
 type runFormFunc func(form *huh.Form) error
 
-func Ban(ctx *clicontext.CommandContext, args ...string) error {
+func Ban(ctx *clicontext.CommandContext, runForm runFormFunc, args ...string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("UserSignup name is required")
 	}
@@ -138,7 +143,7 @@ func Ban(ctx *clicontext.CommandContext, args ...string) error {
 	userSignupName := args[0]
 	var banReason string
 
-	// Interactive mode: only usersignup name provided, need to get reason from ConfigMap menu
+	// Interactive mode: usersignup name provided, need to get reason from ConfigMap menu
 	ctx.Printlnf("Checking for available reasons from ConfigMap...")
 
 	cfgMapContent, err := getValuesFromConfigMap(ctx)
@@ -154,7 +159,7 @@ func Ban(ctx *clicontext.CommandContext, args ...string) error {
 			),
 		)
 		//err := runForm(form)
-		err := form.Run()
+		err := runForm(form)
 		if err != nil {
 			return fmt.Errorf("banning option could not be obtained: %w", err)
 		}
@@ -162,7 +167,7 @@ func Ban(ctx *clicontext.CommandContext, args ...string) error {
 
 		ctx.Printlnf("Opening interactive menu...")
 
-		banInfo, err := BanMenu(cfgMapContent)
+		banInfo, err := BanMenu(runForm, cfgMapContent)
 		if err != nil {
 			return fmt.Errorf("failed to collect banning information: %w", err)
 		}
