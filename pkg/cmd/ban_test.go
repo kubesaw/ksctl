@@ -296,18 +296,6 @@ func TestCreateBannedUserLacksPermissions(t *testing.T) {
 	AssertUserSignupSpec(t, fakeClient, userSignup)
 }
 
-func createConfigMap() *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ban-reason-config",
-			Namespace: test.HostOperatorNs,
-		},
-		Data: map[string]string{
-			"menu.json": `[{"kind":"workload","description":"Select workload","options":["container","vm"]}]`,
-		},
-	}
-}
-
 func TestMenuStruct(t *testing.T) {
 	t.Run("JSON unmarshaling works correctly", func(t *testing.T) {
 		// given
@@ -501,49 +489,6 @@ func TestBanWithValidConfigMap(t *testing.T) {
 		assert.Contains(t, term.Output(), "Opening interactive menu...")
 		AssertBannedUser(t, fakeClient, userSignup, true, `{"workload":"vm","behaviorClassification":"ddos","detectionMechanism":"WA"}`)
 	})
-	/*
-	   t.Run("Ban function processes non-empty ConfigMap correctly", func(t *testing.T) {
-
-	   		// given
-	   		userSignup := NewUserSignup()
-	   		validConfigMap := &corev1.ConfigMap{
-	   			ObjectMeta: metav1.ObjectMeta{
-	   				Name:      "ban-reason-config",
-	   				Namespace: test.HostOperatorNs,
-	   			},
-	   			Data: map[string]string{
-	   				"menu.json": `[
-	   					{"kind":"workload","description":"Select workload","options":["container", "vm"]},
-	   					{"kind":"behaviorClassification","description":"Select behavior","options":["malicious","threat"]}
-	   				]`,
-	   			},
-	   		}
-	   		newClient, fakeClient := NewFakeClients(t, userSignup, validConfigMap)
-	   		SetFileConfig(t, Host())
-	   		term := NewFakeTerminalWithResponse("y")
-	   		ctx := clicontext.NewCommandContext(term, newClient)
-
-	   		// when
-	   		err := cmd.Ban(ctx, func(form *huh.Form) error {
-	   			form.Init()
-	   			form.Update(tea.KeyMsg{Type: tea.KeyDown})
-	   			form.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	   			return nil
-	   		}, userSignup.Name)
-
-	   		// then
-
-	   		// Should reach the interactive menu part
-	   		assert.Contains(t, term.Output(), "Opening interactive menu...")
-
-	   		// Should fail at interactive part, not at ConfigMap validation
-	   		require.NoError(t, err)
-	   		//assert.Contains(t, err.Error(), "failed to collect banning information")
-
-	   		//AssertNoBannedUser(t, fakeClient, userSignup)
-	   		AssertBannedUser(t, fakeClient, userSignup, true, `{"workload":"vm","behaviorClassification":"threat"}`)
-	   	})
-	*/
 }
 
 func TestBanCmdInteractiveMode(t *testing.T) {
@@ -569,11 +514,10 @@ func TestBanCmdInteractiveMode(t *testing.T) {
 		// when
 		err := cmd.Ban(ctx, func(form *huh.Form) error {
 			form.Init()
-			//form.Update(banReasonInput)
 			return nil
 		}, userSignup.Name)
 
-		// then - this would require actual user interaction, so we skip it
+		// then
 		require.NoError(t, err)
 		assert.Contains(t, term.Output(), "Checking for available reasons from ConfigMap...")
 	})
@@ -627,67 +571,3 @@ func TestBanCmdInteractiveMode(t *testing.T) {
 
 	})
 }
-
-/*
-func TestBanMenu(t *testing.T) {
-	var choice string
-
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("what type of workload?").Options(
-				huh.NewOption("VM", "A"),
-				huh.NewOption("Container", "B"),
-				huh.NewOption("DevWorkspace", "C"),
-			).Value(&choice),
-		),
-	)
-
-	input := bytes.NewBufferString("\x1b[B\r\x03")
-
-	p := tea.NewProgram(form, tea.WithInput(input), tea.WithoutRenderer(), tea.WithFilter(func(_ tea.Model, msg tea.Msg) tea.Msg {
-		switch m := msg.(type) {
-		case tea.KeyMsg:
-			fmt.Printf("Received KeyMsg: Type=%v, Runes=%q, String=%q\n", m.Type, m.Runes, m.String())
-			if m.String() == "ctrl+c" {
-				return tea.QuitMsg{}
-			}
-		default:
-			fmt.Printf("Received msg: %T\n", msg)
-		}
-		return msg
-	}))
-
-	_, err := p.Run()
-	if err != nil {
-		t.Fatal("Run failed:", err)
-	}
-
-	if choice != "B" {
-		t.Errorf("choice expected 'B', got %q", choice)
-	}
-
-	// given
-	userSignup := NewUserSignup()
-	newClient, fakeClient := NewFakeClients(t, userSignup)
-	SetFileConfig(t, Host())
-	term := NewFakeTerminalWithResponse("y")
-	ctx := clicontext.NewCommandContext(term, newClient)
-
-	// when
-	err = cmd.Ban(ctx, func(form *huh.Form) error {
-		form.Init()
-		form.Update(banReasonInput)
-		return nil
-	}, userSignup.Name)
-
-	// then
-	require.NoError(t, err)
-	AssertBannedUser(t, fakeClient, userSignup, banReason)
-	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
-	assert.Contains(t, term.Output(), "Are you sure that you want to ban the user with the UserSignup by creating BannedUser resource that are both above?")
-	assert.Contains(t, term.Output(), "UserSignup has been banned")
-	assert.NotContains(t, term.Output(), "cool-token")
-
-}
-*/
