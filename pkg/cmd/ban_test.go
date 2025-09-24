@@ -2,7 +2,6 @@ package cmd_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -296,69 +295,16 @@ func TestCreateBannedUserLacksPermissions(t *testing.T) {
 	AssertUserSignupSpec(t, fakeClient, userSignup)
 }
 
-func TestMenuStruct(t *testing.T) {
-	t.Run("JSON unmarshaling works correctly", func(t *testing.T) {
-		// given
-		jsonData := `[
-			{
-				"kind": "workload",
-				"description": "Select workload type",
-				"options": ["container", "vm"]
-			},
-			{
-				"kind": "behavior", 
-				"description": "Select behavior classification",
-				"options": ["malicious", "suspicious"]
-			}
-		]`
-
-		// when
-		var menus []cmd.Menu
-		err := json.Unmarshal([]byte(jsonData), &menus)
-
-		// then
-		require.NoError(t, err)
-		assert.Len(t, menus, 2)
-
-		// Verify first menu
-		assert.Equal(t, "workload", menus[0].Kind)
-		assert.Equal(t, "Select workload type", menus[0].Description)
-		assert.Len(t, menus[0].Options, 2)
-		assert.Contains(t, menus[0].Options, "container")
-		assert.Contains(t, menus[0].Options, "vm")
-
-		// Verify second menu
-		assert.Equal(t, "behavior", menus[1].Kind)
-		assert.Equal(t, "Select behavior classification", menus[1].Description)
-		assert.Len(t, menus[1].Options, 2)
-		assert.Contains(t, menus[1].Options, "malicious")
-		assert.Contains(t, menus[1].Options, "suspicious")
-	})
-
-	t.Run("empty JSON array unmarshals correctly", func(t *testing.T) {
-		// given
-		jsonData := `[]`
-
-		// when
-		var menus []cmd.Menu
-		err := json.Unmarshal([]byte(jsonData), &menus)
-
-		// then
-		require.NoError(t, err)
-		assert.Empty(t, menus)
-	})
-
-	t.Run("malformed JSON returns error", func(t *testing.T) {
-		// given
-		jsonData := `[{invalid json`
-
-		// when
-		var menus []cmd.Menu
-		err := json.Unmarshal([]byte(jsonData), &menus)
-
-		// then
-		require.Error(t, err)
-	})
+func newBanReasonConfigMap(key, value string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ban-reason-config",
+			Namespace: test.HostOperatorNs,
+		},
+		Data: map[string]string{
+			key: value,
+		},
+	}
 }
 
 // TestBanConfigMapProcessing tests whether the configmap content is empty
@@ -366,15 +312,16 @@ func TestBanConfigMapProcessing(t *testing.T) {
 	t.Run("empty ConfigMap content", func(t *testing.T) {
 		// given
 		userSignup := NewUserSignup()
-		emptyConfigMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ban-reason-config",
-				Namespace: test.HostOperatorNs,
-			},
-			Data: map[string]string{
-				"menu.json": "[]", // Empty array
-			},
-		}
+		/*		emptyConfigMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ban-reason-config",
+					Namespace: test.HostOperatorNs,
+				},
+				Data: map[string]string{
+					"menu.json": "[]", // Empty array
+				},
+			}*/
+		emptyConfigMap := newBanReasonConfigMap("menu.json", "[]") // Empty array
 		newClient, fakeClient := NewFakeClients(t, userSignup, emptyConfigMap)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("y")
@@ -397,7 +344,7 @@ func TestBanConfigMapProcessing(t *testing.T) {
 	t.Run("ConfigMap with no menu.json key falls back to manual input", func(t *testing.T) {
 		// given
 		userSignup := NewUserSignup()
-		configMapWithoutMenu := &corev1.ConfigMap{
+		/*configMapWithoutMenu := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "ban-reason-config",
 				Namespace: test.HostOperatorNs,
@@ -405,7 +352,8 @@ func TestBanConfigMapProcessing(t *testing.T) {
 			Data: map[string]string{
 				"other-key": "some-value", // No menu.json key
 			},
-		}
+		}*/
+		configMapWithoutMenu := newBanReasonConfigMap("other-key", "some-value") // No Menu.json key
 		newClient, fakeClient := NewFakeClients(t, userSignup, configMapWithoutMenu)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("y")
@@ -426,7 +374,7 @@ func TestBanConfigMapProcessing(t *testing.T) {
 	t.Run("invalid JSON in ConfigMap falls back to manual input", func(t *testing.T) {
 		// given
 		userSignup := NewUserSignup()
-		configMapWithBadJSON := &corev1.ConfigMap{
+		/*configMapWithBadJSON := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "ban-reason-config",
 				Namespace: test.HostOperatorNs,
@@ -434,7 +382,8 @@ func TestBanConfigMapProcessing(t *testing.T) {
 			Data: map[string]string{
 				"menu.json": "[{invalid json", // Malformed JSON
 			},
-		}
+		} */
+		configMapWithBadJSON := newBanReasonConfigMap("menu.json", "[{invalid json}")
 		newClient, fakeClient := NewFakeClients(t, userSignup, configMapWithBadJSON)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("y")
@@ -460,17 +409,20 @@ func TestBanWithValidConfigMap(t *testing.T) {
 
 		// given
 		userSignup := NewUserSignup()
-		validConfigMap := &corev1.ConfigMap{
+		/*validConfigMap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "ban-reason-config",
 				Namespace: test.HostOperatorNs,
 			},
 			Data: map[string]string{
-				"menu.json": `[{"kind":"workload","description":"Select workload","options":["container","vm"]}, 
+				"menu.json": `[{"kind":"workload","description":"Select workload","options":["container","vm"]},
 				{"kind":"behaviorClassification","description":"Select behavior","options":["crypto mining","ddos"]},
 				{"kind":"detectionMechanism","description":"How was this detected","options":["GD","WA"]}]`,
 			},
-		}
+		}*/
+		validConfigMap := newBanReasonConfigMap("menu.json", `[{"kind":"workload","description":"Select workload","options":["container","vm"]}, 
+				{"kind":"behaviorClassification","description":"Select behavior","options":["crypto mining","ddos"]},
+				{"kind":"detectionMechanism","description":"How was this detected","options":["GD","WA"]}]`)
 		newClient, fakeClient := NewFakeClients(t, userSignup, validConfigMap)
 		SetFileConfig(t, Host())
 		term := NewFakeTerminalWithResponse("y")
@@ -488,86 +440,5 @@ func TestBanWithValidConfigMap(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, term.Output(), "Opening interactive menu...")
 		AssertBannedUser(t, fakeClient, userSignup, true, `{"workload":"vm","behaviorClassification":"ddos","detectionMechanism":"WA"}`)
-	})
-}
-
-func TestBanCmdInteractiveMode(t *testing.T) {
-	t.Run("interactive mode with ConfigMap present", func(t *testing.T) {
-		t.Skip("Skipping interactive test - requires actual terminal interaction")
-
-		// given
-		userSignup := NewUserSignup()
-		banConfigMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ban-reason-config",
-				Namespace: test.HostOperatorNs,
-			},
-			Data: map[string]string{
-				"menu.json": `[{"kind":"workload","description":"Select workload","options":["container","vm"]}]`,
-			},
-		}
-		newClient, _ := NewFakeClients(t, userSignup, banConfigMap)
-		SetFileConfig(t, Host())
-		term := NewFakeTerminal()
-		ctx := clicontext.NewCommandContext(term, newClient)
-
-		// when
-		err := cmd.Ban(ctx, func(form *huh.Form) error {
-			form.Init()
-			return nil
-		}, userSignup.Name)
-
-		// then
-		require.NoError(t, err)
-		assert.Contains(t, term.Output(), "Checking for available reasons from ConfigMap...")
-	})
-
-	t.Run("interactive mode with empty ConfigMap falls back to manual input", func(t *testing.T) {
-		// given
-		userSignup := NewUserSignup()
-		emptyConfigMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ban-reason-config",
-				Namespace: test.HostOperatorNs,
-			},
-			Data: map[string]string{}, // Empty data
-		}
-		newClient, fakeClient := NewFakeClients(t, userSignup, emptyConfigMap)
-		SetFileConfig(t, Host())
-		term := NewFakeTerminalWithResponse("y")
-		ctx := clicontext.NewCommandContext(term, newClient)
-
-		// when
-		err := cmd.Ban(ctx, func(form *huh.Form) error {
-			form.Init()
-			form.Update(banReasonInput)
-			return nil
-		}, userSignup.Name)
-
-		// then
-		require.NoError(t, err)
-		assert.Contains(t, term.Output(), "Checking for available reasons from ConfigMap...")
-		AssertBannedUser(t, fakeClient, userSignup, false, banReason)
-	})
-
-	t.Run("error when no arguments provided", func(t *testing.T) {
-		// given
-
-		newClient, _ := NewFakeClients(t)
-		SetFileConfig(t, Host())
-		term := NewFakeTerminal()
-		ctx := clicontext.NewCommandContext(term, newClient)
-
-		// when - no arguments
-		err := cmd.Ban(ctx, func(form *huh.Form) error {
-			form.Init()
-			form.Update(banReasonInput)
-			return nil
-		})
-
-		// then
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "UserSignup name is required")
-
 	})
 }

@@ -63,7 +63,7 @@ func getValuesFromConfigMap(ctx *clicontext.CommandContext) ([]Menu, error) {
 }
 
 // BanMenu displays an interactive menu for selecting banning reasons
-func BanMenu(runForm runFormFunc, cfgMapContent []Menu) (map[string]string, error) {
+func BanMenu(ctx *clicontext.CommandContext, runForm runFormFunc, cfgMapContent []Menu) (map[string]string, error) {
 
 	// Map to store user's answers
 	answers := make(map[string]string)
@@ -93,7 +93,7 @@ func BanMenu(runForm runFormFunc, cfgMapContent []Menu) (map[string]string, erro
 
 		}
 
-		fmt.Printf("\nYour selection:\n")
+		ctx.Printlnf("\nYour selection:\n")
 		for kind, optionSelected := range answers {
 			fmt.Printf("- %s:\t%s\n", kind, optionSelected)
 		}
@@ -116,13 +116,7 @@ an interactive menu for selection. If the ConfigMap doesn't exist, the ban reaso
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
-			/*showForm := func(form *huh.Form) error {
-				if err := form.Run(); err != nil {
-					return fmt.Errorf("failed to show interactive menu: %w", err)
-				}
 
-				return nil
-			}*/
 			return Ban(ctx, func(form *huh.Form) error {
 				if err := form.Run(); err != nil {
 					return fmt.Errorf("failed to show interactive menu: %w", err)
@@ -136,9 +130,6 @@ an interactive menu for selection. If the ConfigMap doesn't exist, the ban reaso
 type runFormFunc func(form *huh.Form) error
 
 func Ban(ctx *clicontext.CommandContext, runForm runFormFunc, args ...string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("UserSignup name is required")
-	}
 
 	userSignupName := args[0]
 	var banReason string
@@ -149,7 +140,12 @@ func Ban(ctx *clicontext.CommandContext, runForm runFormFunc, args ...string) er
 	cfgMapContent, err := getValuesFromConfigMap(ctx)
 
 	if err != nil || len(cfgMapContent) == 0 {
-		fmt.Printf("failed to load reasons from ConfigMap: %s", err)
+		if err != nil {
+			ctx.Printlnf("failed to load reasons from ConfigMap %q: %s", configMapName, err)
+		} else {
+			ctx.Printlnf("the provided ConfigMap %q is empty", configMapName)
+		}
+
 		form := huh.NewForm(
 			huh.NewGroup(
 				huh.NewInput().
@@ -158,16 +154,16 @@ func Ban(ctx *clicontext.CommandContext, runForm runFormFunc, args ...string) er
 					Value(&banReason),
 			),
 		)
-		//err := runForm(form)
+
 		err := runForm(form)
 		if err != nil {
-			return fmt.Errorf("banning option could not be obtained: %w", err)
+			return fmt.Errorf("ban reason could not be obtained: %w", err)
 		}
 	} else {
 
 		ctx.Printlnf("Opening interactive menu...")
 
-		banInfo, err := BanMenu(runForm, cfgMapContent)
+		banInfo, err := BanMenu(ctx, runForm, cfgMapContent)
 		if err != nil {
 			return fmt.Errorf("failed to collect banning information: %w", err)
 		}
