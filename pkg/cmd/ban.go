@@ -53,7 +53,6 @@ func getValuesFromConfigMap(ctx *clicontext.CommandContext) ([]Menu, error) {
 
 	var menus []Menu
 	if menuJSON, exists := configMap.Data[menuKey]; exists && menuJSON != "" {
-		//var menus []Menu
 		if err := json.Unmarshal([]byte(menuJSON), &menus); err != nil {
 			return nil, fmt.Errorf("the %s key in the configmap doesn't contain a valid JSON format to render menus: %w", menuKey, err)
 		}
@@ -86,7 +85,7 @@ func BanMenu(ctx *clicontext.CommandContext, runForm runFormFunc, cfgMapContent 
 			)
 
 			if err := runForm(form); err != nil {
-				return nil, err //fmt.Errorf("failed to show interactive menu: %w", err)
+				return nil, err
 			}
 
 			answers[item.Kind] = choice
@@ -95,12 +94,10 @@ func BanMenu(ctx *clicontext.CommandContext, runForm runFormFunc, cfgMapContent 
 
 		ctx.Printlnf("\nYour selection:\n")
 		for kind, optionSelected := range answers {
-			fmt.Printf("- %s:\t%s\n", kind, optionSelected)
+			ctx.Printlnf("- %s:\t%s\n", kind, optionSelected)
 		}
 
 	}
-
-	//return answers, nil
 	return answers, nil
 
 }

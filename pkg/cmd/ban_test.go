@@ -312,15 +312,6 @@ func TestBanConfigMapProcessing(t *testing.T) {
 	t.Run("empty ConfigMap content", func(t *testing.T) {
 		// given
 		userSignup := NewUserSignup()
-		/*		emptyConfigMap := &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "ban-reason-config",
-					Namespace: test.HostOperatorNs,
-				},
-				Data: map[string]string{
-					"menu.json": "[]", // Empty array
-				},
-			}*/
 		emptyConfigMap := newBanReasonConfigMap("menu.json", "[]") // Empty array
 		newClient, fakeClient := NewFakeClients(t, userSignup, emptyConfigMap)
 		SetFileConfig(t, Host())
@@ -331,7 +322,6 @@ func TestBanConfigMapProcessing(t *testing.T) {
 		err := cmd.Ban(ctx, func(form *huh.Form) error {
 			form.Init()
 			form.Update(banReasonInput)
-			//	form.View()
 			return nil
 		}, userSignup.Name)
 
@@ -344,15 +334,6 @@ func TestBanConfigMapProcessing(t *testing.T) {
 	t.Run("ConfigMap with no menu.json key falls back to manual input", func(t *testing.T) {
 		// given
 		userSignup := NewUserSignup()
-		/*configMapWithoutMenu := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ban-reason-config",
-				Namespace: test.HostOperatorNs,
-			},
-			Data: map[string]string{
-				"other-key": "some-value", // No menu.json key
-			},
-		}*/
 		configMapWithoutMenu := newBanReasonConfigMap("other-key", "some-value") // No Menu.json key
 		newClient, fakeClient := NewFakeClients(t, userSignup, configMapWithoutMenu)
 		SetFileConfig(t, Host())
@@ -374,15 +355,6 @@ func TestBanConfigMapProcessing(t *testing.T) {
 	t.Run("invalid JSON in ConfigMap falls back to manual input", func(t *testing.T) {
 		// given
 		userSignup := NewUserSignup()
-		/*configMapWithBadJSON := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ban-reason-config",
-				Namespace: test.HostOperatorNs,
-			},
-			Data: map[string]string{
-				"menu.json": "[{invalid json", // Malformed JSON
-			},
-		} */
 		configMapWithBadJSON := newBanReasonConfigMap("menu.json", "[{invalid json}")
 		newClient, fakeClient := NewFakeClients(t, userSignup, configMapWithBadJSON)
 		SetFileConfig(t, Host())
@@ -409,17 +381,6 @@ func TestBanWithValidConfigMap(t *testing.T) {
 
 		// given
 		userSignup := NewUserSignup()
-		/*validConfigMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ban-reason-config",
-				Namespace: test.HostOperatorNs,
-			},
-			Data: map[string]string{
-				"menu.json": `[{"kind":"workload","description":"Select workload","options":["container","vm"]},
-				{"kind":"behaviorClassification","description":"Select behavior","options":["crypto mining","ddos"]},
-				{"kind":"detectionMechanism","description":"How was this detected","options":["GD","WA"]}]`,
-			},
-		}*/
 		validConfigMap := newBanReasonConfigMap("menu.json", `[{"kind":"workload","description":"Select workload","options":["container","vm"]}, 
 				{"kind":"behaviorClassification","description":"Select behavior","options":["crypto mining","ddos"]},
 				{"kind":"detectionMechanism","description":"How was this detected","options":["GD","WA"]}]`)
