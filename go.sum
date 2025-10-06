@@ -34,10 +34,8 @@ github.com/charmbracelet/log v0.4.0/go.mod h1:63bXt/djrizTec0l11H20t8FDSvA4CRZJ1
 github.com/cloudflare/circl v1.1.0/go.mod h1:prBCrKB9DV4poKZY1l9zBXg2QJY7mvgRvtMxxK7fi4I=
 github.com/cloudflare/circl v1.6.1 h1:zqIqSPIndyBh1bjLVVDHMPpVKqp8Su/V+6MeDzzQBQ0=
 github.com/cloudflare/circl v1.6.1/go.mod h1:uddAzsPgqdMAYatqJ0lsjX1oECcQLIlRpzZh3pJrofs=
-github.com/codeready-toolchain/api v0.0.0-20250916082953-4ecb3a4645e6 h1:3Z1nQ7CjBCphWyGkEUCSMrd4VfuxzOVYyEi9/7FjLPs=
-github.com/codeready-toolchain/api v0.0.0-20250916082953-4ecb3a4645e6/go.mod h1:TiQ/yNv3cGL4nxo3fgRtcHyYYuRf+nAgs6B1IAqvxOU=
-github.com/codeready-toolchain/toolchain-common v0.0.0-20250916085517-b50328535b99 h1:SsnXrGSvi7wMPbYmfXSWi5MCDLCsNovImaR5dahkX/k=
-github.com/codeready-toolchain/toolchain-common v0.0.0-20250916085517-b50328535b99/go.mod h1:okjVzS+73Z1nOjq0IUP1db0y2SY1fDq/nb3/t7zJLlE=
+github.com/codeready-toolchain/toolchain-common v0.0.0-20251006132314-2591ebe0bdb1 h1:jqs4yOuJbfW3CKe1EMJkkDo47wTKQ4M1OKox4DYWsKg=
+github.com/codeready-toolchain/toolchain-common v0.0.0-20251006132314-2591ebe0bdb1/go.mod h1:eySMK8JR/Py9eoUJlAkOXqvfPp1vjl39scgrECr99XM=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/creack/pty v1.1.18 h1:n56/Zwd5o6whRC5PMGretI4IdRLlmBXYNjScPaBgsbY=
 github.com/creack/pty v1.1.18/go.mod h1:MOBLtS5ELjhRRrroQr9kyvTxUAFNvYEK993ew/Vr4O4=
@@ -55,6 +53,8 @@ github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f h1:Wl78ApPPB2
 github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f/go.mod h1:OSYXu++VVOHnXeitef/D8n/6y4QV8uLHSFXX4NeXMGc=
 github.com/fatih/camelcase v1.0.0 h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8=
 github.com/fatih/camelcase v1.0.0/go.mod h1:yN2Sb0lFhZJUdVvtELVWefmrXpuZESvPmqwoZc+/fpc=
+github.com/fbm3307/toolchainapi v0.0.0-20251006141716-2be085acfe3e h1:rARVoGmvNigxhZrKK23wKHO26lTkSGDSiiKbmGy2HmY=
+github.com/fbm3307/toolchainapi v0.0.0-20251006141716-2be085acfe3e/go.mod h1:TiQ/yNv3cGL4nxo3fgRtcHyYYuRf+nAgs6B1IAqvxOU=
 github.com/fsnotify/fsnotify v1.7.0 h1:8JEhPFa5W2WU7YfeZzPNqzMP6Lwt7L2715Ggo0nosvA=
 github.com/fsnotify/fsnotify v1.7.0/go.mod h1:40Bi/Hjc2AVfZrqy+aj+yEI+/bRxZnMJyTJwOpGvigM=
 github.com/fxamacker/cbor/v2 v2.7.0 h1:iM5WgngdRBanHcxugY4JySA0nk1wZorNOpTgCMedv5E=
