@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.12
 
 require (
-	github.com/codeready-toolchain/api v0.0.0-20250916082953-4ecb3a4645e6
+	github.com/codeready-toolchain/api v0.0.0-20251008084914-06282b83d4cd
 	github.com/codeready-toolchain/toolchain-common v0.0.0-20251006132314-2591ebe0bdb1
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -140,5 +140,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
-
-replace github.com/codeready-toolchain/api => github.com/fbm3307/toolchainapi v0.0.0-20251006141716-2be085acfe3e
