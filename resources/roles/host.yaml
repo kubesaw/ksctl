@@ -132,6 +132,13 @@ objects:
     verbs:
     - "get"
     - "list"
+  - apiGroups: [""]
+    resources:
+    - "configmaps"
+    resourceNames:
+    - ban-reason-config
+    verbs:
+    - get
 
 
 - kind: Role
