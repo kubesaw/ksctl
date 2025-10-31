@@ -167,6 +167,8 @@ func writeFile(filePath string, content []byte) error {
 	// https://github.com/kubernetes/kubernetes/issues/67610
 	contentString := emptyCreationTimestamp.ReplaceAllString(string(content), "")
 	contentString = strings.ReplaceAll(contentString, "\nuser: {}", "")
+	// marshalling sets the empty group to null, which is invalid value
+	contentString = strings.ReplaceAll(contentString, "\ngroups: null", "")
 	// This will only apply to konflux tier template that start with metadata = {}
 	contentString = strings.ReplaceAll(contentString, "metadata:\n    objects:", "metadata: {}\n    objects:")
 	contentString = fmt.Sprintf("%s%s", header, contentString)
