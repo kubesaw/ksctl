@@ -28,29 +28,12 @@ var banReasonInput = input('b', 'a', 'n', ' ', 'r', 'e', 'a', 's', 'o', 'n')
 func TestBanCmdWhenAnswerIsY(t *testing.T) {
 	// given
 	userSignup := NewUserSignup()
-	newClient, fakeClient := NewFakeClients(t, userSignup)
 	SetFileConfig(t, Host())
 	term := NewFakeTerminalWithResponse("y")
-	ctx := clicontext.NewCommandContext(term, newClient)
 
-	// when
-	err := cmd.Ban(ctx, func(form *huh.Form) error {
-		form.Init()
-		form.Update(banReasonInput)
-		return nil
-	}, userSignup.Name)
-
-	// then
-	require.NoError(t, err)
-	AssertBannedUser(t, fakeClient, userSignup, false, banReason)
-	assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
-	assert.Contains(t, term.Output(), "Are you sure that you want to ban the user with the UserSignup by creating BannedUser resource that are both above?")
-	assert.Contains(t, term.Output(), "UserSignup has been banned")
-	assert.NotContains(t, term.Output(), "cool-token")
-
-	t.Run("don't ban twice", func(t *testing.T) {
+	t.Run("with interactive input", func(t *testing.T) {
 		// given
-		term := NewFakeTerminalWithResponse("y")
+		newClient, fakeClient := NewFakeClients(t, userSignup)
 		ctx := clicontext.NewCommandContext(term, newClient)
 
 		// when
@@ -58,13 +41,52 @@ func TestBanCmdWhenAnswerIsY(t *testing.T) {
 			form.Init()
 			form.Update(banReasonInput)
 			return nil
-		}, userSignup.Name)
+		}, userSignup.Name, "")
 
 		// then
 		require.NoError(t, err)
 		AssertBannedUser(t, fakeClient, userSignup, false, banReason)
-		assert.NotContains(t, term.Output(), "!!!  DANGER ZONE  !!!")
-		assert.Contains(t, term.Output(), "The user was already banned - there is a BannedUser resource with the same labels already present")
+		assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
+		assert.Contains(t, term.Output(), "Are you sure that you want to ban the user with the UserSignup by creating BannedUser resource that are both above?")
+		assert.Contains(t, term.Output(), "UserSignup has been banned")
+		assert.NotContains(t, term.Output(), "cool-token")
+
+		t.Run("don't ban twice", func(t *testing.T) {
+			// given
+			term := NewFakeTerminalWithResponse("y")
+			ctx := clicontext.NewCommandContext(term, newClient)
+
+			// when
+			err := cmd.Ban(ctx, func(form *huh.Form) error {
+				form.Init()
+				form.Update(banReasonInput)
+				return nil
+			}, userSignup.Name, "")
+
+			// then
+			require.NoError(t, err)
+			AssertBannedUser(t, fakeClient, userSignup, false, banReason)
+			assert.NotContains(t, term.Output(), "!!!  DANGER ZONE  !!!")
+			assert.Contains(t, term.Output(), "The user was already banned - there is a BannedUser resource with the same labels already present")
+		})
+	})
+	t.Run("with --reason flag", func(t *testing.T) {
+		// given
+		newClient, fakeClient := NewFakeClients(t, userSignup)
+		ctx := clicontext.NewCommandContext(term, newClient)
+
+		// when
+		err := cmd.Ban(ctx, func(form *huh.Form) error {
+			return errors.New("shouldn't be called")
+		}, userSignup.Name, "some cool dummy reason")
+
+		// then
+		require.NoError(t, err)
+		AssertBannedUser(t, fakeClient, userSignup, false, "some cool dummy reason")
+		assert.Contains(t, term.Output(), "!!!  DANGER ZONE  !!!")
+		assert.Contains(t, term.Output(), "Are you sure that you want to ban the user with the UserSignup by creating BannedUser resource that are both above?")
+		assert.Contains(t, term.Output(), "UserSignup has been banned")
+		assert.NotContains(t, term.Output(), "cool-token")
 	})
 }
 
@@ -88,7 +110,7 @@ func TestBanCmdWhenAnswerIsN(t *testing.T) {
 		form.Init()
 		form.Update(banReasonInput)
 		return nil
-	}, userSignup.Name)
+	}, userSignup.Name, "")
 
 	// then
 	require.NoError(t, err)
@@ -112,7 +134,7 @@ func TestBanCmdWhenNotFound(t *testing.T) {
 		form.Init()
 		form.Update(banReasonInput)
 		return nil
-	}, "some")
+	}, "some", "")
 
 	// then
 	require.EqualError(t, err, "usersignups.toolchain.dev.openshift.com \"some\" not found")
@@ -323,7 +345,7 @@ func TestBanConfigMapProcessing(t *testing.T) {
 			form.Init()
 			form.Update(banReasonInput)
 			return nil
-		}, userSignup.Name)
+		}, userSignup.Name, "")
 
 		// then
 		require.NoError(t, err)
@@ -345,7 +367,7 @@ func TestBanConfigMapProcessing(t *testing.T) {
 			form.Init()
 			form.Update(banReasonInput)
 			return nil
-		}, userSignup.Name)
+		}, userSignup.Name, "")
 
 		// then
 		require.NoError(t, err)
@@ -366,7 +388,7 @@ func TestBanConfigMapProcessing(t *testing.T) {
 			form.Init()
 			form.Update(banReasonInput)
 			return nil
-		}, userSignup.Name)
+		}, userSignup.Name, "")
 
 		// then - should succeed and fall back to manual input
 		require.NoError(t, err)
@@ -395,7 +417,7 @@ func TestBanWithValidConfigMap(t *testing.T) {
 			form.Update(tea.KeyMsg{Type: tea.KeyDown})
 			form.Update(tea.KeyMsg{Type: tea.KeyEnter})
 			return nil
-		}, userSignup.Name)
+		}, userSignup.Name, "")
 
 		// then
 		require.NoError(t, err)

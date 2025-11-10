@@ -103,7 +103,8 @@ func BanMenu(ctx *clicontext.CommandContext, runForm runFormFunc, cfgMapContent 
 }
 
 func NewBanCmd() *cobra.Command {
-	return &cobra.Command{
+	var reason string
+	command := &cobra.Command{
 		Use:   "ban <usersignup-name>",
 		Short: "Ban a user for the given UserSignup resource and reason of the ban",
 		Long: `Ban the given UserSignup resource. The parameter is the name of the UserSignup to be banned.
@@ -119,59 +120,60 @@ an interactive menu for selection. If the ConfigMap doesn't exist, the ban reaso
 					return fmt.Errorf("failed to show interactive menu: %w", err)
 				}
 				return nil
-			}, args...)
+			}, args[0], reason)
 		},
 	}
+	command.Flags().StringVarP(&reason, "reason", "r", "", "the reason for banning the user")
+	return command
 }
 
 type runFormFunc func(form *huh.Form) error
 
-func Ban(ctx *clicontext.CommandContext, runForm runFormFunc, args ...string) error {
+func Ban(ctx *clicontext.CommandContext, runForm runFormFunc, userSignupName, banReason string) error {
 
-	userSignupName := args[0]
-	var banReason string
+	if banReason == "" {
+		// Interactive mode: usersignup name provided, need to get reason from ConfigMap menu
+		ctx.Printlnf("Checking for available reasons from ConfigMap...")
 
-	// Interactive mode: usersignup name provided, need to get reason from ConfigMap menu
-	ctx.Printlnf("Checking for available reasons from ConfigMap...")
+		cfgMapContent, err := getValuesFromConfigMap(ctx)
 
-	cfgMapContent, err := getValuesFromConfigMap(ctx)
+		if err != nil || len(cfgMapContent) == 0 {
+			if err != nil {
+				ctx.Printlnf("failed to load reasons from ConfigMap %q: %s", configMapName, err)
+			} else {
+				ctx.Printlnf("the provided ConfigMap %q is empty", configMapName)
+			}
 
-	if err != nil || len(cfgMapContent) == 0 {
-		if err != nil {
-			ctx.Printlnf("failed to load reasons from ConfigMap %q: %s", configMapName, err)
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Enter banning reason:").
+						Prompt("> ").
+						Value(&banReason),
+				),
+			)
+
+			err := runForm(form)
+			if err != nil {
+				return fmt.Errorf("ban reason could not be obtained: %w", err)
+			}
 		} else {
-			ctx.Printlnf("the provided ConfigMap %q is empty", configMapName)
+
+			ctx.Printlnf("Opening interactive menu...")
+
+			banInfo, err := BanMenu(ctx, runForm, cfgMapContent)
+			if err != nil {
+				return fmt.Errorf("failed to collect banning information: %w", err)
+			}
+
+			banInfoJSON, err := json.Marshal(banInfo)
+
+			if err != nil {
+				return fmt.Errorf("error marshaling ban reasons to JSON: %w", err)
+			}
+
+			banReason = string(banInfoJSON)
 		}
-
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewInput().
-					Title("Enter banning reason:").
-					Prompt("> ").
-					Value(&banReason),
-			),
-		)
-
-		err := runForm(form)
-		if err != nil {
-			return fmt.Errorf("ban reason could not be obtained: %w", err)
-		}
-	} else {
-
-		ctx.Printlnf("Opening interactive menu...")
-
-		banInfo, err := BanMenu(ctx, runForm, cfgMapContent)
-		if err != nil {
-			return fmt.Errorf("failed to collect banning information: %w", err)
-		}
-
-		banInfoJSON, err := json.Marshal(banInfo)
-
-		if err != nil {
-			return fmt.Errorf("error marshaling ban reasons to JSON: %w", err)
-		}
-
-		banReason = string(banInfoJSON)
 	}
 
 	return CreateBannedUser(ctx, userSignupName, banReason, func(userSignup *toolchainv1alpha1.UserSignup, bannedUser *toolchainv1alpha1.BannedUser) (bool, error) {
