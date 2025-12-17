@@ -157,6 +157,6 @@ require (
 )
 
 replace (
-	github.com/codeready-toolchain/api => github.com/rsoaresd/api v0.0.0-20251217161230-6834c424aeb8
-	github.com/codeready-toolchain/toolchain-common => github.com/rsoaresd/toolchain-common v0.0.0-20251217163624-ad1edfab055e
+	github.com/codeready-toolchain/api => github.com/rsoaresd/api v0.0.0-20251217181659-99c33cce84d0
+	github.com/codeready-toolchain/toolchain-common => github.com/rsoaresd/toolchain-common v0.0.0-20251217181906-1b70d2afca0e
 )
