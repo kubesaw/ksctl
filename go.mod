@@ -5,8 +5,8 @@ go 1.24.4
 toolchain go1.24.11
 
 require (
-	github.com/codeready-toolchain/api v0.0.0-20251008084914-06282b83d4cd
-	github.com/codeready-toolchain/toolchain-common v0.0.0-20251006132314-2591ebe0bdb1
+	github.com/codeready-toolchain/api v0.0.0-20260108101803-54d23a1b4f3c
+	github.com/codeready-toolchain/toolchain-common v0.0.0-20260108104612-94ad63d02d50
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	// using latest commit from 'github.com/openshift/api branch release-4.20'
@@ -154,9 +154,4 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
-)
-
-replace (
-	github.com/codeready-toolchain/api => github.com/rsoaresd/api v0.0.0-20251217181659-99c33cce84d0
-	github.com/codeready-toolchain/toolchain-common => github.com/rsoaresd/toolchain-common v0.0.0-20251217181906-1b70d2afca0e
 )
