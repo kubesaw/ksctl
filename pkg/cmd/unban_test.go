@@ -81,7 +81,6 @@ func TestUnban(t *testing.T) {
  BannedUser resource to be deleted
 ------------------------------------------------------------
 metadata:
-  creationTimestamp: null
   labels:
     toolchain.dev.openshift.com/email-hash: 937363c5c236cd323478d9167f7e0d6e
   name: asdf
