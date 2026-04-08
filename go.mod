@@ -24,7 +24,7 @@ require (
 	k8s.io/client-go v0.34.1
 	k8s.io/kubectl v0.34.1
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
-	sigs.k8s.io/controller-runtime v0.22.1
+	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/kustomize/api v0.20.1
 )
 
@@ -155,6 +155,6 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-replace github.com/codeready-toolchain/api => github.com/metlos/api v0.0.0-20260318102359-237e681a639a
+replace github.com/codeready-toolchain/api => github.com/metlos/api v0.0.0-20260327105121-b79d7632f264
 
 replace github.com/codeready-toolchain/toolchain-common => github.com/metlos/toolchain-common v0.0.0-20260407101204-7a27a3b307f9
