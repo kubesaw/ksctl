@@ -5,8 +5,8 @@ go 1.24.4
 toolchain go1.24.13
 
 require (
-	github.com/codeready-toolchain/api v0.0.0-20260108115150-4c6695ed18de
-	github.com/codeready-toolchain/toolchain-common v0.0.0-20260108130331-10ca562525fe
+	github.com/codeready-toolchain/api v0.0.0-20260623133516-6f421bfacf3d
+	github.com/codeready-toolchain/toolchain-common v0.0.0-20260622140402-2be93a7d7d76
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	// using latest commit from 'github.com/openshift/api branch release-4.20'
@@ -56,7 +56,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.2.3 // indirect
 	github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0 // indirect
 	github.com/charmbracelet/x/term v0.2.0 // indirect
-	github.com/cloudflare/circl v1.6.1 // indirect
+	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.2 // indirect
@@ -155,3 +155,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
+replace github.com/codeready-toolchain/toolchain-common => github.com/rajivnathan/toolchain-common v0.0.0-20260703174031-a902e112d93c
