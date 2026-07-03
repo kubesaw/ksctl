@@ -52,6 +52,8 @@ github.com/cloudflare/circl v1.6.3 h1:9GPOhQGF9MCYUeXyMYlqTR6a5gTrgR/fBLXvUgtVcg
 github.com/cloudflare/circl v1.6.3/go.mod h1:2eXP6Qfat4O/Yhh8BznvKnJ+uzEoTQ6jVKJRn81BiS4=
 github.com/codeready-toolchain/api v0.0.0-20260623133516-6f421bfacf3d h1:GvfFKaibrW5oLPnaPFG/pL3FmNDT4btKaTElc0vExQ4=
 github.com/codeready-toolchain/api v0.0.0-20260623133516-6f421bfacf3d/go.mod h1:PMg6kNHuCGNlu3MOdrCisqGkBpvzB0qS1+E6nrXxPAc=
+github.com/codeready-toolchain/toolchain-common v0.0.0-20260703174730-77f4484bb4f7 h1:cshwdxtH+QWZD8TFONHVrG19qT31GkSf68ZU4Txh1ag=
+github.com/codeready-toolchain/toolchain-common v0.0.0-20260703174730-77f4484bb4f7/go.mod h1:aYvTzEtTuw3O+kjWMMkH/1YgV4pgUPC3v3X2Li3ixlM=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/creack/pty v1.1.18 h1:n56/Zwd5o6whRC5PMGretI4IdRLlmBXYNjScPaBgsbY=
 github.com/creack/pty v1.1.18/go.mod h1:MOBLtS5ELjhRRrroQr9kyvTxUAFNvYEK993ew/Vr4O4=
@@ -235,8 +237,6 @@ github.com/prometheus/common v0.65.0 h1:QDwzd+G1twt//Kwj/Ww6E9FQq1iVMmODnILtW1t2
 github.com/prometheus/common v0.65.0/go.mod h1:0gZns+BLRQ3V6NdaerOhMbwwRbNh9hkGINtQAsP5GS8=
 github.com/prometheus/procfs v0.16.1 h1:hZ15bTNuirocR6u0JZ6BAHHmwS1p8B4P6MRqxtzMyRg=
 github.com/prometheus/procfs v0.16.1/go.mod h1:teAbpZRB1iIAJYREa1LsoWUXykVXA1KlTmWl8x/U+Is=
-github.com/rajivnathan/toolchain-common v0.0.0-20260703174031-a902e112d93c h1:fg7P5SJshlbAKqkXWsUZivQNmlzXFHMiaRDaWLnp/8E=
-github.com/rajivnathan/toolchain-common v0.0.0-20260703174031-a902e112d93c/go.mod h1:aYvTzEtTuw3O+kjWMMkH/1YgV4pgUPC3v3X2Li3ixlM=
 github.com/redhat-cop/operator-utils v1.3.8 h1:xhoMBg2snSzNdcxT53lSBr7PRXxrzP1cDi51NPBLaT4=
 github.com/redhat-cop/operator-utils v1.3.8/go.mod h1:s4R0YY8lVlHkC78GLV20PPuZmywjSbTwZKCHwWUQ3P8=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
