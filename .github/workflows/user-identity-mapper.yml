@@ -46,7 +46,7 @@ jobs:
             cmd/user-identity-mapper/Dockerfile
 
       - name: Log into quay.io
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@v2
         with:
           registry: ${{ env.IMAGE_REGISTRY }}
           username: ${{ env.REGISTRY_USER }}
