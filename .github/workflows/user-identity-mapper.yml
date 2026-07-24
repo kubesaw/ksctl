@@ -38,7 +38,7 @@ jobs:
 
       - name: Buildah Action
         id: build-image
-        uses: redhat-actions/buildah-build@v2
+        uses: redhat-actions/buildah-build@v3
         with:
           image: codeready-toolchain/user-identity-mapper
           tags: latest
