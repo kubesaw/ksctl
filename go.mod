@@ -28,6 +28,8 @@ require (
 	sigs.k8s.io/kustomize/api v0.19.0
 )
 
+replace github.com/codeready-toolchain/toolchain-common => github.com/xcoulon/toolchain-common v0.0.0-20260803142641-2756b24ebace
+
 require (
 	github.com/charmbracelet/bubbletea v1.1.0
 	github.com/charmbracelet/huh v0.6.0

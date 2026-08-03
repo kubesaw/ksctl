@@ -46,14 +46,19 @@ func NSTemplateTiers(term ioutils.Terminal, source, outDir, hostNs string) error
 
 	metadata := map[string]string{}
 	templates := map[string][]byte{}
-	err := filepath.Walk(source, func(path string, info fs.FileInfo, err error) error {
+	root, err := os.OpenRoot(source)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	err = fs.WalkDir(root.FS(), ".", func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if info.IsDir() {
 			return nil
 		}
-		file, err := os.ReadFile(path)
+		file, err := fs.ReadFile(root.FS(), path)
 		if err != nil {
 			return err
 		}
