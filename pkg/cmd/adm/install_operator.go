@@ -44,7 +44,7 @@ func NewInstallOperatorCmd() *cobra.Command {
 				return err
 			}
 
-			cl := commonclient.NewSSAApplyClient(kubeClient, utils.KsctlFieldManager)
+			cl := commonclient.NewServerSideApplyClient(kubeClient, utils.KsctlFieldManager)
 			ctx := clicontext.NewTerminalContext(term)
 			return installOperator(ctx, commandArgs, args[0], cl)
 		},
@@ -57,7 +57,7 @@ func NewInstallOperatorCmd() *cobra.Command {
 	return cmd
 }
 
-func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator string, applyClient *commonclient.SSAApplyClient) error {
+func installOperator(ctx *clicontext.TerminalContext, args installArgs, operator string, applyClient *commonclient.ServerSideApplyClient) error {
 	// validate cluster type
 	if operator != string(configuration.Host) && operator != string(configuration.Member) {
 		return fmt.Errorf("invalid operator type provided: %s. Valid ones are %s|%s", operator, configuration.Host, configuration.Member)
@@ -136,7 +136,7 @@ func getOperatorName(operator string) string {
 	return fmt.Sprintf("toolchain-%s-operator", operator)
 }
 
-func createNamespaceIfNotFound(ctx *clicontext.TerminalContext, applyClient *commonclient.SSAApplyClient, namespace string) error {
+func createNamespaceIfNotFound(ctx *clicontext.TerminalContext, applyClient *commonclient.ServerSideApplyClient, namespace string) error {
 	ns := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
