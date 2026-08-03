@@ -212,6 +212,9 @@ func verifyTierFiles(t *testing.T, outTempDir, sourceDir, updatedTier string, ol
 func copyTemplates(t *testing.T, destination, tierToUpdate string) {
 	sourceDir, err := filepath.Abs("../../../test-resources/nstemplatetiers/")
 	require.NoError(t, err)
+	root, err := os.OpenRoot(sourceDir)
+	require.NoError(t, err)
+	defer root.Close()
 	err = filepath.WalkDir(sourceDir, func(path string, dirEntry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -221,7 +224,7 @@ func copyTemplates(t *testing.T, destination, tierToUpdate string) {
 		if dirEntry.IsDir() {
 			return os.MkdirAll(newPath, 0744)
 		}
-		file, err := os.ReadFile(path)
+		file, err := fs.ReadFile(root.FS(), path)
 		if err != nil {
 			return err
 		}
