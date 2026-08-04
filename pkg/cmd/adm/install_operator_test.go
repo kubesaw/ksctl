@@ -65,7 +65,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, args, operator, commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager))
+			err := installOperator(ctx, args, operator, commonclient.NewServerSideApplyClient(fakeClient, utils.KsctlFieldManager))
 
 			// then
 			require.NoError(t, err)
@@ -100,7 +100,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, args, operator, commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager))
+			err := installOperator(ctx, args, operator, commonclient.NewServerSideApplyClient(fakeClient, utils.KsctlFieldManager))
 
 			// then
 			require.ErrorContains(t, err, "failed waiting for catalog source to be ready.")
@@ -120,7 +120,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, args, operator, commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager))
+			err := installOperator(ctx, args, operator, commonclient.NewServerSideApplyClient(fakeClient, utils.KsctlFieldManager))
 
 			// then
 			require.ErrorContains(t, err, "failed waiting for install plan to be complete.")
@@ -140,7 +140,7 @@ func TestInstallOperator(t *testing.T) {
 			// when
 			err := installOperator(ctx, installArgs{namespace: namespace, waitForReadyTimeout: 1 * time.Second},
 				operator,
-				commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager),
+				commonclient.NewServerSideApplyClient(fakeClient, utils.KsctlFieldManager),
 			)
 
 			// then
@@ -158,7 +158,7 @@ func TestInstallOperator(t *testing.T) {
 			ctx := clicontext.NewTerminalContext(term)
 
 			// when
-			err := installOperator(ctx, args, operator, commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager))
+			err := installOperator(ctx, args, operator, commonclient.NewServerSideApplyClient(fakeClient, utils.KsctlFieldManager))
 
 			// then
 			require.NoError(t, err)
@@ -177,7 +177,7 @@ func TestInstallOperator(t *testing.T) {
 			// when
 			err := installOperator(ctx, installArgs{namespace: "", kubeConfig: kubeconfig, waitForReadyTimeout: timeout}, // we provide no namespace
 				operator,
-				commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager),
+				commonclient.NewServerSideApplyClient(fakeClient, utils.KsctlFieldManager),
 			)
 			// then
 			require.NoError(t, err)
@@ -195,7 +195,7 @@ func TestInstallOperator(t *testing.T) {
 		// when
 		err := installOperator(ctx, installArgs{},
 			"INVALIDOPERATOR",
-			commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager),
+			commonclient.NewServerSideApplyClient(fakeClient, utils.KsctlFieldManager),
 		)
 
 		// then
@@ -212,7 +212,7 @@ func TestInstallOperator(t *testing.T) {
 		operator := "host"
 		err := installOperator(ctx, installArgs{namespace: "toolchain-host-operator", waitForReadyTimeout: time.Second * 1},
 			operator,
-			commonclient.NewSSAApplyClient(fakeClient, utils.KsctlFieldManager),
+			commonclient.NewServerSideApplyClient(fakeClient, utils.KsctlFieldManager),
 		)
 
 		// then

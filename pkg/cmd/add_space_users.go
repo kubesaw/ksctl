@@ -72,7 +72,7 @@ func AddSpaceUsers(ctx *clicontext.CommandContext, spaceName, role string, users
 	validRolesMsg.WriteString("the following are valid roles:\n")
 
 	for actual := range nsTemplTier.Spec.SpaceRoles {
-		validRolesMsg.WriteString(fmt.Sprintf("%s\n", actual))
+		fmt.Fprintf(&validRolesMsg, "%s\n", actual)
 		if role == actual {
 			isRoleValid = true
 		}

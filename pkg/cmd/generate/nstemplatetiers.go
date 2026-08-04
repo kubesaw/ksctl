@@ -53,7 +53,7 @@ func NSTemplateTiers(term ioutils.Terminal, source, outDir, hostNs string) error
 		if info.IsDir() {
 			return nil
 		}
-		file, err := os.ReadFile(path)
+		file, err := os.ReadFile(path) //nolint:gosec
 		if err != nil {
 			return err
 		}

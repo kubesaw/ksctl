@@ -6,7 +6,7 @@ toolchain go1.24.13
 
 require (
 	github.com/codeready-toolchain/api v0.0.0-20260731065234-734640c901d2
-	github.com/codeready-toolchain/toolchain-common v0.0.0-20260731071123-c63091456f4a
+	github.com/codeready-toolchain/toolchain-common v0.0.0-20260804130313-0d4161d82454
 	github.com/ghodss/yaml v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	// using latest commit from 'github.com/openshift/api branch release-4.20'

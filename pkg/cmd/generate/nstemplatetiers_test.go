@@ -221,7 +221,7 @@ func copyTemplates(t *testing.T, destination, tierToUpdate string) {
 		if dirEntry.IsDir() {
 			return os.MkdirAll(newPath, 0744)
 		}
-		file, err := os.ReadFile(path)
+		file, err := os.ReadFile(path) //nolint:gosec
 		if err != nil {
 			return err
 		}
@@ -230,7 +230,7 @@ func copyTemplates(t *testing.T, destination, tierToUpdate string) {
   annotations:
     modified-by: "test"`, 1))
 		}
-		return os.WriteFile(newPath, file, 0600)
+		return os.WriteFile(newPath, file, 0600) //nolint:gosec
 	})
 	require.NoError(t, err)
 }
