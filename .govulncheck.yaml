@@ -18,8 +18,8 @@ ignored-vulnerabilities:
     silence-until: 2026-09-03
     info: https://pkg.go.dev/vuln/GO-2026-4870
   # Infinite loop in HTTP/2 transport when given bad SETTINGS_MAX_FRAME_SIZE in net/http/internal/http2 in golang.org/x/net
-  # Found in: net/http@go1.24.13
-  # Fixed in: net/http@go1.25.10
+  # Found in: golang.org/x/net/http2@v0.47.0
+  # Fixed in: golang.org/x/net/http2@v0.53.0
   - id: GO-2026-4918
     silence-until: 2026-09-03
     info: https://pkg.go.dev/vuln/GO-2026-4918
@@ -35,6 +35,12 @@ ignored-vulnerabilities:
   - id: GO-2026-4947
     silence-until: 2026-09-03
     info: https://pkg.go.dev/vuln/GO-2026-4947
+  # Root escape via symlink plus trailing slash in os
+  # Found in: os@go1.24.13
+  # Fixed in: os@go1.25.12
+  - id: GO-2026-4970
+    silence-until: 2026-09-03
+    info: https://pkg.go.dev/vuln/GO-2026-4970
   # Panic in Dial and LookupPort when handling NUL byte on Windows in net
   # Found in: net@go1.24.13
   # Fixed in: net@go1.25.10
