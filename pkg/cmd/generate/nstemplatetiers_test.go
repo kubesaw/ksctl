@@ -2,6 +2,7 @@ package generate
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -104,7 +105,7 @@ func TestGenerateNSTemplateTiers(t *testing.T) {
 
 		// then
 		require.Error(t, err)
-		assert.Equal(t, "lstat /does/not/exist: no such file or directory", err.Error()) // error occurred while creating TierTemplate resources
+		assert.Equal(t, "open /does/not/exist: no such file or directory", err.Error()) // error occurred while opening the root directory
 	})
 
 	t.Run("failed to process wrong files", func(t *testing.T) {
@@ -215,20 +216,24 @@ func copyTemplates(t *testing.T, destination, tierToUpdate string) {
 	root, err := os.OpenRoot(sourceDir)
 	require.NoError(t, err)
 	defer root.Close()
-	err = filepath.WalkDir(sourceDir, func(path string, dirEntry fs.DirEntry, err error) error {
+	err = fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		suffix, _ := strings.CutPrefix(path, sourceDir)
-		newPath := filepath.Join(destination, suffix)
-		if dirEntry.IsDir() {
+		newPath := filepath.Join(destination, path)
+		if d.IsDir() {
 			return os.MkdirAll(newPath, 0744)
 		}
-		file, err := fs.ReadFile(root.FS(), path)
+		f, err := root.Open(path)
 		if err != nil {
 			return err
 		}
-		if tierToUpdate != "" && strings.Contains(path, tierToUpdate+string(filepath.Separator)) && filepath.Base(path) != "tier.yaml" {
+		defer f.Close()
+		file, err := io.ReadAll(f)
+		if err != nil {
+			return err
+		}
+		if tierToUpdate != "" && strings.Contains(path, tierToUpdate+"/") && filepath.Base(path) != "tier.yaml" {
 			file = []byte(strings.Replace(string(file), "metadata:", `metadata:
   annotations:
     modified-by: "test"`, 1))

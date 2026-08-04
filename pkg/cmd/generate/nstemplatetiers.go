@@ -3,6 +3,7 @@ package generate
 import (
 	"fmt"
 	"hash/crc32"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -44,25 +45,31 @@ func NSTemplateTiers(term ioutils.Terminal, source, outDir, hostNs string) error
 		return err
 	}
 
-	metadata := map[string]string{}
-	templates := map[string][]byte{}
 	root, err := os.OpenRoot(source)
 	if err != nil {
 		return err
 	}
 	defer root.Close()
-	err = fs.WalkDir(root.FS(), ".", func(path string, info fs.DirEntry, err error) error {
+
+	metadata := map[string]string{}
+	templates := map[string][]byte{}
+	err = fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() {
+		if d.IsDir() {
 			return nil
 		}
-		file, err := fs.ReadFile(root.FS(), path)
+		f, err := root.Open(path)
 		if err != nil {
 			return err
 		}
-		tmplPath := filepath.Join(filepath.Base(filepath.Dir(path)), info.Name())
+		defer f.Close()
+		file, err := io.ReadAll(f)
+		if err != nil {
+			return err
+		}
+		tmplPath := filepath.Join(filepath.Base(filepath.Dir(path)), d.Name())
 		templates[tmplPath] = file
 		checksum := crc32.Checksum(file, crc32.IEEETable)
 		metadata[strings.TrimSuffix(tmplPath, ".yaml")] = fmt.Sprint(checksum)
