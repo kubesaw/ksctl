@@ -2,7 +2,6 @@ package generate
 
 import (
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -105,7 +104,7 @@ func TestGenerateNSTemplateTiers(t *testing.T) {
 
 		// then
 		require.Error(t, err)
-		assert.Equal(t, "open /does/not/exist: no such file or directory", err.Error()) // error occurred while opening the root directory
+		assert.Equal(t, "lstat /does/not/exist: no such file or directory", err.Error()) // error occurred while creating TierTemplate resources
 	})
 
 	t.Run("failed to process wrong files", func(t *testing.T) {
@@ -213,32 +212,25 @@ func verifyTierFiles(t *testing.T, outTempDir, sourceDir, updatedTier string, ol
 func copyTemplates(t *testing.T, destination, tierToUpdate string) {
 	sourceDir, err := filepath.Abs("../../../test-resources/nstemplatetiers/")
 	require.NoError(t, err)
-	root, err := os.OpenRoot(sourceDir)
-	require.NoError(t, err)
-	defer root.Close()
-	err = fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(sourceDir, func(path string, dirEntry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		newPath := filepath.Join(destination, path)
-		if d.IsDir() {
+		suffix, _ := strings.CutPrefix(path, sourceDir)
+		newPath := filepath.Join(destination, suffix)
+		if dirEntry.IsDir() {
 			return os.MkdirAll(newPath, 0744)
 		}
-		f, err := root.Open(path)
+		file, err := os.ReadFile(path) //nolint:gosec
 		if err != nil {
 			return err
 		}
-		defer f.Close()
-		file, err := io.ReadAll(f)
-		if err != nil {
-			return err
-		}
-		if tierToUpdate != "" && strings.Contains(path, tierToUpdate+"/") && filepath.Base(path) != "tier.yaml" {
+		if tierToUpdate != "" && strings.Contains(path, tierToUpdate+string(filepath.Separator)) && filepath.Base(path) != "tier.yaml" {
 			file = []byte(strings.Replace(string(file), "metadata:", `metadata:
   annotations:
     modified-by: "test"`, 1))
 		}
-		return os.WriteFile(newPath, file, 0600)
+		return os.WriteFile(newPath, file, 0600) //nolint:gosec
 	})
 	require.NoError(t, err)
 }
