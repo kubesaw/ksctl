@@ -6,7 +6,7 @@
 
 .PHONY: test
 ## runs the tests without coverage and excluding E2E tests
-test:
+test: build
 	@echo "running the tests without coverage and excluding E2E tests..."
 	$(Q)go test ${V_FLAG} -parallel 1 -failfast ./...
 
@@ -21,7 +21,7 @@ COV_DIR = out/coverage
 
 .PHONY: test-with-coverage
 ## runs the tests with coverage
-test-with-coverage:
+test-with-coverage: build
 	@echo "running the tests with coverage..."
 	@-mkdir -p $(COV_DIR)
 	@-rm $(COV_DIR)/coverage.txt
