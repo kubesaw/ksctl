@@ -22,9 +22,13 @@ jobs:
       uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        # The 'files' attribute consists of 'coverage/coverage.txt'.
-        # The 'coverage' directory is created upon the download of the coverage artifact from previous step (it creates a directory with the name of the artifact).
-        files: coverage/coverage.txt
+        # download-artifact extracts the named artifact at the workspace root.
+        files: coverage.txt
         flags: unittests # optional
         fail_ci_if_error: true
         verbose: true
+        # workflow_run uses the default-branch context; override so Codecov
+        # attributes the report to the tested PR/push commit instead of master.
+        override_commit: ${{ github.event.workflow_run.head_sha }}
+        override_branch: ${{ github.event.workflow_run.head_branch }}
+        override_pr: ${{ github.event.workflow_run.pull_requests[0].number }}
