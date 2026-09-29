@@ -20,7 +20,7 @@ func NewVerifyCmd() *cobra.Command {
 	var emailAddress string
 	command := &cobra.Command{
 		Use:   "verify <--email someone@example.com or --name someone>",
-		Short: "Mark the given UserSignup resource as now verified",
+		Short: "Mark the given UserSignup resource as verified",
 		Long: `Mark the given UserSignup resource as verified at this given point in time. 
 There is expected only one parameter which is the name of the UserSignup to be verified`,
 		Args: cobra.ExactArgs(0),
