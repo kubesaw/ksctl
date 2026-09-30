@@ -82,8 +82,20 @@ func TestRegisterMember(t *testing.T) {
 		t.Run("insecureSkipTlsVerify not specified", func(t *testing.T) {
 			args := testWithArgs(t, []string{"--host-kubeconfig=h", "--member-kubeconfig", "m"})
 			assert.Nil(t, args.skipTlsVerify)
+			assert.False(t, args.inCluster)
 			assert.Equal(t, "h", args.hostKubeConfig)
 			assert.Equal(t, "m", args.memberKubeConfig)
+		})
+
+		t.Run("in-cluster", func(t *testing.T) {
+			// given
+			cliArgs := []string{"--host-kubeconfig=h", "--member-kubeconfig", "m", "--in-cluster"}
+
+			// when
+			args := testWithArgs(t, cliArgs)
+
+			// then
+			assert.True(t, args.inCluster)
 		})
 
 		t.Run("insecureSkipTlsVerify false", func(t *testing.T) {
@@ -575,7 +587,7 @@ func TestCreateKubeConfig(t *testing.T) {
 			hostKubeconfigSecure.Clusters["host"].InsecureSkipTLSVerify = true
 
 			// when
-			config, err := generateKubeConfig("token", "ns", pointer.To(false), hostKubeconfigSecure)
+			config, err := generateKubeConfig("token", "ns", registerMemberArgs{skipTlsVerify: pointer.To(false)}, hostKubeconfigSecure)
 			require.NoError(t, err)
 
 			// then
@@ -587,7 +599,7 @@ func TestCreateKubeConfig(t *testing.T) {
 			hostKubeconfigSecure.Clusters["host"].InsecureSkipTLSVerify = false
 
 			// when
-			config, err := generateKubeConfig("token", "ns", pointer.To(true), hostKubeconfigSecure)
+			config, err := generateKubeConfig("token", "ns", registerMemberArgs{skipTlsVerify: pointer.To(true)}, hostKubeconfigSecure)
 			require.NoError(t, err)
 
 			// then
@@ -599,7 +611,7 @@ func TestCreateKubeConfig(t *testing.T) {
 			hostKubeconfigSecure.Clusters["host"].InsecureSkipTLSVerify = true
 
 			// when
-			config, err := generateKubeConfig("token", "ns", nil, hostKubeconfigSecure)
+			config, err := generateKubeConfig("token", "ns", registerMemberArgs{}, hostKubeconfigSecure)
 			require.NoError(t, err)
 
 			// then
@@ -611,12 +623,28 @@ func TestCreateKubeConfig(t *testing.T) {
 			hostKubeconfigSecure.Clusters["host"].InsecureSkipTLSVerify = false
 
 			// when
-			config, err := generateKubeConfig("token", "ns", nil, hostKubeconfigSecure)
+			config, err := generateKubeConfig("token", "ns", registerMemberArgs{}, hostKubeconfigSecure)
 			require.NoError(t, err)
 
 			// then
 			assert.False(t, config.Clusters["cluster"].InsecureSkipTLSVerify)
 		})
+	})
+
+	t.Run("in-cluster", func(t *testing.T) {
+		// given
+		kubeConfig := HostKubeConfig()
+		kubeConfig.Clusters["host"].ProxyURL = "http://proxy.example.com"
+
+		// when
+		config, err := generateKubeConfig("token", "ns", registerMemberArgs{inCluster: true}, kubeConfig)
+		require.NoError(t, err)
+
+		// then
+		generatedCluster := config.Clusters["cluster"]
+		assert.Equal(t, "https://kubernetes.default.svc", generatedCluster.Server)
+		assert.Equal(t, "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", generatedCluster.CertificateAuthority)
+		assert.Empty(t, generatedCluster.ProxyURL)
 	})
 
 	t.Run("other auth methods cleared", func(t *testing.T) {
@@ -646,7 +674,7 @@ func TestCreateKubeConfig(t *testing.T) {
 		kubeConfig.AuthInfos[kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo] = auth
 
 		// when
-		config, err := generateKubeConfig("token", "ns", nil, kubeConfig)
+		config, err := generateKubeConfig("token", "ns", registerMemberArgs{}, kubeConfig)
 		require.NoError(t, err)
 
 		// then
@@ -674,7 +702,7 @@ func TestCreateKubeConfig(t *testing.T) {
 		require.Equal(t, "toolchain-host-operator", kubeConfig.Contexts[kubeConfig.CurrentContext].Namespace)
 
 		// when
-		config, err := generateKubeConfig("token", "ns", nil, kubeConfig)
+		config, err := generateKubeConfig("token", "ns", registerMemberArgs{}, kubeConfig)
 		require.NoError(t, err)
 
 		// then
@@ -699,7 +727,7 @@ func TestCreateKubeConfig(t *testing.T) {
 		kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo = "auth"
 
 		// when
-		config, err := generateKubeConfig("token", "ns", nil, kubeConfig)
+		config, err := generateKubeConfig("token", "ns", registerMemberArgs{}, kubeConfig)
 		require.NoError(t, err)
 
 		// then
