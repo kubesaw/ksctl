@@ -63,6 +63,7 @@ type registerMemberArgs struct {
 	memberNamespace     string
 	nameSuffix          string
 	skipTlsVerify       *bool
+	inCluster           bool
 	waitForReadyTimeout time.Duration
 }
 
@@ -132,6 +133,7 @@ func newRegisterMemberCmd(exec func(*extendedCommandContext, registerMemberArgs,
 	cmd.Flags().StringVar(&commandArgs.nameSuffix, "name-suffix", defaultNameSuffix, "The suffix to append to the member name used when there are multiple members in a single cluster.")
 	cmd.Flags().StringVar(&commandArgs.hostNamespace, "host-ns", defaultHostNs, "The namespace of the host operator in the host cluster.")
 	cmd.Flags().StringVar(&commandArgs.memberNamespace, "member-ns", defaultMemberNs, "The namespace of the member operator in the member cluster.")
+	cmd.Flags().BoolVar(&commandArgs.inCluster, "in-cluster", false, "If true, the kubeconfig will use in-cluster configuration. Can be used only when host & member run in the same cluster.")
 	cmd.Flags().DurationVar(&commandArgs.waitForReadyTimeout, "timeout", defaultTimeout, "The max timeout used when waiting for each of the computations to be completed.")
 	return cmd
 }
@@ -201,7 +203,7 @@ func (v *registerMemberValidated) addCluster(ctx *extendedCommandContext, source
 		return err
 	}
 	// generate the kubeconfig that can be used by target cluster to interact with the source cluster
-	generatedKubeConfig, err := generateKubeConfig(token, sourceClusterDetails.namespace, v.args.skipTlsVerify, sourceClusterDetails.kubeConfig)
+	generatedKubeConfig, err := generateKubeConfig(token, sourceClusterDetails.namespace, v.args, sourceClusterDetails.kubeConfig)
 	if err != nil {
 		return err
 	}
@@ -283,7 +285,7 @@ func newRestClient(kubeConfigPath string) (*rest.RESTClient, error) {
 	return restClient, nil
 }
 
-func generateKubeConfig(token, namespace string, insecureSkipTLSVerify *bool, sourceKubeConfig *clientcmdapi.Config) (*clientcmdapi.Config, error) {
+func generateKubeConfig(token, namespace string, args registerMemberArgs, sourceKubeConfig *clientcmdapi.Config) (*clientcmdapi.Config, error) {
 	sourceContext, present := sourceKubeConfig.Contexts[sourceKubeConfig.CurrentContext]
 	if !present {
 		return nil, errors.New("invalid kubeconfig file: current context not present")
@@ -314,10 +316,17 @@ func generateKubeConfig(token, namespace string, insecureSkipTLSVerify *bool, so
 	targetCluster := clientcmdapi.NewCluster()
 	targetCluster.Server = sourceCluster.Server
 	targetCluster.ProxyURL = sourceCluster.ProxyURL
+
+	if args.inCluster {
+		targetCluster.Server = "https://kubernetes.default.svc"
+		targetCluster.CertificateAuthority = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+		targetCluster.ProxyURL = ""
+	}
+
 	// if there was an explicit value set for the insecureSkipTlsVerify, we use that instead of what's
 	// in the kubeconfig.
-	if insecureSkipTLSVerify != nil {
-		targetCluster.InsecureSkipTLSVerify = *insecureSkipTLSVerify
+	if args.skipTlsVerify != nil {
+		targetCluster.InsecureSkipTLSVerify = *args.skipTlsVerify
 	} else {
 		targetCluster.InsecureSkipTLSVerify = sourceCluster.InsecureSkipTLSVerify
 	}
