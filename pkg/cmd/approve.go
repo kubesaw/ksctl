@@ -28,7 +28,7 @@ func NewApproveCmd() *cobra.Command {
 		Use:   "approve <--email someone@example.com or --name someone>",
 		Short: "Approve/verify the given UserSignup resource",
 		Long: `Approve the given UserSignup resource. Mark as verified when UserSignup is in no-provisioning state.
-There is expected only one parameter which is the name of the UserSignup to be approved`,
+Specify the UserSignup to be approved/verified with either --name or --email flag.`,
 		Args: cobra.ExactArgs(0),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if usersignupName != "" && emailAddress != "" {
