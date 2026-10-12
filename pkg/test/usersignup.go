@@ -24,6 +24,7 @@ func NewUserSignup(modifiers ...UserSignupModifier) *toolchainv1alpha1.UserSignu
 				toolchainv1alpha1.UserSignupUserEmailHashLabelKey: "fd2addbd8d82f0d2dc088fa122377eaa",
 				toolchainv1alpha1.UserSignupUserPhoneHashLabelKey: "354365c1e4a37b74ed5b12fdeeno",
 			},
+			Annotations: map[string]string{},
 		},
 		Spec: toolchainv1alpha1.UserSignupSpec{
 			IdentityClaims: toolchainv1alpha1.IdentityClaimsEmbedded{
