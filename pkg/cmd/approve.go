@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"time"
 
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
 	"github.com/codeready-toolchain/toolchain-common/pkg/hash"
@@ -19,14 +20,15 @@ import (
 
 func NewApproveCmd() *cobra.Command {
 	var skipPhone bool
+	var provision bool
 	var usersignupName string
 	var emailAddress string
 	var targetCluster string
 	command := &cobra.Command{
 		Use:   "approve <--email someone@example.com or --name someone>",
-		Short: "Approve the given UserSignup resource",
-		Long: `Approve the given UserSignup resource. There is expected 
-only one parameter which is the name of the UserSignup to be approved`,
+		Short: "Approve/verify the given UserSignup resource",
+		Long: `Approve the given UserSignup resource. Mark as verified when UserSignup is in no-provisioning state.
+Specify the UserSignup to be approved/verified with either --name or --email flag.`,
 		Args: cobra.ExactArgs(0),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if usersignupName != "" && emailAddress != "" {
@@ -40,11 +42,12 @@ only one parameter which is the name of the UserSignup to be approved`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			term := ioutils.NewTerminal(cmd.InOrStdin, cmd.OutOrStdout)
 			ctx := clicontext.NewCommandContext(term, client.DefaultNewClient)
+			provision = provision || targetCluster != ""
 			switch {
 			case usersignupName != "":
-				return Approve(ctx, ByName(usersignupName), skipPhone, targetCluster)
+				return Approve(ctx, ByName(usersignupName), skipPhone, provision, targetCluster)
 			default:
-				return Approve(ctx, ByEmailAddress(emailAddress), skipPhone, targetCluster)
+				return Approve(ctx, ByEmailAddress(emailAddress), skipPhone, provision, targetCluster)
 			}
 		},
 	}
@@ -52,6 +55,7 @@ only one parameter which is the name of the UserSignup to be approved`,
 	command.Flags().StringVar(&emailAddress, "email", "", "the email address of the user")
 	command.Flags().BoolVarP(&skipPhone, "skip-phone-check", "s", false, "skip the phone hash label check")
 	command.Flags().StringVar(&targetCluster, "target-cluster", "", "the target cluster where the user should be provisioned")
+	command.Flags().BoolVarP(&provision, "provision", "p", false, "ensures that no-provisioning state is NOT set")
 	return command
 }
 
@@ -86,7 +90,7 @@ func ByEmailAddress(emailAddress string) LookupUserSignup {
 	}
 }
 
-func Approve(ctx *clicontext.CommandContext, lookupUserSignup LookupUserSignup, skipPhone bool, targetCluster string) error {
+func Approve(ctx *clicontext.CommandContext, lookupUserSignup LookupUserSignup, skipPhone, provision bool, targetCluster string) error {
 	cfg, err := configuration.LoadClusterConfig(ctx, configuration.HostName)
 	if err != nil {
 		return err
@@ -108,19 +112,31 @@ func Approve(ctx *clicontext.CommandContext, lookupUserSignup LookupUserSignup, 
 		return fmt.Errorf(`UserSignup "%s" is missing a phone hash label - the user may not have provided a phone number for verification. In most cases, the user should be asked to attempt the phone verification process. For exceptions, skip this check using the --skip-phone-check parameter`, userSignup.Name)
 	}
 
-	if err := ctx.PrintObject(userSignup, "UserSignup to be approved"); err != nil {
+	printObjMsg := "UserSignup to be approved"
+	confirmMsg := ioutils.WithMessagef("approve the UserSignup above?")
+	if states.NoProvisioning(userSignup) && !provision {
+		printObjMsg = "UserSignup to be marked as verified"
+		confirmMsg = ioutils.WithMessagef("mark the UserSignup as verified? It won't be provisioned.")
+	}
+
+	if err := ctx.PrintObject(userSignup, printObjMsg); err != nil {
 		return err
 	}
-	if !ctx.AskForConfirmation(ioutils.WithMessagef("approve the UserSignup above?")) {
+	if !ctx.AskForConfirmation(confirmMsg) {
 		return nil
 	}
-	states.SetVerificationRequired(userSignup, false)
-	states.SetDeactivated(userSignup, false)
-	states.SetApprovedManually(userSignup, true)
-	if targetCluster != "" {
-		userSignup.Spec.TargetCluster, err = configuration.GetMemberClusterName(ctx, targetCluster)
-		if err != nil {
-			return err
+
+	userSignup.Annotations[toolchainv1alpha1.UserSignupVerifiedTimestampAnnotationKey] = time.Now().Format(time.RFC3339)
+	if states.NoProvisioning(userSignup) && !provision {
+		states.SetVerificationRequired(userSignup, false)
+		states.SetRejected(userSignup, false)
+	} else {
+		states.SetApprovedManually(userSignup, true)
+		if targetCluster != "" {
+			userSignup.Spec.TargetCluster, err = configuration.GetMemberClusterName(ctx, targetCluster)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	if err := cl.Update(context.TODO(), userSignup); err != nil {
